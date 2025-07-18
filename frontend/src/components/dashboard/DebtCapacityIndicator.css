@@ -1,0 +1,411 @@
+/* Estilos para el componente de Capacidad de Endeudamiento */
+.debt-capacity-card {
+  background: white;
+  border-radius: 1rem;
+  border: 1px solid #e5e7eb;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  margin-bottom: 1.5rem;
+}
+
+/* Header del componente */
+.capacity-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid #f3f4f6;
+}
+
+.capacity-title {
+  font-size: 1rem;
+  font-weight: 600;
+  color: #111827;
+  margin: 0;
+}
+
+.capacity-status-badge {
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-align: center;
+  min-width: 120px;
+}
+
+.capacity-status-badge.excellent {
+  background-color: #dcfce7;
+  color: #166534;
+  border: 1px solid #bbf7d0;
+}
+
+.capacity-status-badge.good {
+  background-color: #fef3c7;
+  color: #92400e;
+  border: 1px solid #fde68a;
+}
+
+.capacity-status-badge.limited {
+  background-color: #fed7aa;
+  color: #c2410c;
+  border: 1px solid #fdba74;
+}
+
+.capacity-status-badge.exceeded {
+  background-color: #fee2e2;
+  color: #991b1b;
+  border: 1px solid #fca5a5;
+}
+
+/* Sistema de semáforo */
+.traffic-light-container {
+  position: relative;
+  margin: 1.5rem 0;
+  padding: 1rem 0;
+}
+
+.traffic-light-track {
+  display: flex;
+  height: 12px;
+  background: #f3f4f6;
+  border-radius: 6px;
+  overflow: hidden;
+  position: relative;
+}
+
+.traffic-light-segment {
+  flex: 1;
+  height: 100%;
+  position: relative;
+  transition: all 0.3s ease;
+}
+
+.traffic-light-segment::after {
+  content: attr(data-level);
+  position: absolute;
+  top: -25px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: #6b7280;
+  white-space: nowrap;
+}
+
+.traffic-light-segment.green {
+  background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.traffic-light-segment.yellow {
+  background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.traffic-light-segment.orange {
+  background: linear-gradient(90deg, #f97316, #ea580c);
+}
+
+.traffic-light-segment.red {
+  background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.traffic-light-indicator {
+  position: absolute;
+  top: -4px;
+  width: 20px;
+  height: 20px;
+  background: #1f2937;
+  border: 3px solid white;
+  border-radius: 50%;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+  transform: translateX(-50%);
+  transition: left 0.5s ease;
+  z-index: 10;
+}
+
+.traffic-light-indicator::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 8px;
+  height: 8px;
+  background: #ffffff;
+  border-radius: 50%;
+}
+
+/* Grid de tarjetas de resumen */
+.capacity-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.summary-card {
+  background: #f9fafb;
+  border: 1px solid #e5e7eb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  transition: all 0.2s ease;
+}
+
+.summary-card:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+}
+
+.summary-icon {
+  font-size: 1.5rem;
+  width: 2.5rem;
+  height: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: white;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1);
+}
+
+.summary-content {
+  flex: 1;
+}
+
+.summary-label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #6b7280;
+  margin-bottom: 0.25rem;
+}
+
+.summary-value {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #111827;
+  margin-bottom: 0.25rem;
+}
+
+.summary-description {
+  font-size: 0.75rem;
+  color: #9ca3af;
+}
+
+/* Mensaje dinámico */
+.capacity-message {
+  background: #f0f9ff;
+  border: 1px solid #bae6fd;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin: 1.5rem 0;
+}
+
+.capacity-message p {
+  margin: 0;
+  font-size: 0.875rem;
+  color: #0369a1;
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+/* Información adicional */
+.capacity-info {
+  background: #f9fafb;
+  border-radius: 0.75rem;
+  padding: 1rem;
+  margin-top: 1rem;
+}
+
+.info-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.info-item:last-child {
+  border-bottom: none;
+}
+
+.info-label {
+  font-size: 0.875rem;
+  color: #6b7280;
+  font-weight: 500;
+}
+
+.info-value {
+  font-size: 0.875rem;
+  color: #111827;
+  font-weight: 600;
+}
+
+/* Estados específicos para el mensaje */
+.capacity-message.excellent {
+  background: #f0fdf4;
+  border-color: #bbf7d0;
+}
+
+.capacity-message.excellent p {
+  color: #166534;
+}
+
+.capacity-message.good {
+  background: #fffbeb;
+  border-color: #fde68a;
+}
+
+.capacity-message.good p {
+  color: #92400e;
+}
+
+.capacity-message.limited {
+  background: #fff7ed;
+  border-color: #fed7aa;
+}
+
+.capacity-message.limited p {
+  color: #c2410c;
+}
+
+.capacity-message.exceeded {
+  background: #fef2f2;
+  border-color: #fca5a5;
+}
+
+.capacity-message.exceeded p {
+  color: #991b1b;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .debt-capacity-card {
+    padding: 1rem;
+  }
+
+  .capacity-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .capacity-status-badge {
+    align-self: flex-start;
+  }
+
+  .capacity-summary-grid {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+
+  .summary-card {
+    padding: 0.75rem;
+  }
+
+  .traffic-light-segment::after {
+    font-size: 0.625rem;
+    top: -20px;
+  }
+
+  .traffic-light-indicator {
+    width: 16px;
+    height: 16px;
+  }
+
+  .traffic-light-indicator::after {
+    width: 6px;
+    height: 6px;
+  }
+}
+
+/* Animaciones */
+@keyframes pulse {
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}
+
+.capacity-status-badge.exceeded {
+  animation: pulse 2s infinite;
+}
+
+/* Estados de hover para las tarjetas */
+.summary-card:hover .summary-icon {
+  transform: scale(1.05);
+  transition: transform 0.2s ease;
+}
+
+/* Mejoras de accesibilidad */
+.traffic-light-segment:focus-within {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+.summary-card:focus-within {
+  outline: 2px solid #3b82f6;
+  outline-offset: 2px;
+}
+
+/* Estado de no hay datos */
+.debt-capacity-card .text-center {
+  padding: 2rem 1rem;
+}
+
+.debt-capacity-card .text-4xl {
+  font-size: 3rem;
+  line-height: 1;
+}
+
+.debt-capacity-card .text-gray-600 {
+  color: #4b5563;
+  font-weight: 500;
+}
+
+.debt-capacity-card .text-gray-500 {
+  color: #6b7280;
+}
+
+/* Modo oscuro (opcional) */
+@media (prefers-color-scheme: dark) {
+  .debt-capacity-card {
+    background: #1f2937;
+    border-color: #374151;
+  }
+
+  .capacity-title {
+    color: #f9fafb;
+  }
+
+  .summary-card {
+    background: #374151;
+    border-color: #4b5563;
+  }
+
+  .summary-card:hover {
+    background: #4b5563;
+  }
+
+  .summary-icon {
+    background: #1f2937;
+  }
+
+  .summary-value {
+    color: #f9fafb;
+  }
+
+  .capacity-info {
+    background: #374151;
+  }
+
+  .info-value {
+    color: #f9fafb;
+  }
+} 

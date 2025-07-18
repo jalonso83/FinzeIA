@@ -8,6 +8,8 @@ import authRoutes from './routes/auth';
 import transactionRoutes from './routes/transactions';
 import budgetRoutes from './routes/budgets';
 import zenioRoutes from './routes/zenio';
+import categoryRoutes from './routes/categories';
+import goalRoutes from './routes/goals';
 
 // Configurar variables de entorno
 dotenv.config();
@@ -35,10 +37,12 @@ app.use('/api/auth', authRoutes);
 app.use('/api/transactions', transactionRoutes);
 app.use('/api/budgets', budgetRoutes);
 app.use('/api/zenio', zenioRoutes);
+app.use('/api/categories', categoryRoutes);
+app.use('/api/goals', goalRoutes);
 
 // Ruta de salud
 app.get('/api/health', (req, res) => {
-  res.json({
+  return res.json({
     status: 'OK',
     message: 'FinZen AI Backend is running',
     timestamp: new Date().toISOString(),
@@ -46,10 +50,15 @@ app.get('/api/health', (req, res) => {
   });
 });
 
+// Health check para Railway
+app.get('/health', (req, res) => {
+  res.status(200).json({ status: 'OK', timestamp: new Date().toISOString() });
+});
+
 // Middleware de manejo de errores
 app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('Error:', err);
-  res.status(500).json({
+  return res.status(500).json({
     error: 'Internal Server Error',
     message: process.env.NODE_ENV === 'development' ? err.message : 'Something went wrong'
   });
@@ -57,7 +66,7 @@ app.use((err: any, req: express.Request, res: express.Response, next: express.Ne
 
 // Ruta 404
 app.use('*', (req, res) => {
-  res.status(404).json({
+  return res.status(404).json({
     error: 'Not Found',
     message: 'Route not found'
   });
@@ -95,4 +104,6 @@ process.on('SIGTERM', async () => {
   process.exit(0);
 });
 
-startServer(); 
+startServer();
+
+export default app; 

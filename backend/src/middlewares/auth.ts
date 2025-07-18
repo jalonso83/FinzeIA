@@ -59,7 +59,7 @@ export const authenticateToken = async (
       email: user.email
     };
 
-    next();
+    return next();
   } catch (error) {
     return res.status(403).json({
       error: 'Access denied',

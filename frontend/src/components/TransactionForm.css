@@ -1,0 +1,405 @@
+/* Modal Base */
+.transaction-form-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.transaction-form-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.transaction-form-modal {
+  position: relative;
+  background-color: white;
+  border-radius: 0.75rem;
+  max-width: 500px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+/* Header del Modal */
+.transaction-form-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.transaction-form-header h2 {
+  margin: 0;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.close-button {
+  background: none;
+  border: none;
+  font-size: 1.5rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  border-radius: 0.25rem;
+  transition: background-color 0.2s;
+  color: #6b7280;
+  width: 2rem;
+  height: 2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.close-button:hover {
+  background-color: #f3f4f6;
+  color: #374151;
+}
+
+/* Formulario */
+.transaction-form {
+  padding: 1.5rem;
+}
+
+.form-group {
+  margin-bottom: 1.5rem;
+}
+
+.form-group label {
+  display: block;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  font-size: 0.875rem;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+  outline: none;
+  border-color: #204274;
+  box-shadow: 0 0 0 3px rgba(32, 66, 116, 0.1);
+}
+
+.form-group input.error,
+.form-group select.error,
+.form-group textarea.error {
+  border-color: #ef4444;
+}
+
+.error-message {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+}
+
+/* Toggle de Tipo */
+.type-toggle {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.type-button {
+  flex: 1;
+  padding: 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  background-color: white;
+  color: #6b7280;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.type-button:first-child {
+  border-right: 1px solid #d1d5db;
+}
+
+.type-button.active {
+  background-color: #204274;
+  color: white;
+}
+
+.type-button.active.income {
+  background-color: #10b981;
+}
+
+.type-button.active.expense {
+  background-color: #ef4444;
+}
+
+.type-icon {
+  font-size: 1rem;
+}
+
+/* Input con Prefijo */
+.input-with-prefix {
+  display: flex;
+  align-items: center;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.input-with-prefix:focus-within {
+  border-color: #204274;
+  box-shadow: 0 0 0 3px rgba(32, 66, 116, 0.1);
+}
+
+.input-prefix {
+  padding: 0.75rem;
+  background-color: #f9fafb;
+  border-right: 1px solid #d1d5db;
+  font-weight: 500;
+  color: #374151;
+  font-size: 0.875rem;
+}
+
+.input-with-prefix input {
+  border: none;
+  border-radius: 0;
+  flex: 1;
+}
+
+/* Botón del Conversor */
+.converter-button {
+  background: none;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  padding: 0.5rem 1rem;
+  margin-top: 0.5rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.875rem;
+  color: #6b7280;
+  width: 100%;
+  justify-content: center;
+}
+
+.converter-button:hover {
+  background-color: #f9fafb;
+  border-color: #9ca3af;
+}
+
+.converter-button-icon {
+  font-size: 1rem;
+}
+
+/* Acciones del Formulario */
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid #e5e7eb;
+}
+
+.cancel-button {
+  background-color: #6b7280;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.875rem;
+}
+
+.cancel-button:hover {
+  background-color: #4b5563;
+}
+
+.cancel-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+.submit-button {
+  background-color: #204274;
+  color: white;
+  padding: 0.75rem 1.5rem;
+  border-radius: 0.375rem;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: background-color 0.2s;
+  font-size: 0.875rem;
+}
+
+.submit-button:hover {
+  background-color: #1a3760;
+}
+
+.submit-button:disabled {
+  background-color: #9ca3af;
+  cursor: not-allowed;
+}
+
+/* Modal del Conversor */
+.converter-modal-container {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.converter-modal-overlay {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+}
+
+.converter-modal {
+  position: relative;
+  background-color: white;
+  border-radius: 0.75rem;
+  max-width: 400px;
+  width: 90%;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+}
+
+.converter-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem;
+  border-bottom: 1px solid #e5e7eb;
+}
+
+.converter-header h3 {
+  margin: 0;
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #111827;
+}
+
+.converter-content {
+  padding: 1.5rem;
+}
+
+/* Toggle de Dirección */
+.direction-toggle {
+  display: flex;
+  border: 1px solid #d1d5db;
+  border-radius: 0.375rem;
+  overflow: hidden;
+  margin-bottom: 1.5rem;
+}
+
+.direction-option {
+  flex: 1;
+  padding: 0.75rem;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+  background-color: white;
+  color: #6b7280;
+  font-weight: 500;
+  font-size: 0.875rem;
+}
+
+.direction-option:first-child {
+  border-right: 1px solid #d1d5db;
+}
+
+.direction-option.active {
+  background-color: #3b82f6;
+  color: white;
+}
+
+/* Resultado de Conversión */
+.result-display {
+  background-color: #f0f9ff;
+  border: 1px solid #0ea5e9;
+  border-radius: 0.375rem;
+  padding: 1rem;
+  margin: 1rem 0;
+  text-align: center;
+}
+
+.result-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: #0c4a6e;
+  margin-bottom: 0.25rem;
+}
+
+.result-label {
+  font-size: 0.875rem;
+  color: #0369a1;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .transaction-form-modal,
+  .converter-modal {
+    width: 95%;
+    margin: 1rem;
+  }
+  
+  .transaction-form,
+  .converter-content {
+    padding: 1rem;
+  }
+  
+  .form-actions {
+    flex-direction: column;
+  }
+  
+  .type-toggle,
+  .direction-toggle {
+    flex-direction: column;
+  }
+  
+  .type-button:first-child,
+  .direction-option:first-child {
+    border-right: none;
+    border-bottom: 1px solid #d1d5db;
+  }
+} 

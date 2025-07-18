@@ -1,0 +1,66 @@
+/* Estilos para el componente de gráfico de gastos por categoría */
+.expenses-chart-container {
+  width: 100%;
+}
+
+.expenses-summary {
+  background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+  border-radius: 0.75rem;
+  padding: 1rem;
+  border: 1px solid #e2e8f0;
+}
+
+.chart-wrapper {
+  position: relative;
+  margin: 1rem 0;
+}
+
+
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .chart-wrapper {
+    height: 250px !important;
+  }
+  
+  .expenses-summary {
+    padding: 0.75rem;
+  }
+  
+  .categories-list {
+    padding: 0.75rem;
+  }
+}
+
+/* Animaciones */
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.expenses-chart-container {
+  animation: fadeIn 0.5s ease-out;
+}
+
+/* Mejoras de accesibilidad */
+.chart-wrapper canvas {
+  border-radius: 0.5rem;
+}
+
+
+
+/* Modo oscuro (opcional) */
+@media (prefers-color-scheme: dark) {
+  .expenses-summary {
+    background: linear-gradient(135deg, #1f2937 0%, #374151 100%);
+    border-color: #4b5563;
+  }
+  
+
+} 

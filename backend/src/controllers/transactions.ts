@@ -3,11 +3,45 @@ import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
+// Función utilitaria para recalcular el gasto de los presupuestos afectados
+async function recalculateBudgetSpent(userId: string, categoryId: string, date: Date) {
+  // Buscar presupuestos activos de la categoría y usuario cuyo período incluya la fecha
+  const budgets = await prisma.budget.findMany({
+    where: {
+      user_id: userId,
+      category_id: categoryId,
+      is_active: true,
+      start_date: { lte: date },
+      end_date: { gte: date }
+    }
+  });
+
+  for (const budget of budgets) {
+    // Sumar todas las transacciones de gasto de esa categoría, usuario y período
+    const spent = await prisma.transaction.aggregate({
+      _sum: { amount: true },
+      where: {
+        userId,
+        category_id: categoryId,
+        type: 'EXPENSE',
+        date: {
+          gte: budget.start_date,
+          lte: budget.end_date
+        }
+      }
+    });
+    await prisma.budget.update({
+      where: { id: budget.id },
+      data: { spent: spent._sum.amount || 0 }
+    });
+  }
+}
+
 // Tipos para las peticiones
 interface CreateTransactionRequest {
   amount: number;
   type: 'INCOME' | 'EXPENSE';
-  category: string;
+  category_id: string;
   description?: string;
   date?: string;
 }
@@ -15,7 +49,7 @@ interface CreateTransactionRequest {
 interface UpdateTransactionRequest {
   amount?: number;
   type?: 'INCOME' | 'EXPENSE';
-  category?: string;
+  category_id?: string;
   description?: string;
   date?: string;
 }
@@ -23,7 +57,7 @@ interface UpdateTransactionRequest {
 export const getTransactions = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { page = '1', limit = '10', type, category, startDate, endDate } = req.query;
+    const { page = '1', limit = '10', type, category_id, startDate, endDate } = req.query;
 
     const pageNum = parseInt(page as string);
     const limitNum = parseInt(limit as string);
@@ -33,34 +67,44 @@ export const getTransactions = async (req: Request, res: Response) => {
     const where: any = { userId };
 
     if (type) where.type = type;
-    if (category) where.category = { contains: category as string, mode: 'insensitive' };
+    if (category_id) where.category_id = category_id;
     if (startDate || endDate) {
       where.date = {};
-      if (startDate) where.date.gte = new Date(startDate as string);
-      if (endDate) where.date.lte = new Date(endDate as string);
+      if (startDate) {
+        const start = new Date(startDate as string);
+        start.setHours(0, 0, 0, 0);
+        where.date.gte = start;
+      }
+      if (endDate) {
+        const end = new Date(endDate as string);
+        end.setHours(23, 59, 59, 999);
+        where.date.lte = end;
+      }
     }
 
+    // Obtener transacciones con categoría incluida
     const [transactions, total] = await Promise.all([
       prisma.transaction.findMany({
         where,
         orderBy: { date: 'desc' },
         skip,
         take: limitNum,
-        select: {
-          id: true,
-          amount: true,
-          type: true,
-          category: true,
-          description: true,
-          date: true,
-          createdAt: true,
-          updatedAt: true
+        include: {
+          category: {
+            select: {
+              id: true,
+              name: true,
+              icon: true,
+              type: true,
+              isDefault: true
+            }
+          }
         }
       }),
       prisma.transaction.count({ where })
     ]);
 
-    res.json({
+    return res.json({
       transactions,
       pagination: {
         page: pageNum,
@@ -71,7 +115,7 @@ export const getTransactions = async (req: Request, res: Response) => {
     });
   } catch (error) {
     console.error('Get transactions error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to fetch transactions'
     });
@@ -88,15 +132,16 @@ export const getTransactionById = async (req: Request, res: Response) => {
         id,
         userId
       },
-      select: {
-        id: true,
-        amount: true,
-        type: true,
-        category: true,
-        description: true,
-        date: true,
-        createdAt: true,
-        updatedAt: true
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            type: true,
+            isDefault: true
+          }
+        }
       }
     });
 
@@ -107,10 +152,10 @@ export const getTransactionById = async (req: Request, res: Response) => {
       });
     }
 
-    res.json({ transaction });
+    return res.json({ transaction });
   } catch (error) {
     console.error('Get transaction by ID error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to fetch transaction'
     });
@@ -120,13 +165,13 @@ export const getTransactionById = async (req: Request, res: Response) => {
 export const createTransaction = async (req: Request, res: Response) => {
   try {
     const userId = req.user!.id;
-    const { amount, type, category, description, date }: CreateTransactionRequest = req.body;
+    const { amount, type, category_id, description, date }: CreateTransactionRequest = req.body;
 
     // Validaciones
-    if (!amount || !type || !category) {
+    if (!amount || !type || !category_id) {
       return res.status(400).json({
         error: 'Validation error',
-        message: 'Amount, type, and category are required'
+        message: 'Amount, type, and category_id are required'
       });
     }
 
@@ -144,34 +189,52 @@ export const createTransaction = async (req: Request, res: Response) => {
       });
     }
 
+    // Verificar que la categoría existe
+    const category = await prisma.category.findUnique({
+      where: { id: category_id }
+    });
+
+    if (!category) {
+      return res.status(400).json({
+        error: 'Validation error',
+        message: 'Category does not exist'
+      });
+    }
+
     const transaction = await prisma.transaction.create({
       data: {
         userId,
         amount,
         type,
-        category,
+        category_id,
         description,
         date: date ? new Date(date) : new Date()
       },
-      select: {
-        id: true,
-        amount: true,
-        type: true,
-        category: true,
-        description: true,
-        date: true,
-        createdAt: true,
-        updatedAt: true
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            type: true,
+            isDefault: true
+          }
+        }
       }
     });
 
-    res.status(201).json({
+    // Recalcular presupuesto si es gasto
+    if (type === 'EXPENSE') {
+      await recalculateBudgetSpent(userId, category_id, transaction.date);
+    }
+
+    return res.status(201).json({
       message: 'Transaction created successfully',
       transaction
     });
   } catch (error) {
     console.error('Create transaction error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to create transaction'
     });
@@ -214,31 +277,58 @@ export const updateTransaction = async (req: Request, res: Response) => {
       });
     }
 
+    // Si se está actualizando la categoría, verificar que existe
+    if (updateData.category_id) {
+      const category = await prisma.category.findUnique({
+        where: { id: updateData.category_id }
+      });
+
+      if (!category) {
+        return res.status(400).json({
+          error: 'Validation error',
+          message: 'Category does not exist'
+        });
+      }
+    }
+
     const transaction = await prisma.transaction.update({
       where: { id },
       data: {
         ...updateData,
         date: updateData.date ? new Date(updateData.date) : undefined
       },
-      select: {
-        id: true,
-        amount: true,
-        type: true,
-        category: true,
-        description: true,
-        date: true,
-        createdAt: true,
-        updatedAt: true
+      include: {
+        category: {
+          select: {
+            id: true,
+            name: true,
+            icon: true,
+            type: true,
+            isDefault: true
+          }
+        }
       }
     });
 
-    res.json({
+    // Si la transacción original o la nueva es de gasto, recalcular ambos presupuestos
+    if ((existingTransaction?.type === 'EXPENSE' || transaction.type === 'EXPENSE')) {
+      // Recalcular para la categoría y fecha original
+      if (existingTransaction?.type === 'EXPENSE') {
+        await recalculateBudgetSpent(userId, existingTransaction.category_id, existingTransaction.date);
+      }
+      // Recalcular para la nueva categoría y fecha si cambió
+      if (transaction.type === 'EXPENSE') {
+        await recalculateBudgetSpent(userId, transaction.category_id, transaction.date);
+      }
+    }
+
+    return res.json({
       message: 'Transaction updated successfully',
       transaction
     });
   } catch (error) {
     console.error('Update transaction error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to update transaction'
     });
@@ -250,7 +340,7 @@ export const deleteTransaction = async (req: Request, res: Response) => {
     const userId = req.user!.id;
     const { id } = req.params;
 
-    // Verificar que la transacción existe y pertenece al usuario
+    // Obtener la transacción antes de eliminarla
     const existingTransaction = await prisma.transaction.findFirst({
       where: {
         id,
@@ -269,12 +359,17 @@ export const deleteTransaction = async (req: Request, res: Response) => {
       where: { id }
     });
 
-    res.json({
+    // Si era gasto, recalcular presupuesto
+    if (existingTransaction.type === 'EXPENSE') {
+      await recalculateBudgetSpent(userId, existingTransaction.category_id, existingTransaction.date);
+    }
+
+    return res.json({
       message: 'Transaction deleted successfully'
     });
   } catch (error) {
     console.error('Delete transaction error:', error);
-    res.status(500).json({
+    return res.status(500).json({
       error: 'Internal server error',
       message: 'Failed to delete transaction'
     });
