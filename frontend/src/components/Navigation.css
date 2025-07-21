@@ -132,18 +132,6 @@
   position: relative;
 }
 
-.nav-active-indicator::after {
-  content: '';
-  position: absolute;
-  bottom: -2px;
-  left: 50%;
-  transform: translateX(-50%);
-  width: 20px;
-  height: 2px;
-  background-color: #1a2640;
-  border-radius: 1px;
-}
-
 /* Estilos para el botón de submenú */
 .nav-submenu-toggle {
   transition: all 0.2s ease-in-out;

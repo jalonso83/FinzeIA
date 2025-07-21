@@ -11,8 +11,23 @@ const Onboarding = () => {
 
   // Handler para detectar el fin del onboarding desde ZenioChat
   const handleZenioMessage = (msg: string) => {
-    // Puedes ajustar la condición según el mensaje final de Zenio
-    if (msg && msg.toLowerCase().includes('tu perfil está listo')) {
+    // Detectar diferentes formas en que Zenio puede indicar que el onboarding está completo
+    const lowerMsg = msg.toLowerCase();
+    if (msg && (
+      lowerMsg.includes('tu perfil está listo') ||
+      lowerMsg.includes('perfil completado') ||
+      lowerMsg.includes('onboarding completado') ||
+      lowerMsg.includes('configuración terminada') ||
+      lowerMsg.includes('todo listo') ||
+      lowerMsg.includes('ya puedes empezar') ||
+      lowerMsg.includes('estás listo para usar') ||
+      lowerMsg.includes('onboarding finalizado') ||
+      lowerMsg.includes('tu perfil ha sido registrado') ||
+      lowerMsg.includes('ya tengo todo lo que necesito') ||
+      lowerMsg.includes('perfil registrado') ||
+      lowerMsg.includes('camino hacia una mejor planificación') ||
+      lowerMsg.includes('acompañarte en tu camino')
+    )) {
       setOnboardingFinished(true);
       if (user) {
         updateUser({ ...user, onboardingCompleted: true });
