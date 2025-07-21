@@ -206,109 +206,6 @@ const Dashboard = () => {
         </div>
       </div>
 
-      {/* Metas de Ahorro */}
-      <div className="card bg-card border border-border rounded-xl mb-6">
-        <h3 className="card-title text-text font-semibold mb-4 ml-5">Metas de Ahorro</h3>
-        {loading ? (
-          <div className="text-center py-8 text-gray-500">Cargando...</div>
-        ) : goals.length === 0 ? (
-          <div className="text-center py-8 text-gray-500">
-            <div className="text-4xl mb-2">🎯</div>
-            <p className="text-sm">No tienes metas configuradas</p>
-            <p className="text-xs mt-1">Crea tu primera meta de ahorro para comenzar</p>
-            <button 
-              onClick={() => window.location.href = '/goals'}
-              className="mt-4 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
-            >
-              Crear mi primera meta
-            </button>
-          </div>
-        ) : (
-          <div className="px-6 pb-6">
-            {/* Resumen de metas */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-              <div className="bg-blue-50 rounded-lg p-4 text-center">
-                <p className="text-sm text-blue-600 mb-1">Meta total</p>
-                <p className="text-xl font-bold text-blue-800">RD${totalGoalTarget.toLocaleString('es-DO')}</p>
-              </div>
-              <div className="bg-green-50 rounded-lg p-4 text-center">
-                <p className="text-sm text-green-600 mb-1">Ahorrado</p>
-                <p className="text-xl font-bold text-green-800">RD${totalGoalSaved.toLocaleString('es-DO')}</p>
-              </div>
-              <div className="bg-emerald-50 rounded-lg p-4 text-center">
-                <p className="text-sm text-emerald-600 mb-1">Por ahorrar</p>
-                <p className="text-xl font-bold text-emerald-800">RD${totalGoalRemaining.toLocaleString('es-DO')}</p>
-              </div>
-            </div>
-
-            {/* Lista de metas activas (máximo 3) */}
-            <div className="space-y-3">
-              {activeGoals.slice(0, 3).map(goal => {
-                const progress = ((goal.currentAmount / goal.targetAmount) * 100);
-                const progressColor = progress >= 80 ? '#10B981' : progress >= 50 ? '#F59E0B' : '#3B82F6';
-                
-                return (
-                  <div key={goal.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-                    <span className="text-2xl">{goal.category.icon}</span>
-                    <div className="flex-1">
-                      <div className="font-medium text-gray-800">{goal.name}</div>
-                      <div className="text-xs text-gray-500">{goal.category.name}</div>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
-                        <div
-                          className="h-2 rounded-full transition-all duration-300"
-                          style={{ width: `${progress}%`, backgroundColor: progressColor }}
-                        ></div>
-                      </div>
-                      <span className="text-xs font-medium text-gray-600">{progress.toFixed(0)}%</span>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-semibold text-gray-800">
-                        RD${goal.currentAmount.toLocaleString('es-DO')}
-                      </div>
-                      <div className="text-xs text-gray-500">
-                        / RD${goal.targetAmount.toLocaleString('es-DO')}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-
-            {/* Botón Ver todas las metas */}
-            {activeGoals.length > 3 && (
-              <div className="text-center py-4 border-t border-border mt-4">
-                <p className="text-xs text-gray-500 mb-2">
-                  Mostrando 3 de {activeGoals.length} metas activas
-                </p>
-                <button 
-                  onClick={() => window.location.href = '/goals'}
-                  className="bg-secondary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-secondary/90 transition-colors duration-200 flex items-center gap-2 mx-auto shadow-sm hover:shadow-md"
-                >
-                  Ver todas las metas
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-                  </svg>
-                </button>
-              </div>
-            )}
-
-            {/* Botón para crear nueva meta si no hay muchas */}
-            {activeGoals.length <= 3 && (
-              <div className="text-center py-4 border-t border-border mt-4">
-                <button 
-                  onClick={() => window.location.href = '/goals'}
-                  className="bg-primary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
-                >
-                  Gestionar metas
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-      </div>
-
       {/* Gráfico de Gastos por Categoría */}
       <div className="card bg-card border border-border rounded-xl mb-6">
         <h3 className="card-title text-text font-semibold mb-4 ml-5">Gastos por Categoría</h3>
@@ -410,6 +307,109 @@ const Dashboard = () => {
                   className="bg-primary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
                 >
                   Gestionar presupuestos
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      {/* Metas de Ahorro */}
+      <div className="card bg-card border border-border rounded-xl mb-6">
+        <h3 className="card-title text-text font-semibold mb-4 ml-5">Metas de Ahorro</h3>
+        {loading ? (
+          <div className="text-center py-8 text-gray-500">Cargando...</div>
+        ) : goals.length === 0 ? (
+          <div className="text-center py-8 text-gray-500">
+            <div className="text-4xl mb-2">🎯</div>
+            <p className="text-sm">No tienes metas configuradas</p>
+            <p className="text-xs mt-1">Crea tu primera meta de ahorro para comenzar</p>
+            <button 
+              onClick={() => window.location.href = '/goals'}
+              className="mt-4 bg-primary text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
+            >
+              Crear mi primera meta
+            </button>
+          </div>
+        ) : (
+          <div className="px-6 pb-6">
+            {/* Resumen de metas */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+              <div className="bg-blue-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-blue-600 mb-1">Meta total</p>
+                <p className="text-xl font-bold text-blue-800">RD${totalGoalTarget.toLocaleString('es-DO')}</p>
+              </div>
+              <div className="bg-green-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-green-600 mb-1">Ahorrado</p>
+                <p className="text-xl font-bold text-green-800">RD${totalGoalSaved.toLocaleString('es-DO')}</p>
+              </div>
+              <div className="bg-emerald-50 rounded-lg p-4 text-center">
+                <p className="text-sm text-emerald-600 mb-1">Por ahorrar</p>
+                <p className="text-xl font-bold text-emerald-800">RD${totalGoalRemaining.toLocaleString('es-DO')}</p>
+              </div>
+            </div>
+
+            {/* Lista de metas activas (máximo 3) */}
+            <div className="space-y-3">
+              {activeGoals.slice(0, 3).map(goal => {
+                const progress = ((goal.currentAmount / goal.targetAmount) * 100);
+                const progressColor = progress >= 80 ? '#10B981' : progress >= 50 ? '#F59E0B' : '#3B82F6';
+                
+                return (
+                  <div key={goal.id} className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+                    <span className="text-2xl">{goal.category.icon}</span>
+                    <div className="flex-1">
+                      <div className="font-medium text-gray-800">{goal.name}</div>
+                      <div className="text-xs text-gray-500">{goal.category.name}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-16 h-2 bg-gray-200 rounded-full overflow-hidden">
+                        <div
+                          className="h-2 rounded-full transition-all duration-300"
+                          style={{ width: `${progress}%`, backgroundColor: progressColor }}
+                        ></div>
+                      </div>
+                      <span className="text-xs font-medium text-gray-600">{progress.toFixed(0)}%</span>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-semibold text-gray-800">
+                        RD${goal.currentAmount.toLocaleString('es-DO')}
+                      </div>
+                      <div className="text-xs text-gray-500">
+                        / RD${goal.targetAmount.toLocaleString('es-DO')}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* Botón Ver todas las metas */}
+            {activeGoals.length > 3 && (
+              <div className="text-center py-4 border-t border-border mt-4">
+                <p className="text-xs text-gray-500 mb-2">
+                  Mostrando 3 de {activeGoals.length} metas activas
+                </p>
+                <button 
+                  onClick={() => window.location.href = '/goals'}
+                  className="bg-secondary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-secondary/90 transition-colors duration-200 flex items-center gap-2 mx-auto shadow-sm hover:shadow-md"
+                >
+                  Ver todas las metas
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
+              </div>
+            )}
+
+            {/* Botón para crear nueva meta si no hay muchas */}
+            {activeGoals.length <= 3 && (
+              <div className="text-center py-4 border-t border-border mt-4">
+                <button 
+                  onClick={() => window.location.href = '/goals'}
+                  className="bg-primary text-white px-6 py-2 rounded-lg text-sm font-medium hover:bg-primary/90 transition-colors duration-200"
+                >
+                  Gestionar metas
                 </button>
               </div>
             )}
