@@ -49,7 +49,13 @@ const Navigation = () => {
       <div className="flex justify-between items-center">
         {/* Logo y Navegación Principal */}
         <div className="flex items-center space-x-6">
-          <img src={logoHorizontal} alt="FinZen AI" className="h-10 w-auto mr-2 select-none" style={{ minWidth: 120 }} />
+          <img 
+            src={logoHorizontal} 
+            alt="FinZen AI" 
+            className="h-10 w-auto mr-2 select-none cursor-pointer hover:opacity-80 transition-opacity" 
+            style={{ minWidth: 120 }}
+            onClick={() => navigate('/')}
+          />
           <div className="flex space-x-2 md:space-x-4">
             <button 
               onClick={() => navigate('/')}
@@ -113,7 +119,7 @@ const Navigation = () => {
                     : 'text-white hover:bg-white/10 hover:text-white'
                 }`}
               >
-                <span>Utilidades</span>
+                <span>+ Herramientas</span>
                 <svg className={`w-4 h-4 transition-transform nav-icon ${showUtilitiesMenu ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                 </svg>
