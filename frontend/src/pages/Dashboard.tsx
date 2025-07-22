@@ -121,7 +121,7 @@ const Dashboard = () => {
 
       {/* Balance General */}
       <div className="card bg-card border border-border rounded-xl mb-6">
-        <h3 className="card-title text-text font-semibold mb-4 ml-5">Balance Actual: {new Date().toLocaleDateString('es-ES', { month: 'long', year: '2-digit' })}</h3>
+        <h3 className="card-title text-text font-semibold mb-4 ml-5">Balance Actual: {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</h3>
         <div className="balance-container flex flex-col gap-4">
           <div className="main-balance-container flex flex-col gap-4">
             <div className="current-balance-section flex flex-col gap-2">

@@ -121,7 +121,7 @@ const Register = () => {
       };
 
       console.log('Datos a enviar:', registerData);
-      console.log('URL de la API:', `${import.meta.env.VITE_API_URL || 'http://localhost:3001'}/api/auth/register`);
+      console.log('URL de la API:', `${import.meta.env.VITE_API_URL || 'http://localhost:3001/api'}/auth/register`);
 
       await authAPI.register(registerData);
       
