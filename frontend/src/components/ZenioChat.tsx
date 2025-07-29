@@ -11,13 +11,16 @@ interface ZenioChatProps {
   onTransactionCreated?: (transaction: any) => void;
   onTransactionUpdated?: (transaction: any) => void;
   onTransactionDeleted?: (transaction: any) => void;
+  onBudgetCreated?: (budget: any) => void;
+  onBudgetUpdated?: (budget: any) => void;
+  onBudgetDeleted?: (budget: any) => void;
   onGoalCreated?: (goal: any) => void;
   onGoalUpdated?: (goal: any) => void;
   onGoalDeleted?: (goal: any) => void;
   onZenioMessage?: (msg: string) => void;
 }
 
-const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, initialMessage, onTransactionCreated, onTransactionUpdated, onTransactionDeleted, onGoalCreated, onGoalUpdated, onGoalDeleted, onZenioMessage }) => {
+const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, initialMessage, onTransactionCreated, onTransactionUpdated, onTransactionDeleted, onBudgetCreated, onBudgetUpdated, onBudgetDeleted, onGoalCreated, onGoalUpdated, onGoalDeleted, onZenioMessage }) => {
   // Si es onboarding, inicia con saludo. Si no, inicia vacío.
   const [messages, setMessages] = useState<any[]>(
     isOnboarding
@@ -38,42 +41,24 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
 
   // Cargar categorías al montar el componente
   useEffect(() => {
+    console.log('[Zenio Debug] Cargando categorías...');
     fetchCategories();
   }, [fetchCategories]);
 
-  // Función para detectar si el mensaje indica intención de crear/editar algo
-  const detectIntentAndAddCategories = (message: string): string => {
-    const lowerMessage = message.toLowerCase();
-    
-    // Detectar intención de crear/editar transacciones
-    if (lowerMessage.includes('transacción') || lowerMessage.includes('transaccion') || 
-        lowerMessage.includes('gasto') || lowerMessage.includes('ingreso') ||
-        lowerMessage.includes('pagar') || lowerMessage.includes('comprar') ||
-        lowerMessage.includes('registrar') || lowerMessage.includes('agregar')) {      
-      const expenseCategories = categories.filter(cat => cat.type === 'EXPENSE').map(cat => cat.name);
-      const incomeCategories = categories.filter(cat => cat.type === 'INCOME').map(cat => cat.name);
-      
-      return `${message}\n\nCategorías disponibles:\nGastos: ${expenseCategories.join(', ')}\nIngresos: ${incomeCategories.join(', ')}`;
+  // Log cuando las categorías cambian
+  useEffect(() => {
+    console.log('[Zenio Debug] Categorías actualizadas:', categories);
+    console.log('[Zenio Debug] Número de categorías:', categories.length);
+    if (categories.length > 0) {
+      // Mostrar solo los campos que se envían al backend
+      const primeraCategoriaEnviada = {
+        id: categories[0].id,
+        name: categories[0].name,
+        type: categories[0].type
+      };
+      console.log('[Zenio Debug] Primera categoría (enviada):', primeraCategoriaEnviada);
     }
-    
-    // Detectar intención de crear/editar presupuestos
-    if (lowerMessage.includes('presupuesto') || lowerMessage.includes('budget') ||
-        lowerMessage.includes('limitar') || lowerMessage.includes('controlar gastos')) {      
-      const expenseCategories = categories.filter(cat => cat.type === 'EXPENSE').map(cat => cat.name);
-      return `${message}\n\nCategorías disponibles para presupuestos:\n${expenseCategories.join(', ')}`;
-    }
-    
-    // Detectar intención de crear/editar metas
-    if (lowerMessage.includes('meta') || lowerMessage.includes('ahorro') ||
-        lowerMessage.includes('objetivo') || lowerMessage.includes('guardar') ||
-        lowerMessage.includes('junta') || lowerMessage.includes('acumular')) {      
-      const expenseCategories = categories.filter(cat => cat.type === 'EXPENSE').map(cat => cat.name);
-      return `${message}\n\nCategorías disponibles para metas:\n${expenseCategories.join(', ')}`;
-    }
-    
-    // Si no detecta intención específica, devolver mensaje original
-    return message;
-  };
+  }, [categories]);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -94,65 +79,95 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
     }
   }, [messages]);
 
-  // En onboarding, el primer mensaje enviado es el de onboarding
   const sendToZenio = async (message: string) => {
+    if (!message.trim()) return;
+
     setSubmitting(true);
     try {
-      // Preparar payload con contexto oculto de categorías
-      let payload: any = { message };
+      console.log('[Zenio Debug] Mensaje original:', message);
+      console.log('[Zenio Debug] Categorías disponibles:', categories.length);
+      
+      let payload: any = { message: message };
       if (threadId) payload.threadId = threadId;
-      // Agregar categorías disponibles como contexto oculto
-      payload.categories = categories.map(cat => cat.name);
-      // Siempre enviar a /zenio/chat, nunca concatenar threadId a la URL
-      const res = await api.post('/zenio/chat', payload);
-      const { message: backendMessage, threadId: backendThreadId, transaction, budget, goal, action } = res.data;
       
-      if (backendThreadId) setThreadId(backendThreadId);
+      // Enviar categorías en el payload (solo id, name, type)
+      payload.categories = categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        type: cat.type
+      }));
       
-      // Detectar si se creó, actualizó o eliminó una transacción
-      if (action === 'transaction_created' && transaction && onTransactionCreated) {
-        onTransactionCreated(transaction);
-        // También actualizar presupuestos ya que las transacciones pueden afectarlos
-        window.dispatchEvent(new Event('budgets-updated'));
-      }
-      if (action === 'transaction_updated' && transaction && onTransactionUpdated) {
-        onTransactionUpdated(transaction);
-        // También actualizar presupuestos ya que las transacciones pueden afectarlos
-        window.dispatchEvent(new Event('budgets-updated'));
-      }
-      if (action === 'transaction_deleted' && transaction && onTransactionDeleted) {
-        onTransactionDeleted(transaction);
-        // También actualizar presupuestos ya que las transacciones pueden afectarlos
-        window.dispatchEvent(new Event('budgets-updated'));
-      }
-      // Detectar si se creó, actualizó o eliminó un presupuesto
-      if (action === 'budget_created' || action === 'budget_updated' || action === 'budget_deleted') {
-        window.dispatchEvent(new Event('budgets-updated'));
-      }
+      console.log('[Zenio Debug] Payload completo:', payload);
+      console.log('[Zenio Debug] URL de la API:', '/zenio/chat');
+
+      const response = await api.post('/zenio/chat', payload);
       
-      // Detectar si se creó, actualizó o eliminó una meta
-      if (action === 'goal_created' && goal && onGoalCreated) {
-        onGoalCreated(goal);
-        window.dispatchEvent(new Event('goals-updated'));
-      }
-      if (action === 'goal_updated' && goal && onGoalUpdated) {
-        onGoalUpdated(goal);
-        window.dispatchEvent(new Event('goals-updated'));
-      }
-      if (action === 'goal_deleted' && goal && onGoalDeleted) {
-        onGoalDeleted(goal);
-        window.dispatchEvent(new Event('goals-updated'));
-      }
-      
-      if (backendMessage) {
-        setMessages((msgs: any[]) => [
-          ...msgs,
-          { from: 'zenio', text: typeof backendMessage === 'string' ? backendMessage : JSON.stringify(backendMessage, null, 2) }
-        ]);
-        if (onZenioMessage && typeof backendMessage === 'string') {
-          onZenioMessage(backendMessage);
+      if (response.data.message) {
+        setMessages(prev => [...prev, { from: 'zenio', text: response.data.message }]);
+        
+        // Notificar al componente padre si es onboarding
+        if (isOnboarding && onZenioMessage) {
+          onZenioMessage(response.data.message);
         }
       }
+      
+      // Verificar si hay acciones que ejecutar
+      if (response.data.action) {
+        console.log('[Zenio Debug] Acción detectada:', response.data.action);
+        
+        switch (response.data.action) {
+          case 'transaction_created':
+            if (onTransactionCreated && response.data.transaction) {
+              onTransactionCreated(response.data.transaction);
+            }
+            break;
+          case 'transaction_updated':
+            if (onTransactionUpdated && response.data.transaction) {
+              onTransactionUpdated(response.data.transaction);
+            }
+            break;
+          case 'transaction_deleted':
+            if (onTransactionDeleted && response.data.transaction) {
+              onTransactionDeleted(response.data.transaction);
+            }
+            break;
+          case 'budget_created':
+            if (onBudgetCreated && response.data.budget) {
+              onBudgetCreated(response.data.budget);
+            }
+            break;
+          case 'budget_updated':
+            if (onBudgetUpdated && response.data.budget) {
+              onBudgetUpdated(response.data.budget);
+            }
+            break;
+          case 'budget_deleted':
+            if (onBudgetDeleted && response.data.budget) {
+              onBudgetDeleted(response.data.budget);
+            }
+            break;
+          case 'goal_created':
+            if (onGoalCreated && response.data.goal) {
+              onGoalCreated(response.data.goal);
+            }
+            break;
+          case 'goal_updated':
+            if (onGoalUpdated && response.data.goal) {
+              onGoalUpdated(response.data.goal);
+            }
+            break;
+          case 'goal_deleted':
+            if (onGoalDeleted && response.data.goal) {
+              onGoalDeleted(response.data.goal);
+            }
+            break;
+        }
+      }
+      
+      if (response.data.threadId && !threadId) {
+        setThreadId(response.data.threadId);
+      }
+      
     } catch (error: any) {
       // Manejo especial para run activo
       if (error.response?.status === 429 && error.response.data?.message) {

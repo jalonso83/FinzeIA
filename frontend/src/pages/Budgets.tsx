@@ -57,6 +57,19 @@ const Budgets = () => {
     return () => window.removeEventListener('budgets-updated', handler);
   }, []);
 
+  // Escuchar eventos para refrescar datos desde Zenio
+  useEffect(() => {
+    const handleBudgetCreated = () => {
+      loadBudgets();
+    };
+
+    window.addEventListener('zenio-budget-created', handleBudgetCreated);
+    
+    return () => {
+      window.removeEventListener('zenio-budget-created', handleBudgetCreated);
+    };
+  }, []);
+
   return (
     <div className="min-h-screen bg-background px-4 md:px-8 py-6">
       <Navigation />

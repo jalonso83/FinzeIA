@@ -55,6 +55,19 @@ const Goals = () => {
     fetchGoals();
   }, []);
 
+  // Escuchar eventos para refrescar datos desde Zenio
+  useEffect(() => {
+    const handleGoalCreated = () => {
+      fetchGoals();
+    };
+
+    window.addEventListener('zenio-goal-created', handleGoalCreated);
+    
+    return () => {
+      window.removeEventListener('zenio-goal-created', handleGoalCreated);
+    };
+  }, []);
+
   const handleEditGoal = (goal: Goal) => {
     setEditGoal(goal);
     setShowNewGoalForm(true);

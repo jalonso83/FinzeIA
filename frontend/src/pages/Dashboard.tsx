@@ -59,15 +59,27 @@ const Dashboard = () => {
       fetchData();
     };
     
+    const handleBudgetCreated = () => {
+      fetchData();
+    };
+
+    const handleGoalCreated = () => {
+      fetchData();
+    };
+    
     const handleBudgetsUpdated = () => {
       fetchData();
     };
 
     window.addEventListener('zenio-transaction-created', handleTransactionCreated);
+    window.addEventListener('zenio-budget-created', handleBudgetCreated);
+    window.addEventListener('zenio-goal-created', handleGoalCreated);
     window.addEventListener('budgets-updated', handleBudgetsUpdated);
     
     return () => {
       window.removeEventListener('zenio-transaction-created', handleTransactionCreated);
+      window.removeEventListener('zenio-budget-created', handleBudgetCreated);
+      window.removeEventListener('zenio-goal-created', handleGoalCreated);
       window.removeEventListener('budgets-updated', handleBudgetsUpdated);
     };
   }, [fetchData]);

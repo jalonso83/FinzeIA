@@ -26,7 +26,13 @@ const Onboarding = () => {
       lowerMsg.includes('ya tengo todo lo que necesito') ||
       lowerMsg.includes('perfil registrado') ||
       lowerMsg.includes('camino hacia una mejor planificación') ||
-      lowerMsg.includes('acompañarte en tu camino')
+      lowerMsg.includes('acompañarte en tu camino') ||
+      lowerMsg.includes('tu perfil está registrado') ||
+      lowerMsg.includes('registrado y preparado') ||
+      lowerMsg.includes('te veo en el dashboard') ||
+      lowerMsg.includes('cuando estés listo') ||
+      lowerMsg.includes('herramientas que ofrece finzen') ||
+      lowerMsg.includes('planificación financiera plena')
     )) {
       setOnboardingFinished(true);
       if (user) {

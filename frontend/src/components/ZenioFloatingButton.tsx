@@ -16,6 +16,20 @@ const ZenioFloatingButton = () => {
     }));
   };
 
+  const handleBudgetCreated = (budget: any) => {
+    // Emitir evento para que la página de presupuestos se actualice
+    window.dispatchEvent(new CustomEvent('zenio-budget-created', { 
+      detail: { budget } 
+    }));
+  };
+
+  const handleGoalCreated = (goal: any) => {
+    // Emitir evento para que la página de metas se actualice
+    window.dispatchEvent(new CustomEvent('zenio-goal-created', { 
+      detail: { goal } 
+    }));
+  };
+
   return (
     <>
       <button
@@ -26,7 +40,12 @@ const ZenioFloatingButton = () => {
       >
         <img src={isotipo} alt="Zenio" className="w-14 h-14" />
       </button>
-      {open && <ZenioModal onClose={() => setOpen(false)} onTransactionCreated={handleTransactionCreated} />}
+      {open && <ZenioModal 
+        onClose={() => setOpen(false)} 
+        onTransactionCreated={handleTransactionCreated}
+        onBudgetCreated={handleBudgetCreated}
+        onGoalCreated={handleGoalCreated}
+      />}
     </>
   );
 };
