@@ -87,6 +87,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
       console.log('[Zenio Debug] Mensaje original:', message);
       console.log('[Zenio Debug] Categorías disponibles:', categories.length);
       
+      // Obtener zona horaria del usuario
+      const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      
       let payload: any = { message: message };
       if (threadId) payload.threadId = threadId;
       
@@ -96,6 +99,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
         name: cat.name,
         type: cat.type
       }));
+      
+      // Enviar zona horaria del usuario
+      payload.timezone = userTimezone;
       
       console.log('[Zenio Debug] Payload completo:', payload);
       console.log('[Zenio Debug] URL de la API:', '/zenio/chat');

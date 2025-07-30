@@ -49,16 +49,28 @@ const Transactions = () => {
       fetchData();
     };
     
+    const handleZenioTransactionUpdated = () => {
+      fetchData();
+    };
+    
+    const handleZenioTransactionDeleted = () => {
+      fetchData();
+    };
+    
     // Handler para refrescar cuando se actualizan presupuestos (por si las transacciones los afectan)
     const handleBudgetsUpdated = () => {
       fetchData();
     };
     
     window.addEventListener('zenio-transaction-created', handleZenioTransactionCreated);
+    window.addEventListener('zenio-transaction-updated', handleZenioTransactionUpdated);
+    window.addEventListener('zenio-transaction-deleted', handleZenioTransactionDeleted);
     window.addEventListener('budgets-updated', handleBudgetsUpdated);
     
     return () => {
       window.removeEventListener('zenio-transaction-created', handleZenioTransactionCreated);
+      window.removeEventListener('zenio-transaction-updated', handleZenioTransactionUpdated);
+      window.removeEventListener('zenio-transaction-deleted', handleZenioTransactionDeleted);
       window.removeEventListener('budgets-updated', handleBudgetsUpdated);
     };
   }, []); // Dependencia de fetchData

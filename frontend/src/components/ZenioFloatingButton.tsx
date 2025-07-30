@@ -16,6 +16,20 @@ const ZenioFloatingButton = () => {
     }));
   };
 
+  const handleTransactionUpdated = (transaction: any) => {
+    // Emitir evento para que la página de transacciones se actualice
+    window.dispatchEvent(new CustomEvent('zenio-transaction-updated', { 
+      detail: { transaction } 
+    }));
+  };
+
+  const handleTransactionDeleted = (transaction: any) => {
+    // Emitir evento para que la página de transacciones se actualice
+    window.dispatchEvent(new CustomEvent('zenio-transaction-deleted', { 
+      detail: { transaction } 
+    }));
+  };
+
   const handleBudgetCreated = (budget: any) => {
     // Emitir evento para que la página de presupuestos se actualice
     window.dispatchEvent(new CustomEvent('zenio-budget-created', { 
@@ -23,9 +37,37 @@ const ZenioFloatingButton = () => {
     }));
   };
 
+  const handleBudgetUpdated = (budget: any) => {
+    // Emitir evento para que la página de presupuestos se actualice
+    window.dispatchEvent(new CustomEvent('zenio-budget-updated', { 
+      detail: { budget } 
+    }));
+  };
+
+  const handleBudgetDeleted = (budget: any) => {
+    // Emitir evento para que la página de presupuestos se actualice
+    window.dispatchEvent(new CustomEvent('zenio-budget-deleted', { 
+      detail: { budget } 
+    }));
+  };
+
   const handleGoalCreated = (goal: any) => {
     // Emitir evento para que la página de metas se actualice
     window.dispatchEvent(new CustomEvent('zenio-goal-created', { 
+      detail: { goal } 
+    }));
+  };
+
+  const handleGoalUpdated = (goal: any) => {
+    // Emitir evento para que la página de metas se actualice
+    window.dispatchEvent(new CustomEvent('zenio-goal-updated', { 
+      detail: { goal } 
+    }));
+  };
+
+  const handleGoalDeleted = (goal: any) => {
+    // Emitir evento para que la página de metas se actualice
+    window.dispatchEvent(new CustomEvent('zenio-goal-deleted', { 
       detail: { goal } 
     }));
   };
@@ -43,8 +85,14 @@ const ZenioFloatingButton = () => {
       {open && <ZenioModal 
         onClose={() => setOpen(false)} 
         onTransactionCreated={handleTransactionCreated}
+        onTransactionUpdated={handleTransactionUpdated}
+        onTransactionDeleted={handleTransactionDeleted}
         onBudgetCreated={handleBudgetCreated}
+        onBudgetUpdated={handleBudgetUpdated}
+        onBudgetDeleted={handleBudgetDeleted}
         onGoalCreated={handleGoalCreated}
+        onGoalUpdated={handleGoalUpdated}
+        onGoalDeleted={handleGoalDeleted}
       />}
     </>
   );

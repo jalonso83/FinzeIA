@@ -61,10 +61,22 @@ const Goals = () => {
       fetchGoals();
     };
 
+    const handleGoalUpdated = () => {
+      fetchGoals();
+    };
+
+    const handleGoalDeleted = () => {
+      fetchGoals();
+    };
+
     window.addEventListener('zenio-goal-created', handleGoalCreated);
+    window.addEventListener('zenio-goal-updated', handleGoalUpdated);
+    window.addEventListener('zenio-goal-deleted', handleGoalDeleted);
     
     return () => {
       window.removeEventListener('zenio-goal-created', handleGoalCreated);
+      window.removeEventListener('zenio-goal-updated', handleGoalUpdated);
+      window.removeEventListener('zenio-goal-deleted', handleGoalDeleted);
     };
   }, []);
 

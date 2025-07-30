@@ -63,10 +63,22 @@ const Budgets = () => {
       loadBudgets();
     };
 
+    const handleBudgetUpdated = () => {
+      loadBudgets();
+    };
+
+    const handleBudgetDeleted = () => {
+      loadBudgets();
+    };
+
     window.addEventListener('zenio-budget-created', handleBudgetCreated);
+    window.addEventListener('zenio-budget-updated', handleBudgetUpdated);
+    window.addEventListener('zenio-budget-deleted', handleBudgetDeleted);
     
     return () => {
       window.removeEventListener('zenio-budget-created', handleBudgetCreated);
+      window.removeEventListener('zenio-budget-updated', handleBudgetUpdated);
+      window.removeEventListener('zenio-budget-deleted', handleBudgetDeleted);
     };
   }, []);
 

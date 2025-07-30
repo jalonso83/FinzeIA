@@ -59,11 +59,35 @@ const Dashboard = () => {
       fetchData();
     };
     
+    const handleTransactionUpdated = () => {
+      fetchData();
+    };
+    
+    const handleTransactionDeleted = () => {
+      fetchData();
+    };
+    
     const handleBudgetCreated = () => {
       fetchData();
     };
 
+    const handleBudgetUpdated = () => {
+      fetchData();
+    };
+
+    const handleBudgetDeleted = () => {
+      fetchData();
+    };
+
     const handleGoalCreated = () => {
+      fetchData();
+    };
+
+    const handleGoalUpdated = () => {
+      fetchData();
+    };
+
+    const handleGoalDeleted = () => {
       fetchData();
     };
     
@@ -72,14 +96,26 @@ const Dashboard = () => {
     };
 
     window.addEventListener('zenio-transaction-created', handleTransactionCreated);
+    window.addEventListener('zenio-transaction-updated', handleTransactionUpdated);
+    window.addEventListener('zenio-transaction-deleted', handleTransactionDeleted);
     window.addEventListener('zenio-budget-created', handleBudgetCreated);
+    window.addEventListener('zenio-budget-updated', handleBudgetUpdated);
+    window.addEventListener('zenio-budget-deleted', handleBudgetDeleted);
     window.addEventListener('zenio-goal-created', handleGoalCreated);
+    window.addEventListener('zenio-goal-updated', handleGoalUpdated);
+    window.addEventListener('zenio-goal-deleted', handleGoalDeleted);
     window.addEventListener('budgets-updated', handleBudgetsUpdated);
     
     return () => {
       window.removeEventListener('zenio-transaction-created', handleTransactionCreated);
+      window.removeEventListener('zenio-transaction-updated', handleTransactionUpdated);
+      window.removeEventListener('zenio-transaction-deleted', handleTransactionDeleted);
       window.removeEventListener('zenio-budget-created', handleBudgetCreated);
+      window.removeEventListener('zenio-budget-updated', handleBudgetUpdated);
+      window.removeEventListener('zenio-budget-deleted', handleBudgetDeleted);
       window.removeEventListener('zenio-goal-created', handleGoalCreated);
+      window.removeEventListener('zenio-goal-updated', handleGoalUpdated);
+      window.removeEventListener('zenio-goal-deleted', handleGoalDeleted);
       window.removeEventListener('budgets-updated', handleBudgetsUpdated);
     };
   }, [fetchData]);
