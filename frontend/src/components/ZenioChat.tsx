@@ -41,24 +41,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
 
   // Cargar categorías al montar el componente
   useEffect(() => {
-    console.log('[Zenio Debug] Cargando categorías...');
     fetchCategories();
   }, [fetchCategories]);
-
-  // Log cuando las categorías cambian
-  useEffect(() => {
-    console.log('[Zenio Debug] Categorías actualizadas:', categories);
-    console.log('[Zenio Debug] Número de categorías:', categories.length);
-    if (categories.length > 0) {
-      // Mostrar solo los campos que se envían al backend
-      const primeraCategoriaEnviada = {
-        id: categories[0].id,
-        name: categories[0].name,
-        type: categories[0].type
-      };
-      console.log('[Zenio Debug] Primera categoría (enviada):', primeraCategoriaEnviada);
-    }
-  }, [categories]);
 
   useEffect(() => {
     if (chatRef.current) {
@@ -84,9 +68,6 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
 
     setSubmitting(true);
     try {
-      console.log('[Zenio Debug] Mensaje original:', message);
-      console.log('[Zenio Debug] Categorías disponibles:', categories.length);
-      
       // Obtener zona horaria del usuario
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
@@ -102,9 +83,6 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
       
       // Enviar zona horaria del usuario
       payload.timezone = userTimezone;
-      
-      console.log('[Zenio Debug] Payload completo:', payload);
-      console.log('[Zenio Debug] URL de la API:', '/zenio/chat');
 
       const response = await api.post('/zenio/chat', payload);
       
@@ -119,7 +97,6 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
       
       // Verificar si hay acciones que ejecutar
       if (response.data.action) {
-        console.log('[Zenio Debug] Acción detectada:', response.data.action);
         
         switch (response.data.action) {
           case 'transaction_created':
