@@ -56,6 +56,7 @@ const Dashboard = () => {
   // Escuchar eventos para refrescar datos
   useEffect(() => {
     const handleTransactionCreated = () => {
+      console.log('[Dashboard] Evento zenio-transaction-created recibido, refrescando datos...');
       fetchData();
     };
     

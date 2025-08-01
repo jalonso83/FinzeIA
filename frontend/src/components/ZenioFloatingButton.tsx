@@ -10,10 +10,12 @@ const ZenioFloatingButton = () => {
   if (!isAuthenticated || !user?.onboardingCompleted) return null;
 
   const handleTransactionCreated = (transaction: any) => {
+    console.log('[ZenioFloatingButton] handleTransactionCreated llamado con:', transaction);
     // Emitir evento para que la página de transacciones se actualice
     window.dispatchEvent(new CustomEvent('zenio-transaction-created', { 
       detail: { transaction } 
     }));
+    console.log('[ZenioFloatingButton] Evento zenio-transaction-created disparado');
   };
 
   const handleTransactionUpdated = (transaction: any) => {

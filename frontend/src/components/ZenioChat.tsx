@@ -97,11 +97,17 @@ const ZenioChat: React.FC<ZenioChatProps> = ({ onClose, isOnboarding = false, in
       
       // Verificar si hay acciones que ejecutar
       if (response.data.action) {
+        console.log('[ZenioChat] Acción detectada:', response.data.action);
+        console.log('[ZenioChat] Datos de la acción:', response.data);
         
         switch (response.data.action) {
           case 'transaction_created':
+            console.log('[ZenioChat] Procesando transaction_created');
             if (onTransactionCreated && response.data.transaction) {
+              console.log('[ZenioChat] Llamando onTransactionCreated con:', response.data.transaction);
               onTransactionCreated(response.data.transaction);
+            } else {
+              console.log('[ZenioChat] onTransactionCreated no disponible o transaction no encontrada');
             }
             break;
           case 'transaction_updated':
