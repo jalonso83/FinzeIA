@@ -31,6 +31,57 @@ function formatearFechaYYYYMMDD(date: Date): string {
   return `${yyyy}-${mm}-${dd}`;
 }
 
+// Función para obtener offset de timezone
+function obtenerOffsetDeTimezone(timezone: string): number {
+  // Mapeo de timezones comunes
+  const timezoneOffsets: { [key: string]: number } = {
+    'America/Santo_Domingo': -4,
+    'America/Caracas': -4,
+    'America/New_York': -5,
+    'America/Chicago': -6,
+    'America/Denver': -7,
+    'America/Los_Angeles': -8,
+    'America/Anchorage': -9,
+    'Pacific/Honolulu': -10,
+    'Europe/London': 0,
+    'Europe/Paris': 1,
+    'Europe/Berlin': 1,
+    'Europe/Madrid': 1,
+    'Europe/Rome': 1,
+    'Europe/Moscow': 3,
+    'Asia/Dubai': 4,
+    'Asia/Tokyo': 9,
+    'Asia/Shanghai': 8,
+    'Asia/Seoul': 9,
+    'Australia/Sydney': 10,
+    'Pacific/Auckland': 12,
+    'UTC': 0
+  };
+  
+  return timezoneOffsets[timezone] || 0; // Default a UTC si no se encuentra
+}
+
+// Función para procesar fecha con zona horaria del usuario
+function procesarFechaConZonaHoraria(fecha: string, timezone: string = 'UTC'): Date {
+  // Si es UTC, usar fecha base
+  if (timezone === 'UTC') {
+    return new Date(fecha + 'T00:00:00Z');
+  }
+  
+  // Para otras zonas horarias, calcular la fecha UTC que represente el día correcto
+  const offset = obtenerOffsetDeTimezone(timezone);
+  
+  // Crear fecha en UTC que represente el día correcto en la zona horaria del usuario
+  // Si el usuario está en UTC-4 y quiere el 20 de julio, necesitamos crear 2025-07-20T04:00:00Z
+  // para que cuando se convierta a UTC-4 sea 2025-07-20T00:00:00
+  // Para zonas horarias negativas (UTC-4), sumamos las horas
+  // Para zonas horarias positivas (UTC+1), restamos las horas
+  const horasOffset = offset < 0 ? Math.abs(offset) : 0;
+  const fechaUTC = new Date(fecha + `T${horasOffset.toString().padStart(2, '0')}:00:00Z`);
+  
+  return fechaUTC;
+}
+
 // Función para reemplazar expresiones temporales por la fecha real
 function reemplazarExpresionesTemporalesPorFecha(texto: string): string {
   // Obtener fecha actual en zona horaria de República Dominicana
@@ -141,7 +192,7 @@ function normalizarFecha(fecha: string): string | null {
 }
 
 // Función para procesar fechas en datos de transacción
-function procesarFechasEnDatosTransaccion(data: any): any {
+function procesarFechasEnDatosTransaccion(data: any, timezone?: string, includeProcessedDate: boolean = true): any {
   if (!data) return data;
   
   const datosProcesados = { ...data };
@@ -163,6 +214,12 @@ function procesarFechasEnDatosTransaccion(data: any): any {
     if (fechaNormalizada) {
       console.log(`[Zenio] Fecha procesada: "${datosProcesados.date}" -> "${fechaNormalizada}"`);
       datosProcesados.date = fechaNormalizada;
+      
+      // Solo agregar _processedDate si se solicita (solo para insert)
+      if (includeProcessedDate && timezone) {
+        datosProcesados._processedDate = procesarFechaConZonaHoraria(fechaNormalizada, timezone);
+        console.log(`[Zenio] Fecha con zona horaria ${timezone}:`, datosProcesados._processedDate);
+      }
     }
   }
   
@@ -308,14 +365,80 @@ async function validateCategory(categoryName: string, type: string, availableCat
     return { valid: false, error: 'Categoría no válida' };
   }
 
-// Función para obtener categorías válidas
-async function getValidCategories(type: 'EXPENSE' | 'INCOME'): Promise<string> {
+// Función para obtener categorías válidas usando las proporcionadas
+function getValidCategoriesFromList(categories: any[], type: 'EXPENSE' | 'INCOME'): string {
+  try {
+    // Verificar si las categorías tienen información completa
+    const hasFullInfo = categories.length > 0 && typeof categories[0] === 'object' && categories[0].name;
+    
+    if (hasFullInfo) {
+      // Filtrar por tipo y formatear con iconos
+      const filteredCategories = categories.filter(cat => cat.type === type);
+      return filteredCategories.map(cat => `${cat.icon} ${cat.name}`).join(', ');
+    } else {
+      // Categorías simples (solo nombres)
+      return categories.join(', ');
+    }
+  } catch (error) {
+    return 'Error al procesar categorías';
+  }
+}
+
+// Función para obtener categorías específicas para metas usando las proporcionadas
+function getGoalCategoriesFromList(categories: any[], goalType?: string): string {
+  try {
+    // Verificar si las categorías tienen información completa
+    const hasFullInfo = categories.length > 0 && typeof categories[0] === 'object' && categories[0].name;
+    
+    let goalCategories: string;
+    let relevantExamples: string;
+    
+    if (hasFullInfo) {
+      // Para metas, usar TODAS las categorías disponibles (EXPENSE e INCOME)
+      // Las metas pueden ser para ahorrar para gastos futuros (EXPENSE) o para acumular ingresos (INCOME)
+      goalCategories = categories.map(cat => `${cat.icon} ${cat.name}`).join(', ');
+    } else {
+      // Categorías simples (solo nombres)
+      goalCategories = categories.join(', ');
+    }
+    
+    // Determinar ejemplos relevantes según el tipo de meta
+    if (goalType) {
+      const lowerGoalType = goalType.toLowerCase();
+      
+      if (lowerGoalType.includes('inversión') || lowerGoalType.includes('inversion') || lowerGoalType.includes('invertir')) {
+        relevantExamples = `💼 Inversiones (categoría de ingresos)\n📈 Fondos de inversión\n🏦 Certificados financieros\n💎 Metales preciosos\n🏢 Bienes raíces\n💰 Acumular capital para invertir`;
+      } else if (lowerGoalType.includes('vivienda') || lowerGoalType.includes('casa') || lowerGoalType.includes('apartamento')) {
+        relevantExamples = `🏠 Compra de vivienda\n🏡 Pago de hipoteca\n🔧 Renovaciones\n🏗️ Construcción`;
+      } else if (lowerGoalType.includes('vehículo') || lowerGoalType.includes('carro') || lowerGoalType.includes('auto')) {
+        relevantExamples = `🚗 Compra de vehículo\n🚙 Pago de préstamo\n⛽ Combustible y mantenimiento\n🛣️ Viajes en carro`;
+      } else if (lowerGoalType.includes('vacación') || lowerGoalType.includes('viaje') || lowerGoalType.includes('turismo')) {
+        relevantExamples = `✈️ Vacaciones internacionales\n🏖️ Viajes nacionales\n🎫 Pasajes y hospedaje\n🎪 Actividades turísticas`;
+      } else if (lowerGoalType.includes('educación') || lowerGoalType.includes('estudio') || lowerGoalType.includes('universidad')) {
+        relevantExamples = `🎓 Educación universitaria\n📚 Cursos especializados\n💻 Certificaciones\n📖 Material educativo`;
+      } else {
+        // Ejemplos generales para otros tipos de metas
+        relevantExamples = `🏠 Compra de vivienda\n🚗 Compra de vehículo\n✈️ Vacaciones\n🎓 Educación\n💍 Eventos especiales\n🏥 Emergencias\n💼 Inversiones`;
+      }
+    } else {
+      // Ejemplos generales si no se especifica tipo
+      relevantExamples = `🏠 Compra de vivienda\n🚗 Compra de vehículo\n✈️ Vacaciones\n🎓 Educación\n💍 Eventos especiales\n🏥 Emergencias\n💼 Inversiones`;
+    }
+    
+    return `Categorías disponibles para metas de ahorro:\n${goalCategories}\n\nEjemplos de metas comunes:\n${relevantExamples}`;
+  } catch (error) {
+    return 'Error al procesar categorías para metas';
+  }
+}
+
+// Función de respaldo para obtener categorías de la BD (solo si no se proporcionan)
+async function getValidCategoriesFromDB(type: 'EXPENSE' | 'INCOME'): Promise<string> {
   try {
     const categories = await prisma.category.findMany({
       where: { type },
-      select: { name: true }
+      select: { name: true, icon: true }
     });
-    return categories.map(cat => cat.name).join(', ');
+    return categories.map(cat => `${cat.icon} ${cat.name}`).join(', ');
   } catch (error) {
     return 'Error al obtener categorías';
   }
@@ -525,9 +648,9 @@ function sleep(ms: number): Promise<void> {
 }
 
 // Función para hacer polling del run con backoff exponencial
-async function pollRunStatus(threadId: string, runId: string, maxRetries: number = 30): Promise<any> {
+async function pollRunStatus(threadId: string, runId: string, maxRetries: number = 15): Promise<any> {
   let retries = 0;
-  let backoffMs = 1000; // 1 segundo inicial
+  let backoffMs = 500; // 0.5 segundos inicial
 
   while (retries < maxRetries) {
     try {
@@ -541,11 +664,13 @@ async function pollRunStatus(threadId: string, runId: string, maxRetries: number
 
       // Si el run está completado, devolver
       if (run.status === 'completed') {
+        console.log('[Zenio] Run completado exitosamente');
         return run;
       }
 
       // Si requiere acción (tool calls), devolver
       if (run.status === 'requires_action') {
+        console.log('[Zenio] Run requiere acción (tool calls)');
         return run;
       }
 
@@ -558,8 +683,8 @@ async function pollRunStatus(threadId: string, runId: string, maxRetries: number
       if (run.status === 'in_progress' || run.status === 'queued') {
         await sleep(backoffMs);
         retries++;
-        // Backoff exponencial con máximo de 5 segundos
-        backoffMs = Math.min(backoffMs * 1.5, 5000);
+        // Backoff exponencial con máximo de 3 segundos
+        backoffMs = Math.min(backoffMs * 1.2, 3000);
         continue;
       }
 
@@ -567,50 +692,54 @@ async function pollRunStatus(threadId: string, runId: string, maxRetries: number
       throw new Error(`Estado de run inesperado: ${run.status}`);
 
     } catch (error) {
-      if (axios.isAxiosError(error) && error.response?.status === 429) {
-        // Rate limit, esperar más tiempo
-        console.log('[Zenio] Rate limit detectado, esperando...');
-        await sleep(backoffMs * 2);
-        retries++;
-        backoffMs = Math.min(backoffMs * 2, 10000);
-        continue;
-      }
-      
+      // Si es el último intento, lanzar error
       if (retries === maxRetries - 1) {
+        console.error('[Zenio] Error final en polling:', error);
         throw error;
       }
       
+      // Si es rate limit, esperar más tiempo
+      if (error && typeof error === 'object' && 'isAxiosError' in error && (error as any).isAxiosError && (error as any).response?.status === 429) {
+        console.log('[Zenio] Rate limit detectado, esperando...');
+        await sleep(backoffMs * 2);
+        retries++;
+        backoffMs = Math.min(backoffMs * 2, 5000);
+        continue;
+      }
+      
+      // Otros errores, reintentar con backoff
       console.log(`[Zenio] Error en polling, reintentando... (${retries + 1}/${maxRetries})`);
       await sleep(backoffMs);
       retries++;
-      backoffMs = Math.min(backoffMs * 1.5, 5000);
+      backoffMs = Math.min(backoffMs * 1.2, 3000);
     }
   }
 
-  throw new Error(`Timeout: El run no se completó después de ${maxRetries} intentos`);
+  throw new Error(`Timeout: El run no se completó después de ${maxRetries} intentos (${maxRetries * 2} segundos máximo)`);
 }
 
 // Función para ejecutar tool calls y enviar resultados
-async function executeToolCalls(threadId: string, runId: string, toolCalls: any[], userId: string, userName: string, categories?: string[]): Promise<any> {
-  const toolOutputs = [];
+async function executeToolCalls(threadId: string, runId: string, toolCalls: any[], userId: string, userName: string, categories?: string[], timezone?: string): Promise<any> {
   const executedActions: any[] = [];
+  const toolOutputs: any[] = [];
 
   for (const toolCall of toolCalls) {
     const functionName = toolCall.function.name;
     const functionArgs = JSON.parse(toolCall.function.arguments);
+    const toolCallId = toolCall.id;
 
-    console.log(`[Zenio] Ejecutando función: ${functionName}`, functionArgs);
+    console.log(`[Zenio] Ejecutando tool call: ${functionName}`);
+    // Log removido para evitar mostrar información sensible
+
+    let result: any;
 
     try {
-      let result: any = null;
-
-      // Ejecutar la función correspondiente
       switch (functionName) {
         case 'onboarding_financiero':
           result = await executeOnboardingFinanciero(functionArgs, userId, userName, categories);
           break;
         case 'manage_transaction_record':
-          result = await executeManageTransactionRecord(functionArgs, userId, categories);
+          result = await executeManageTransactionRecord(functionArgs, userId, categories, timezone);
           break;
         case 'manage_budget_record':
           result = await executeManageBudgetRecord(functionArgs, userId, categories);
@@ -618,11 +747,14 @@ async function executeToolCalls(threadId: string, runId: string, toolCalls: any[
         case 'manage_goal_record':
           result = await executeManageGoalRecord(functionArgs, userId, categories);
           break;
+        case 'list_categories':
+          result = await executeListCategories(functionArgs, categories);
+          break;
         default:
           throw new Error(`Función no soportada: ${functionName}`);
       }
 
-      // Guardar la acción ejecutada para el frontend
+      // Registrar la acción ejecutada
       if (result && result.action) {
         executedActions.push({
           action: result.action,
@@ -631,31 +763,32 @@ async function executeToolCalls(threadId: string, runId: string, toolCalls: any[
       }
 
       toolOutputs.push({
-        tool_call_id: toolCall.id,
+        tool_call_id: toolCallId,
         output: JSON.stringify(result)
       });
 
-    } catch (error) {
+    } catch (error: any) {
       console.error(`[Zenio] Error ejecutando ${functionName}:`, error);
+      
       toolOutputs.push({
-        tool_call_id: toolCall.id,
+        tool_call_id: toolCallId,
         output: JSON.stringify({
-          error: true,
-          message: error instanceof Error ? error.message : 'Error desconocido'
+          success: false,
+          error: error.message || 'Error desconocido'
         })
       });
     }
   }
 
-  // Enviar resultados a OpenAI
-  console.log('[Zenio] Enviando tool outputs a OpenAI...');
-  await axios.post(
-    `${OPENAI_BASE_URL}/threads/${threadId}/runs/${runId}/submit_tool_outputs`,
-    {
-      tool_outputs: toolOutputs
-    },
-    { headers: { ...OPENAI_HEADERS, 'Content-Type': 'application/json' } }
-  );
+  // Enviar outputs a OpenAI
+  if (toolOutputs.length > 0) {
+    console.log('[Zenio] Enviando tool outputs a OpenAI...');
+    await axios.post(
+      `${OPENAI_BASE_URL}/threads/${threadId}/runs/${runId}/submit_tool_outputs`,
+      { tool_outputs: toolOutputs },
+      { headers: { ...OPENAI_HEADERS, 'Content-Type': 'application/json' } }
+    );
+  }
 
   // Hacer polling hasta que el run termine
   console.log('[Zenio] Haciendo polling después de submit_tool_outputs...');
@@ -707,7 +840,7 @@ async function executeOnboardingFinanciero(args: any, userId: string, userName: 
 }
 
 // Función para ejecutar manage_transaction_record
-async function executeManageTransactionRecord(args: any, userId: string, categories?: string[]): Promise<any> {
+async function executeManageTransactionRecord(args: any, userId: string, categories?: string[], timezone?: string): Promise<any> {
   let transactionData = args.transaction_data;
   const operation = args.operation;
   const module = args.module;
@@ -715,12 +848,12 @@ async function executeManageTransactionRecord(args: any, userId: string, categor
 
   // Procesar fechas en los datos de transacción
   if (transactionData) {
-    transactionData = procesarFechasEnDatosTransaccion(transactionData);
+    transactionData = procesarFechasEnDatosTransaccion(transactionData, timezone, true); // Solo para insert
   }
 
-  // Procesar fechas en los criterios
+  // Procesar fechas en los criterios (sin _processedDate para delete/update)
   if (criterios && Object.keys(criterios).length > 0) {
-    criterios = procesarFechasEnDatosTransaccion(criterios);
+    criterios = procesarFechasEnDatosTransaccion(criterios, timezone, false); // Sin _processedDate
   }
 
   // Validaciones estructurales
@@ -728,9 +861,10 @@ async function executeManageTransactionRecord(args: any, userId: string, categor
     throw new Error('Operación inválida: debe ser insert, update, delete o list');
   }
 
-  if (module !== 'transacciones') {
-    throw new Error('Solo se soporta el módulo "transacciones"');
-  }
+  // La función manage_transaction_record siempre es para transacciones, no necesita validar módulo
+  // if (module !== 'transacciones') {
+  //   throw new Error('Solo se soporta el módulo "transacciones"');
+  // }
 
   // Validaciones por operación
   if (operation === 'insert') {
@@ -803,7 +937,7 @@ async function executeManageBudgetRecord(args: any, userId: string, categories?:
 }
 
 // Función para ejecutar manage_goal_record
-async function executeManageGoalRecord(args: any, userId: string, categories?: string[]): Promise<any> {
+async function executeManageGoalRecord(args: any, userId: string, categories?: any[]): Promise<any> {
   const { operation, module, goal_data, criterios_identificacion } = args;
 
   // Validaciones
@@ -851,6 +985,71 @@ async function executeManageGoalRecord(args: any, userId: string, categories?: s
   }
 }
 
+// Función para ejecutar list_categories
+async function executeListCategories(args: any, categories?: any[]): Promise<any> {
+  const { module } = args;
+  
+  console.log(`[Zenio] Listando categorías para módulo: ${module}`);
+  
+  if (!categories || categories.length === 0) {
+    // Si no hay categorías del frontend, obtener de la BD
+    try {
+      const dbCategories = await prisma.category.findMany({
+        select: { name: true, type: true, icon: true }
+      });
+      categories = dbCategories;
+      console.log('[Zenio] Categorías obtenidas de la BD:', categories.length);
+    } catch (error) {
+      console.error('[Zenio] Error obteniendo categorías de la BD:', error);
+      return {
+        error: true,
+        message: 'Error al obtener categorías de la base de datos'
+      };
+    }
+  }
+
+  // Filtrar categorías según el módulo
+  let filteredCategories: any[] = [];
+  
+  switch (module) {
+    case 'presupuestos':
+      // Para presupuestos solo categorías de gastos
+      filteredCategories = categories!.filter((cat: any) => 
+        typeof cat === 'object' ? cat.type === 'EXPENSE' : true
+      );
+      break;
+    case 'transacciones':
+      // Para transacciones todas las categorías (gastos e ingresos)
+      filteredCategories = categories!;
+      break;
+    case 'metas':
+      // Para metas todas las categorías (gastos e ingresos)
+      filteredCategories = categories!;
+      break;
+    default:
+      return {
+        error: true,
+        message: `Módulo no válido: ${module}. Módulos válidos: presupuestos, transacciones, metas`
+      };
+  }
+
+  // Formatear respuesta con iconos
+  const formattedCategories = filteredCategories.map((cat: any) => {
+    if (typeof cat === 'object' && cat.name) {
+      return `${cat.icon} ${cat.name}`;
+    }
+    return cat;
+  });
+
+  console.log(`[Zenio] Categorías para ${module}:`, formattedCategories);
+
+  return {
+    categories: formattedCategories,
+    count: formattedCategories.length,
+    module: module
+  };
+}
+
 // Funciones auxiliares para transacciones
 async function insertTransaction(transactionData: any, userId: string, categories?: string[]): Promise<any> {
   const type = transactionData.type === 'gasto' ? 'EXPENSE' : 'INCOME';
@@ -866,14 +1065,21 @@ async function insertTransaction(transactionData: any, userId: string, categorie
   let date = fechaRD;
   if (transactionData.date) {
     // Si se proporciona una fecha, validar que sea razonable (no muy antigua)
-    const fechaProporcionada = new Date(transactionData.date + 'T00:00:00');
     const fechaMinima = new Date('2020-01-01'); // Fecha mínima razonable
     
-    if (fechaProporcionada < fechaMinima) {
-      console.log(`[Zenio] Fecha proporcionada (${transactionData.date}) es muy antigua, usando fecha actual`);
-      date = fechaRD;
+    // Usar la fecha procesada con zona horaria si está disponible
+    if (transactionData._processedDate) {
+      date = transactionData._processedDate;
     } else {
-      date = fechaProporcionada;
+      // Fallback al método anterior - aplicar zona horaria correctamente
+      const fechaLocal = new Date(transactionData.date + 'T00:00:00');
+      const fechaUTC = new Date(fechaLocal.getTime() - (fechaLocal.getTimezoneOffset() * 60000));
+      
+      if (fechaUTC < fechaMinima) {
+        date = fechaRD;
+      } else {
+        date = fechaUTC;
+      }
     }
   }
   
@@ -939,15 +1145,27 @@ async function updateTransaction(transactionData: any, criterios: any, userId: s
         where: { name: { equals: value as string, mode: 'insensitive' } }
       });
       if (cat) {
-        where.category = cat.id;
+        where.category_id = cat.id;
       } else {
-        where.category = '___NO_MATCH___';
+        // Búsqueda alternativa sin acentos
+        const allCategories = await prisma.category.findMany();
+        const foundCategory = allCategories.find(cat => 
+          normalizarTexto(cat.name) === normalizarTexto(value as string)
+        );
+        if (foundCategory) {
+          where.category_id = foundCategory.id;
+        } else {
+          where.category_id = '___NO_MATCH___';
+        }
       }
     }
     else if (key === 'date') {
       const fechaNormalizada = normalizarFecha(value as string);
       if (fechaNormalizada) {
-        const start = new Date(fechaNormalizada + 'T00:00:00.000Z');
+        // Usar la misma lógica de zona horaria que en insertTransaction
+        const fechaLocal = new Date(fechaNormalizada + 'T00:00:00');
+        const fechaUTC = new Date(fechaLocal.getTime() - (fechaLocal.getTimezoneOffset() * 60000));
+        const start = fechaUTC;
         const end = new Date(start);
         end.setUTCDate(end.getUTCDate() + 1);
         where.date = { gte: start, lt: end };
@@ -960,8 +1178,15 @@ async function updateTransaction(transactionData: any, criterios: any, userId: s
   const candidates = await prisma.transaction.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    select: {
-      id: true, amount: true, type: true, category: true, description: true, date: true, createdAt: true, updatedAt: true
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          type: true
+        }
+      }
     }
   });
 
@@ -1001,7 +1226,7 @@ async function updateTransaction(transactionData: any, criterios: any, userId: s
         action: 'category_not_found'
       };
     }
-    updateData.category = categoryValidation.categoryId;
+    updateData.category_id = categoryValidation.categoryId;
   }
   
   if (transactionData.date) {
@@ -1022,8 +1247,15 @@ async function updateTransaction(transactionData: any, criterios: any, userId: s
   const updated = await prisma.transaction.update({
     where: { id: trans.id },
     data: updateData,
-    select: {
-      id: true, amount: true, type: true, category: true, description: true, date: true, createdAt: true, updatedAt: true
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          type: true
+        }
+      }
     }
   });
 
@@ -1046,15 +1278,27 @@ async function deleteTransaction(criterios: any, userId: string, categories?: st
         where: { name: { equals: value as string, mode: 'insensitive' } }
       });
       if (cat) {
-        where.category = cat.id;
+        where.category_id = cat.id;
       } else {
-        where.category = '___NO_MATCH___';
+        // Búsqueda alternativa sin acentos
+        const allCategories = await prisma.category.findMany();
+        const foundCategory = allCategories.find(cat => 
+          normalizarTexto(cat.name) === normalizarTexto(value as string)
+        );
+        if (foundCategory) {
+          where.category_id = foundCategory.id;
+        } else {
+          where.category_id = '___NO_MATCH___';
+        }
       }
     }
     else if (key === 'date') {
       const fechaNormalizada = normalizarFecha(value as string);
       if (fechaNormalizada) {
-        const start = new Date(fechaNormalizada + 'T00:00:00.000Z');
+        // Usar la misma lógica de zona horaria que en insertTransaction
+        const fechaLocal = new Date(fechaNormalizada + 'T00:00:00');
+        const fechaUTC = new Date(fechaLocal.getTime() - (fechaLocal.getTimezoneOffset() * 60000));
+        const start = fechaUTC;
         const end = new Date(start);
         end.setUTCDate(end.getUTCDate() + 1);
         where.date = { gte: start, lt: end };
@@ -1067,8 +1311,15 @@ async function deleteTransaction(criterios: any, userId: string, categories?: st
   const candidates = await prisma.transaction.findMany({
     where,
     orderBy: { createdAt: 'desc' },
-    select: {
-      id: true, amount: true, type: true, category: true, description: true, date: true, createdAt: true, updatedAt: true
+    include: {
+      category: {
+        select: {
+          id: true,
+          name: true,
+          icon: true,
+          type: true
+        }
+      }
     }
   });
 
@@ -1673,6 +1924,14 @@ async function listGoals(goalData: any, userId: string, categories?: string[]): 
   };
 }
 
+// Función para normalizar texto (remover acentos y convertir a minúsculas)
+function normalizarTexto(texto: string): string {
+  return texto
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase();
+}
+
 export const chatWithZenio = async (req: Request, res: Response) => {
   let threadId: string | undefined = undefined;
   
@@ -1694,8 +1953,41 @@ export const chatWithZenio = async (req: Request, res: Response) => {
     }
 
     // 3. Obtener datos de la petición
-    let { message, threadId: incomingThreadId, isOnboarding, categories } = req.body;
+    let { message, threadId: incomingThreadId, isOnboarding, categories, timezone } = req.body;
     threadId = incomingThreadId;
+    
+    // Usar zona horaria del usuario o default a UTC
+    const userTimezone = timezone || 'UTC';
+    console.log(`[Zenio] Zona horaria del usuario: ${userTimezone}`);
+
+    // 3.1. Obtener categorías de la base de datos SOLO si no se proporcionaron desde el frontend
+    if (!categories || categories.length === 0) {
+      try {
+        const dbCategories = await prisma.category.findMany({
+          select: { name: true, type: true, icon: true }
+        });
+        categories = dbCategories.map(cat => cat.name);
+        console.log('[Zenio] Categorías obtenidas de la BD (respaldo):', categories);
+      } catch (error) {
+        console.error('[Zenio] Error obteniendo categorías de la BD:', error);
+        categories = [];
+      }
+    } else {
+      // Verificar si las categorías vienen con información completa o solo nombres
+      const hasFullInfo = categories.length > 0 && typeof categories[0] === 'object' && categories[0].name;
+      if (hasFullInfo) {
+        console.log('[Zenio] Usando categorías completas del frontend:', categories.length, 'categorías');
+        // Extraer solo los nombres para las funciones que los necesitan
+        const categoryNames = categories.map((cat: any) => cat.name);
+        console.log('[Zenio] Nombres de categorías extraídos:', categoryNames);
+        // Mantener las categorías originales para el contexto, pero usar los nombres para las funciones
+        categories = categoryNames;
+      } else {
+        console.log('[Zenio] Usando categorías simples del frontend:', categories);
+      }
+    }
+
+
 
     // 4. Procesar expresiones temporales
     if (typeof message === 'string') {
@@ -1799,7 +2091,8 @@ export const chatWithZenio = async (req: Request, res: Response) => {
         run.required_action.submit_tool_outputs.tool_calls,
         userId,
         userName,
-        categories // Pasar las categorías disponibles
+        categories, // Pasar las categorías disponibles
+        userTimezone // Pasar la zona horaria del usuario
       );
 
       // Extraer las acciones ejecutadas
@@ -1842,6 +2135,7 @@ export const chatWithZenio = async (req: Request, res: Response) => {
       response.budget = lastAction.data.budget;
       response.goal = lastAction.data.goal; // Incluir la meta si es una acción de meta
       console.log(`[Zenio] Incluyendo acción en respuesta: ${lastAction.action}`);
+      console.log(`[Zenio] Respuesta completa que se envía al frontend:`, JSON.stringify(response, null, 2));
     }
 
     return res.json(response);
@@ -1872,7 +2166,7 @@ export const chatWithZenio = async (req: Request, res: Response) => {
         });
       }
 
-      if (error.response) {
+      if (error && typeof error === 'object' && 'response' in error && error.response && typeof error.response === 'object' && 'data' in error.response) {
         console.error('❌ OpenAI API error:', error.response.data);
         return res.status(500).json({ 
           error: 'Error al comunicarse con Zenio.', 
