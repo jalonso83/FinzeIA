@@ -897,16 +897,13 @@ async function executeManageTransactionRecord(args: any, userId: string, categor
 }
 
 // Función para ejecutar manage_budget_record
-async function executeManageBudgetRecord(args: any, userId: string, categories?: string[]): Promise<any> {
-  const { operation, module, category, amount, previous_amount, recurrence } = args;
+async function executeManageBudgetRecord(args: any, userId: string, categories?: any[]): Promise<any> {
+  console.log('[Zenio] Argumentos recibidos en manage_budget_record:', JSON.stringify(args, null, 2));
+  const { operation, category, amount, previous_amount, recurrence } = args;
 
   // Validaciones
   if (!['insert', 'update', 'delete', 'list'].includes(operation)) {
     throw new Error('Operación inválida: debe ser insert, update, delete o list');
-  }
-
-  if (module !== 'presupuestos') {
-    throw new Error('Solo se soporta el módulo "presupuestos"');
   }
 
   if (!category) {
@@ -938,15 +935,11 @@ async function executeManageBudgetRecord(args: any, userId: string, categories?:
 
 // Función para ejecutar manage_goal_record
 async function executeManageGoalRecord(args: any, userId: string, categories?: any[]): Promise<any> {
-  const { operation, module, goal_data, criterios_identificacion } = args;
+  const { operation, goal_data, criterios_identificacion } = args;
 
   // Validaciones
   if (!['insert', 'update', 'delete', 'list'].includes(operation)) {
     throw new Error('Operación inválida: debe ser insert, update, delete o list');
-  }
-
-  if (module !== 'metas') {
-    throw new Error('Solo se soporta el módulo "metas"');
   }
 
   // Validaciones por operación
@@ -1406,7 +1399,7 @@ async function listTransactions(transactionData: any, userId: string, categories
 }
 
 // Funciones auxiliares para presupuestos
-async function insertBudget(category: string, amount: string, recurrence: string, userId: string, categories?: string[]): Promise<any> {
+async function insertBudget(category: string, amount: string, recurrence: string, userId: string, categories?: any[]): Promise<any> {
   const periodMap: { [key: string]: string } = {
     'semanal': 'weekly',
     'mensual': 'monthly',
@@ -1483,7 +1476,7 @@ async function insertBudget(category: string, amount: string, recurrence: string
   };
 }
 
-async function updateBudget(category: string, previous_amount: string, amount: string, userId: string, categories?: string[]): Promise<any> {
+async function updateBudget(category: string, previous_amount: string, amount: string, userId: string, categories?: any[]): Promise<any> {
   const where: any = { 
     user_id: userId,
     amount: parseFloat(previous_amount)
@@ -1550,7 +1543,7 @@ async function updateBudget(category: string, previous_amount: string, amount: s
   };
 }
 
-async function deleteBudget(category: string, previous_amount: string, userId: string, categories?: string[]): Promise<any> {
+async function deleteBudget(category: string, previous_amount: string, userId: string, categories?: any[]): Promise<any> {
   const where: any = { 
     user_id: userId,
     amount: parseFloat(previous_amount)
@@ -1596,7 +1589,7 @@ async function deleteBudget(category: string, previous_amount: string, userId: s
   };
 }
 
-async function listBudgets(category: string | undefined, userId: string, categories?: string[]): Promise<any> {
+async function listBudgets(category: string | undefined, userId: string, categories?: any[]): Promise<any> {
   let where: any = { user_id: userId };
   
   if (category) {
