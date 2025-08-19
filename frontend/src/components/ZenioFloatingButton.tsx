@@ -86,6 +86,7 @@ const ZenioFloatingButton = () => {
       </button>
       {open && <ZenioModal 
         onClose={() => setOpen(false)} 
+        user={user}
         onTransactionCreated={handleTransactionCreated}
         onTransactionUpdated={handleTransactionUpdated}
         onTransactionDeleted={handleTransactionDeleted}

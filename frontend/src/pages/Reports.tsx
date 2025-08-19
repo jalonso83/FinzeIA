@@ -1,6 +1,9 @@
 import React, { useState } from 'react';
 import { useAuthStore } from '../stores/auth';
 import Navigation from '../components/Navigation';
+import CategoryReport from '../components/reports/CategoryReport';
+import DateReport from '../components/reports/DateReport';
+import BudgetReport from '../components/reports/BudgetReport';
 import './Screens.css';
 
 const Reports = () => {
@@ -31,7 +34,7 @@ const Reports = () => {
     {
       id: 'budgets',
       name: 'Reporte de Presupuestos',
-      description: 'Estado actual de presupuestos y metas',
+      description: 'Análisis de rendimiento y cumplimiento',
       icon: (
         <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -96,47 +99,9 @@ const Reports = () => {
 
               {/* Contenido del reporte seleccionado */}
               <div className="space-y-6">
-                {selectedReport === 'categories' && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Reporte por Categorías</h3>
-                    <p className="text-gray-500">
-                      Aquí podrás ver un análisis detallado de tus gastos e ingresos organizados por categorías.
-                    </p>
-                  </div>
-                )}
-
-                {selectedReport === 'dates' && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Reporte por Fechas</h3>
-                    <p className="text-gray-500">
-                      Analiza tus transacciones a lo largo del tiempo con gráficos y tendencias.
-                    </p>
-                  </div>
-                )}
-
-                {selectedReport === 'budgets' && (
-                  <div className="text-center py-12">
-                    <div className="text-gray-400 mb-4">
-                      <svg className="w-16 h-16 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
-                      </svg>
-                    </div>
-                    <h3 className="text-lg font-medium text-gray-900 mb-2">Reporte de Presupuestos</h3>
-                    <p className="text-gray-500">
-                      Revisa el estado de tus presupuestos y el progreso hacia tus metas financieras.
-                    </p>
-                  </div>
-                )}
+                {selectedReport === 'categories' && <CategoryReport />}
+                {selectedReport === 'dates' && <DateReport />}
+                {selectedReport === 'budgets' && <BudgetReport />}
               </div>
             </div>
           </div>

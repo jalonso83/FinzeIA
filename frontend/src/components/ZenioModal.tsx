@@ -3,6 +3,7 @@ import ZenioChat from './ZenioChat';
 
 interface ZenioModalProps {
   onClose: () => void;
+  user?: any;
   onTransactionCreated?: (transaction: any) => void;
   onTransactionUpdated?: (transaction: any) => void;
   onTransactionDeleted?: (transaction: any) => void;
@@ -16,6 +17,7 @@ interface ZenioModalProps {
 
 const ZenioModal: React.FC<ZenioModalProps> = ({ 
   onClose, 
+  user,
   onTransactionCreated, 
   onTransactionUpdated,
   onTransactionDeleted,
@@ -31,6 +33,7 @@ const ZenioModal: React.FC<ZenioModalProps> = ({
       <ZenioChat 
         onClose={onClose} 
         isOnboarding={false} 
+        user={user}
         onTransactionCreated={onTransactionCreated}
         onTransactionUpdated={onTransactionUpdated}
         onTransactionDeleted={onTransactionDeleted}

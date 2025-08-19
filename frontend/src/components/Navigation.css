@@ -146,4 +146,39 @@
   border-left: 2px solid #e5e7eb;
   margin-left: 1rem;
   padding-left: 0.5rem;
+}
+
+/* Navegación móvil horizontal scroll */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* Mejoras para navegación móvil horizontal */
+@media (max-width: 1023px) {
+  .mobile-nav-container {
+    overflow-x: auto;
+    overflow-y: hidden;
+    white-space: nowrap;
+    -webkit-overflow-scrolling: touch;
+    scroll-behavior: smooth;
+  }
+  
+  .mobile-nav-item {
+    display: inline-flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 70px;
+    flex-shrink: 0;
+    text-align: center;
+  }
+  
+  .mobile-nav-item:hover {
+    transform: translateY(-2px);
+    transition: transform 0.2s ease;
+  }
 } 
