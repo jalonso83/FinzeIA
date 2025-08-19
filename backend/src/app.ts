@@ -10,6 +10,8 @@ import budgetRoutes from './routes/budgets';
 import zenioRoutes from './routes/zenio';
 import categoryRoutes from './routes/categories';
 import goalRoutes from './routes/goals';
+import reportRoutes from './routes/reports';
+import gamificationRoutes from './routes/gamification';
 
 // Configurar variables de entorno
 dotenv.config();
@@ -39,6 +41,8 @@ app.use('/api/budgets', budgetRoutes);
 app.use('/api/zenio', zenioRoutes);
 app.use('/api/categories', categoryRoutes);
 app.use('/api/goals', goalRoutes);
+app.use('/api/reports', reportRoutes);
+app.use('/api/gamification', gamificationRoutes);
 
 // Ruta de salud
 app.get('/api/health', (req, res) => {
