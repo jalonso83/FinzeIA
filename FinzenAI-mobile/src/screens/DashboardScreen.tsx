@@ -1,0 +1,1332 @@
+// Dashboard Screen - Pantalla principal móvil
+// Reutilizará la lógica del Dashboard web adaptada para móvil
+
+import React, { useState, useEffect } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
+import FinScoreProgressBar from '../components/gamification/FinScoreProgressBar';
+import StreakCounterFinZen, { StreakCompact } from '../components/gamification/StreakCounter';
+import PatternsAndTrends from '../components/reports/PatternsAndTrends';
+import VibeCard from '../components/dashboard/VibeCard';
+import ExpensesPieChart from '../components/dashboard/ExpensesPieChart';
+import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI } from '../utils/api';
+import api from '../utils/api';
+import { useDashboardStore } from '../stores/dashboard';
+
+interface DashboardData {
+  totalBalance: number;
+  allIncome: number;
+  allExpenses: number;
+  monthlyIncome: number;
+  monthlyExpenses: number;
+  monthlyTransactions: number;
+  activeBudgets: number;
+  activeGoals: number;
+  finScore: number;
+  level: number;
+  levelName: string;
+  pointsToNextLevel: number;
+  streak: {
+    currentStreak: number;
+    longestStreak: number;
+    isActive: boolean;
+    lastActivityDate?: string;
+  } | null;
+  transactions: any[];
+  recentTransactions: any[];
+  categories: any[];
+  budgets: any[];
+  totalBudget: number;
+  totalSpent: number;
+  remainingBudget: number;
+  goals: any[];
+  totalGoalTarget: number;
+  totalGoalSaved: number;
+  totalGoalRemaining: number;
+}
+
+export default function DashboardScreen() {
+  const navigation = useNavigation<any>();
+  const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
+  const [loading, setLoading] = useState(true);
+  
+  // Suscribirse a cambios del dashboard
+  const { refreshTrigger } = useDashboardStore();
+
+  useEffect(() => {
+    loadDashboardData();
+  }, []);
+
+  // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      console.log('Dashboard: Recargando datos debido a cambios...');
+      loadDashboardData();
+    }
+  }, [refreshTrigger]);
+
+  const loadDashboardData = async () => {
+    let gamificationResponse: any, streakResponse: any, transactionsResponse: any, budgetsResponse: any, goalsResponse: any, categoriesResponse: any;
+    
+    try {
+      setLoading(true);
+      
+      // Cargar datos paralelos para mejor rendimiento
+      [
+        gamificationResponse,
+        streakResponse,
+        transactionsResponse,
+        budgetsResponse,
+        goalsResponse,
+        categoriesResponse
+      ] = await Promise.allSettled([
+        api.get('/gamification/finscore'),  // Usar endpoint correcto que SÍ existe
+        api.get('/gamification/streak'),    // Usar endpoint correcto que SÍ existe
+        transactionsAPI.getAll({ limit: 5000 }), // Cargar TODAS las transacciones como la web
+        budgetsAPI.getAll(),
+        api.get('/goals'),
+        categoriesAPI.getAll()
+      ]);
+
+      // Procesar datos de gamificación - SOLO datos reales
+      let gamificationData = {
+        finScore: 0,
+        level: 1,
+        levelName: 'Principiante',
+        pointsToNextLevel: 0,
+      };
+
+      if (gamificationResponse.status === 'fulfilled') {
+        const response = gamificationResponse.value.data;
+        console.log('Gamification response:', response);
+        
+        // El endpoint /gamification/finscore devuelve { success: true, data: {...} }
+        if (response.success && response.data) {
+          const data = response.data;
+          console.log('Gamification data extracted:', data);
+          gamificationData = {
+            finScore: data.currentScore || 0,
+            level: data.level || 1,
+            levelName: data.levelName || 'Principiante',
+            pointsToNextLevel: data.pointsToNextLevel || 0,
+          };
+        }
+      }
+
+      // Procesar datos de streak
+      let streakData = {
+        currentStreak: 0,
+        longestStreak: 0,
+        isActive: false,
+        lastActivityDate: new Date().toISOString(),
+      };
+
+      if (streakResponse.status === 'fulfilled') {
+        const response = streakResponse.value.data;
+        console.log('Streak response:', response);
+        
+        // Verificar si viene en formato { success: true, data: {...} } o directo
+        if (response.success && response.data) {
+          const data = response.data;
+          console.log('Streak data (from wrapper):', data);
+          streakData = {
+            currentStreak: data.currentStreak || 0,
+            longestStreak: data.longestStreak || 0,
+            isActive: data.isActive || false,
+            lastActivityDate: data.lastActivityDate || new Date().toISOString(),
+          };
+        } else if (response.currentStreak !== undefined) {
+          // Los datos vienen directos sin wrapper
+          console.log('Streak data (direct):', response);
+          streakData = {
+            currentStreak: response.currentStreak || 0,
+            longestStreak: response.longestStreak || 0,
+            isActive: response.isActive || false,
+            lastActivityDate: response.lastActivityDate || new Date().toISOString(),
+          };
+        }
+      }
+
+      // Procesar transacciones para calcular balance - IGUAL QUE LA WEB
+      let totalBalance = 0;
+      let monthlyIncome = 0;
+      let monthlyExpenses = 0;
+      let monthlyTransactions = 0;
+      let allIncome = 0;
+      let allExpenses = 0;
+
+      if (transactionsResponse.status === 'fulfilled') {
+        const transactions = transactionsResponse.value.data.transactions || transactionsResponse.value.data || [];
+        console.log('Transactions data:', transactions);
+        
+        // Calcular totales GENERALES (como en la web)
+        transactions.forEach((transaction: any) => {
+          if (transaction.type === 'INCOME') {
+            allIncome += transaction.amount;
+          } else {
+            allExpenses += transaction.amount;
+          }
+        });
+        
+        // Calcular totales del mes actual para mostrar desglose
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        transactions.forEach((transaction: any) => {
+          const transactionDate = new Date(transaction.date);
+          if (transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear) {
+            monthlyTransactions++; // Contar transacciones del mes actual
+            if (transaction.type === 'INCOME') {
+              monthlyIncome += transaction.amount;
+            } else {
+              monthlyExpenses += transaction.amount;
+            }
+          }
+        });
+        
+        // BALANCE TOTAL = TODOS LOS INGRESOS - TODOS LOS GASTOS (como en la web)
+        totalBalance = allIncome - allExpenses;
+      }
+
+      // Procesar presupuestos activos
+      let activeBudgets = 0;
+      let budgets: any[] = [];
+      let totalBudget = 0;
+      let totalSpent = 0;
+      let remainingBudget = 0;
+      
+      if (budgetsResponse.status === 'fulfilled') {
+        budgets = budgetsResponse.value.data.budgets || budgetsResponse.value.data || [];
+        console.log('Budgets data:', budgets);
+        
+        // Filtrar presupuestos activos (como en la web)
+        const activeBudgetsList = budgets.filter((budget: any) => budget.is_active);
+        activeBudgets = activeBudgetsList.length;
+        
+        // Calcular totales (como en la web)
+        totalBudget = activeBudgetsList.reduce((sum, b) => sum + (b.amount || 0), 0);
+        totalSpent = activeBudgetsList.reduce((sum, b) => sum + (b.spent || 0), 0);
+        remainingBudget = totalBudget - totalSpent;
+      }
+
+      // Procesar metas activas - FILTRAR POR !isCompleted COMO EN LA WEB
+      let activeGoals = 0;
+      let goals: any[] = [];
+      let totalGoalTarget = 0;
+      let totalGoalSaved = 0;
+      let totalGoalRemaining = 0;
+      
+      if (goalsResponse.status === 'fulfilled') {
+        // Usar la misma extracción que la web: goalsRes.data || []
+        goals = goalsResponse.value.data || [];
+        console.log('Goals response status:', goalsResponse.status);
+        console.log('Goals response data:', goalsResponse.value.data);
+        console.log('Goals data extracted:', goals);
+        // Filtrar metas que NO están completadas (como en la web línea 225)
+        const activeGoalsList = goals.filter((goal: any) => !goal.isCompleted);
+        activeGoals = activeGoalsList.length;
+        console.log('Active goals:', activeGoalsList);
+        
+        // Calcular totales como en la web (usando los mismos campos que la web)
+        totalGoalTarget = activeGoalsList.reduce((sum, g) => sum + (g.targetAmount || g.target_amount || 0), 0);
+        totalGoalSaved = activeGoalsList.reduce((sum, g) => sum + (g.currentAmount || g.current_amount || 0), 0);
+        totalGoalRemaining = totalGoalTarget - totalGoalSaved;
+        console.log('Goals totals:', { totalGoalTarget, totalGoalSaved, totalGoalRemaining });
+      } else {
+        console.log('Goals response failed:', goalsResponse.status, goalsResponse.reason);
+      }
+
+      // Procesar categorías
+      let categories: any[] = [];
+      if (categoriesResponse.status === 'fulfilled') {
+        categories = categoriesResponse.value.data || [];
+        console.log('Categories data:', categories);
+      }
+
+      // Obtener transacciones para el gráfico
+      const transactions = transactionsResponse.status === 'fulfilled' 
+        ? (transactionsResponse.value.data.transactions || transactionsResponse.value.data || [])
+        : [];
+
+      // Calcular transacciones recientes (últimas 10) igual que en la web
+      const recentTransactions = [...transactions]
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .slice(0, 10);
+
+      const dashboardData: DashboardData = {
+        totalBalance,
+        allIncome,
+        allExpenses,
+        monthlyIncome,
+        monthlyExpenses,
+        monthlyTransactions,
+        activeBudgets,
+        activeGoals,
+        finScore: gamificationData.finScore,
+        level: gamificationData.level,
+        levelName: gamificationData.levelName,
+        pointsToNextLevel: gamificationData.pointsToNextLevel,
+        streak: streakData,
+        transactions,
+        recentTransactions,
+        categories,
+        budgets,
+        totalBudget,
+        totalSpent,
+        remainingBudget,
+        goals,
+        totalGoalTarget,
+        totalGoalSaved,
+        totalGoalRemaining,
+      };
+
+      setDashboardData(dashboardData);
+    } catch (error: any) {
+      console.error('Error loading dashboard:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        url: error.config?.url
+      });
+      
+      // Mostrar errores específicos por endpoint
+      console.log('Response statuses:', {
+        gamification: gamificationResponse?.status,
+        streak: streakResponse?.status, 
+        transactions: transactionsResponse?.status,
+        budgets: budgetsResponse?.status,
+        goals: goalsResponse?.status
+      });
+      
+      // En caso de error, usar datos por defecto
+      const fallbackData: DashboardData = {
+        totalBalance: 0,
+        allIncome: 0,
+        allExpenses: 0,
+        monthlyIncome: 0,
+        monthlyExpenses: 0,
+        monthlyTransactions: 0,
+        activeBudgets: 0,
+        activeGoals: 0,
+        finScore: 0,
+        level: 1,
+        levelName: 'Principiante',
+        pointsToNextLevel: 0,
+        streak: null,
+        transactions: [],
+        recentTransactions: [],
+        categories: [],
+        budgets: [],
+        totalBudget: 0,
+        totalSpent: 0,
+        remainingBudget: 0,
+        goals: [],
+        totalGoalTarget: 0,
+        totalGoalSaved: 0,
+        totalGoalRemaining: 0,
+      };
+      
+      setDashboardData(fallbackData);
+      
+      if (error.response?.status === 401) {
+        Alert.alert('Sesión Expirada', 'Por favor inicia sesión nuevamente');
+      } else {
+        Alert.alert('Error', 'No se pudieron cargar todos los datos del dashboard');
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const formatCurrency = (amount: number) => {
+    return `$${amount.toLocaleString('es-ES')}`;
+  };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#2563EB" />
+          <Text style={styles.loadingText}>Cargando dashboard...</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  if (!dashboardData) {
+    return (
+      <SafeAreaView style={styles.container}>
+        <View style={styles.errorContainer}>
+          <Ionicons name="warning-outline" size={48} color="#dc2626" />
+          <Text style={styles.errorText}>Error al cargar los datos</Text>
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  return (
+    <SafeAreaView style={styles.container}>
+      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+        {/* Header - removido porque ya está en la navegación */}
+
+        {/* Balance Card */}
+        <View style={styles.balanceCard}>
+          <Text style={styles.balanceLabel}>
+            Balance Actual: {new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}
+          </Text>
+          
+          <View style={styles.balanceDetail}>
+            <View style={styles.balanceItem}>
+              <Ionicons name="trending-up" size={16} color="#059669" />
+              <Text style={[styles.balanceItemText, { color: '#059669' }]}>
+                {formatCurrency(dashboardData.allIncome)}
+              </Text>
+              <Text style={styles.balanceItemLabel}>Ingresos</Text>
+            </View>
+            <View style={styles.balanceItem}>
+              <Ionicons name="trending-down" size={16} color="#dc2626" />
+              <Text style={[styles.balanceItemText, { color: '#dc2626' }]}>
+                {formatCurrency(dashboardData.allExpenses)}
+              </Text>
+              <Text style={styles.balanceItemLabel}>Gastos</Text>
+            </View>
+          </View>
+          
+          <View style={styles.saldoTotalContainer}>
+            <Text style={styles.saldoTotalLabel}>Saldo Total</Text>
+            <Text style={styles.saldoTotalAmount}>
+              {formatCurrency(dashboardData.totalBalance)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Gamification Section - Card expandido con streak integrado */}
+        <View style={styles.gamificationSection}>
+          <FinScoreProgressBar
+            currentScore={dashboardData.finScore}
+            level={dashboardData.level}
+            levelName={dashboardData.levelName}
+            pointsToNextLevel={dashboardData.pointsToNextLevel}
+            streak={dashboardData.streak}
+          />
+        </View>
+
+        {/* Quick Stats */}
+        <View style={styles.quickStats}>
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Budgets')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="wallet-outline" size={24} color="#2563EB" />
+            <Text style={styles.statNumber}>{dashboardData.activeBudgets}</Text>
+            <Text style={styles.statLabel}>Presupuestos Activos</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
+            onPress={() => navigation.navigate('Goals')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="trophy-outline" size={24} color="#d97706" />
+            <Text style={styles.statNumber}>{dashboardData.activeGoals}</Text>
+            <Text style={styles.statLabel}>Metas Activas</Text>
+          </TouchableOpacity>
+          
+          <View style={styles.statCard}>
+            <Ionicons name="bar-chart-outline" size={24} color="#7c3aed" />
+            <Text style={styles.statNumber}>{dashboardData.monthlyTransactions}</Text>
+            <Text style={styles.statLabel}>Transacciones del Mes</Text>
+          </View>
+        </View>
+
+        {/* Transacciones Recientes */}
+        <View style={styles.recentTransactionsCard}>
+          <Text style={styles.cardTitle}>Transacciones Recientes</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#4f46e5" />
+              <Text style={styles.loadingText}>Cargando...</Text>
+            </View>
+          ) : dashboardData?.recentTransactions.length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>📊</Text>
+              <Text style={styles.emptyTitle}>No hay transacciones registradas</Text>
+              <Text style={styles.emptySubtitle}>Agrega tu primera transacción para comenzar</Text>
+            </View>
+          ) : (
+            <View style={styles.transactionsList}>
+              {dashboardData?.recentTransactions.map((transaction, index) => {
+                const icon = transaction.category?.icon || '📊';
+                const name = transaction.category?.name || '';
+                const isIncome = transaction.type === 'INCOME';
+                
+                return (
+                  <View key={transaction.id} style={[
+                    styles.transactionItem,
+                    index === dashboardData.recentTransactions.length - 1 && styles.lastTransactionItem
+                  ]}>
+                    <Text style={styles.transactionIcon}>{icon}</Text>
+                    <View style={styles.transactionInfo}>
+                      <Text style={styles.transactionDescription}>
+                        {transaction.description || name || 'Sin descripción'}
+                      </Text>
+                      <Text style={styles.transactionDate}>
+                        {new Date(transaction.date).toLocaleDateString('es-ES', { 
+                          year: 'numeric', 
+                          month: 'long', 
+                          day: 'numeric' 
+                        })}
+                      </Text>
+                    </View>
+                    <Text style={[
+                      styles.transactionAmount,
+                      isIncome ? styles.incomeAmount : styles.expenseAmount
+                    ]}>
+                      {isIncome ? '+' : '−'}RD${transaction.amount.toLocaleString('es-DO')}
+                    </Text>
+                  </View>
+                );
+              })}
+              
+              {/* Botón para ver todas las transacciones */}
+              {dashboardData?.recentTransactions.length > 0 && (
+                <TouchableOpacity 
+                  style={styles.viewAllButton}
+                  onPress={() => navigation.navigate('Transactions')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.viewAllText}>Ver todas las transacciones</Text>
+                  <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+                </TouchableOpacity>
+              )}
+            </View>
+          )}
+        </View>
+
+        {/* Gráfico de Gastos por Categoría */}
+        {!loading && (
+          <View style={styles.expensesChartCard}>
+            <Text style={styles.cardTitle}>Gastos por Categoría</Text>
+            <ExpensesPieChart 
+              transactions={dashboardData.transactions || []} 
+              categories={dashboardData.categories || []} 
+            />
+          </View>
+        )}
+
+        {/* Estado de Presupuestos */}
+        <View style={styles.budgetStatusCard}>
+          <Text style={styles.cardTitle}>Estado de Presupuestos</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#4f46e5" />
+              <Text style={styles.loadingText}>Cargando...</Text>
+            </View>
+          ) : dashboardData?.budgets.filter(b => b.is_active).length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>💰</Text>
+              <Text style={styles.emptyTitle}>No tienes presupuestos configurados</Text>
+              <Text style={styles.emptySubtitle}>Crea tu primer presupuesto para controlar tus gastos</Text>
+              <TouchableOpacity
+                style={styles.createBudgetButton}
+                onPress={() => navigation.navigate('Budgets')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.createBudgetText}>Crear mi primer presupuesto</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.budgetContent}>
+              {/* Resumen general */}
+              <View style={styles.budgetSummaryGrid}>
+                <View style={styles.budgetSummaryItem}>
+                  <Text style={styles.budgetSummaryLabel}>Presupuesto Total</Text>
+                  <Text style={[styles.budgetSummaryAmount, styles.totalAmount]}>
+                    RD${dashboardData?.totalBudget.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+                <View style={styles.budgetSummaryItem}>
+                  <Text style={styles.budgetSummaryLabel}>Gastado</Text>
+                  <Text style={[styles.budgetSummaryAmount, styles.spentAmount]}>
+                    RD${dashboardData?.totalSpent.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+                <View style={styles.budgetSummaryItem}>
+                  <Text style={styles.budgetSummaryLabel}>Restante</Text>
+                  <Text style={[
+                    styles.budgetSummaryAmount,
+                    (dashboardData?.remainingBudget >= 0) ? styles.remainingPositive : styles.remainingNegative
+                  ]}>
+                    RD${dashboardData?.remainingBudget.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Lista de presupuestos */}
+              <View style={styles.budgetList}>
+                {dashboardData?.budgets
+                  .filter(b => b.is_active)
+                  .sort((a, b) => {
+                    // Ordenar por nivel de gasto: más crítico primero
+                    const percentageA = a.amount > 0 ? ((a.spent || 0) / a.amount) * 100 : 0;
+                    const percentageB = b.amount > 0 ? ((b.spent || 0) / b.amount) * 100 : 0;
+                    return percentageB - percentageA; // Mayor porcentaje primero (más crítico)
+                  })
+                  .slice(0, 3)
+                  .map((budget, index) => {
+                    const spent = budget.spent || 0;
+                    const amount = budget.amount || 0;
+                    const percentage = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
+                    const progressColor = percentage < 70 ? '#4CAF50' : percentage < 80 ? '#FFC107' : '#F44336';
+
+                    return (
+                      <View key={budget.id} style={styles.budgetItem}>
+                        <Text style={styles.budgetIcon}>{budget.category?.icon || '💰'}</Text>
+                        <View style={styles.budgetItemContent}>
+                          <View style={styles.budgetItemHeader}>
+                            <Text style={styles.budgetItemName}>
+                              {budget.category?.name || 'Sin categoría'}
+                            </Text>
+                            <Text style={styles.budgetItemPercentage}>
+                              {percentage.toFixed(0)}%
+                            </Text>
+                          </View>
+                          <View style={styles.progressBarContainer}>
+                            <View style={[styles.progressBarFill, { 
+                              width: `${percentage}%`, 
+                              backgroundColor: progressColor 
+                            }]} />
+                          </View>
+                          <View style={styles.budgetItemAmounts}>
+                            <Text style={styles.budgetItemSpent}>
+                              RD${spent.toLocaleString('es-DO')}
+                            </Text>
+                            <Text style={styles.budgetItemTotal}>
+                              RD${amount.toLocaleString('es-DO')}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+              </View>
+
+              {/* Botón para ver todos los presupuestos */}
+              <TouchableOpacity
+                style={styles.viewAllBudgetsButton}
+                onPress={() => navigation.navigate('Budgets')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllBudgetsText}>
+                  {(dashboardData?.budgets.filter(b => b.is_active).length > 3) 
+                    ? `Ver todos los presupuestos (${dashboardData?.activeBudgets})`
+                    : 'Gestionar presupuestos'
+                  }
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Metas de Ahorro */}
+        <View style={styles.goalsCard}>
+          <Text style={styles.cardTitle}>Metas de Ahorro</Text>
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="small" color="#4f46e5" />
+              <Text style={styles.loadingText}>Cargando...</Text>
+            </View>
+          ) : !dashboardData?.goals || dashboardData.goals.filter(g => !g.isCompleted).length === 0 ? (
+            <View style={styles.emptyContainer}>
+              <Text style={styles.emptyIcon}>🎯</Text>
+              <Text style={styles.emptyTitle}>No tienes metas de ahorro configuradas</Text>
+              <Text style={styles.emptySubtitle}>Establece tus primeras metas para alcanzar tus sueños financieros</Text>
+              <TouchableOpacity
+                style={styles.createGoalButton}
+                onPress={() => navigation.navigate('Goals')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.createGoalText}>Crear mi primera meta</Text>
+              </TouchableOpacity>
+            </View>
+          ) : (
+            <View style={styles.goalsContent}>
+              {/* Resumen general */}
+              <View style={styles.goalsSummaryGrid}>
+                <View style={styles.goalsSummaryItem}>
+                  <Text style={styles.goalsSummaryLabel}>Meta Total</Text>
+                  <Text style={[styles.goalsSummaryAmount, styles.goalTotalAmount]}>
+                    RD${dashboardData?.totalGoalTarget.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+                <View style={styles.goalsSummaryItem}>
+                  <Text style={styles.goalsSummaryLabel}>Ahorrado</Text>
+                  <Text style={[styles.goalsSummaryAmount, styles.goalSavedAmount]}>
+                    RD${dashboardData?.totalGoalSaved.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+                <View style={styles.goalsSummaryItem}>
+                  <Text style={styles.goalsSummaryLabel}>Por Ahorrar</Text>
+                  <Text style={[styles.goalsSummaryAmount, styles.goalRemainingAmount]}>
+                    RD${dashboardData?.totalGoalRemaining.toLocaleString('es-DO')}
+                  </Text>
+                </View>
+              </View>
+
+              {/* Lista de metas */}
+              <View style={styles.goalsList}>
+                {(dashboardData?.goals || [])
+                  .filter(g => !g.isCompleted)
+                  .slice(0, 3)
+                  .map((goal, index) => {
+                    const current = goal.currentAmount || goal.current_amount || 0;
+                    const target = goal.targetAmount || goal.target_amount || 0;
+                    const percentage = target > 0 ? Math.min((current / target) * 100, 100) : 0;
+                    const progressColor = percentage < 30 ? '#F44336' : percentage < 70 ? '#FFC107' : '#4CAF50';
+
+                    return (
+                      <View key={goal.id} style={styles.goalItem}>
+                        <Text style={styles.goalIcon}>🎯</Text>
+                        <View style={styles.goalItemContent}>
+                          <View style={styles.goalItemHeader}>
+                            <Text style={styles.goalItemName}>
+                              {goal.name || 'Meta sin nombre'}
+                            </Text>
+                            <Text style={styles.goalItemPercentage}>
+                              {percentage.toFixed(0)}%
+                            </Text>
+                          </View>
+                          <View style={styles.progressBarContainer}>
+                            <View style={[styles.progressBarFill, { 
+                              width: `${percentage}%`, 
+                              backgroundColor: progressColor 
+                            }]} />
+                          </View>
+                          <View style={styles.goalItemAmounts}>
+                            <Text style={styles.goalItemCurrent}>
+                              RD${current.toLocaleString('es-DO')}
+                            </Text>
+                            <Text style={styles.goalItemTarget}>
+                              RD${target.toLocaleString('es-DO')}
+                            </Text>
+                          </View>
+                        </View>
+                      </View>
+                    );
+                  })}
+              </View>
+
+              {/* Botón para ver todas las metas */}
+              <TouchableOpacity
+                style={styles.viewAllGoalsButton}
+                onPress={() => navigation.navigate('Goals')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllGoalsText}>
+                  {((dashboardData?.goals || []).filter(g => !g.isCompleted).length > 3) 
+                    ? `Ver todas las metas (${dashboardData?.activeGoals})`
+                    : 'Gestionar metas'
+                  }
+                </Text>
+                <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+              </TouchableOpacity>
+            </View>
+          )}
+        </View>
+
+        {/* Tu Vibe Financiero - Gen Z friendly */}
+        <VibeCard />
+
+        {/* Patrones y Tendencias del mes actual */}
+        <PatternsAndTrends />
+
+        {/* Mensaje de bienvenida para usuarios nuevos */}
+        {dashboardData.totalBalance === 0 && dashboardData.monthlyIncome === 0 && dashboardData.monthlyExpenses === 0 && (
+          <View style={styles.welcomeMessage}>
+            <Ionicons name="rocket-outline" size={48} color="#2563EB" />
+            <Text style={styles.welcomeTitle}>¡Bienvenido a FinZen!</Text>
+            <Text style={styles.welcomeText}>
+              Estás listo para comenzar tu viaje financiero. Agrega tu primera transacción o crea un presupuesto para empezar.
+            </Text>
+          </View>
+        )}
+      </ScrollView>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  container: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+  },
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 100,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  loadingText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#64748b',
+  },
+  errorContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  errorText: {
+    marginTop: 12,
+    fontSize: 16,
+    color: '#dc2626',
+    textAlign: 'center',
+  },
+  header: {
+    marginBottom: 24,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  subtitle: {
+    fontSize: 16,
+    color: '#64748b',
+  },
+  balanceCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  balanceLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  balanceAmount: {
+    fontSize: 32,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  balanceDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  balanceItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  balanceItemText: {
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  balanceItemLabel: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  saldoTotalContainer: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    padding: 16,
+    marginTop: 12,
+    alignItems: 'center',
+  },
+  saldoTotalLabel: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  saldoTotalAmount: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  gamificationSection: {
+    marginBottom: 20,
+  },
+  quickStats: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 20,
+  },
+  statCard: {
+    flex: 1,
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  statNumber: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginTop: 8,
+    marginBottom: 4,
+  },
+  statLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    textAlign: 'center',
+  },
+  recentActivity: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  sectionTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  activityItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  activityContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  activityTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  activityDescription: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  activityAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  welcomeMessage: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 32,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  welcomeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  welcomeText: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 22,
+  },
+  expensesChartCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  cardTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+  },
+  // Estilos para Transacciones Recientes
+  recentTransactionsCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  transactionsList: {
+    gap: 0,
+  },
+  transactionItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 4,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  lastTransactionItem: {
+    borderBottomWidth: 0,
+  },
+  transactionIcon: {
+    fontSize: 24,
+    marginRight: 12,
+  },
+  transactionInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  transactionDescription: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 2,
+  },
+  transactionDate: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  transactionAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  incomeAmount: {
+    color: '#059669',
+  },
+  expenseAmount: {
+    color: '#dc2626',
+  },
+  emptyContainer: {
+    alignItems: 'center',
+    paddingVertical: 32,
+  },
+  emptyIcon: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  emptyTitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  emptySubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+  },
+  viewAllButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    marginTop: 8,
+    gap: 8,
+  },
+  viewAllText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4f46e5',
+  },
+  // Estilos para Estado de Presupuestos
+  budgetStatusCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  budgetContent: {
+    gap: 0,
+  },
+  budgetSummaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 8,
+  },
+  budgetSummaryItem: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  budgetSummaryLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  budgetSummaryAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  totalAmount: {
+    color: '#2563eb',
+  },
+  spentAmount: {
+    color: '#dc2626',
+  },
+  remainingPositive: {
+    color: '#059669',
+  },
+  remainingNegative: {
+    color: '#dc2626',
+  },
+  budgetList: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  budgetItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  budgetIcon: {
+    fontSize: 24,
+  },
+  budgetItemContent: {
+    flex: 1,
+  },
+  budgetItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  budgetItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  budgetItemPercentage: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  progressBarContainer: {
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    marginBottom: 4,
+  },
+  progressBarFill: {
+    height: '100%',
+    borderRadius: 4,
+  },
+  budgetItemAmounts: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  budgetItemSpent: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  budgetItemTotal: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  createBudgetButton: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  createBudgetText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  viewAllBudgetsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    gap: 8,
+  },
+  viewAllBudgetsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4f46e5',
+  },
+  // Estilos para Metas de Ahorro
+  goalsCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  goalsContent: {
+    gap: 0,
+  },
+  goalsSummaryGrid: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 20,
+    gap: 8,
+  },
+  goalsSummaryItem: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  goalsSummaryLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 4,
+    textAlign: 'center',
+  },
+  goalsSummaryAmount: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
+  goalTotalAmount: {
+    color: '#2563eb',
+  },
+  goalSavedAmount: {
+    color: '#059669',
+  },
+  goalRemainingAmount: {
+    color: '#d97706',
+  },
+  goalsList: {
+    gap: 12,
+    marginBottom: 20,
+  },
+  goalItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 12,
+    gap: 12,
+  },
+  goalIcon: {
+    fontSize: 24,
+  },
+  goalItemContent: {
+    flex: 1,
+  },
+  goalItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  goalItemName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  goalItemPercentage: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  goalItemAmounts: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  goalItemCurrent: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  goalItemTarget: {
+    fontSize: 12,
+    color: '#64748b',
+  },
+  createGoalButton: {
+    backgroundColor: '#4f46e5',
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 8,
+    marginTop: 16,
+  },
+  createGoalText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+  },
+  viewAllGoalsButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+    gap: 8,
+  },
+  viewAllGoalsText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#4f46e5',
+  },
+});
