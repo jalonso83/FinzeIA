@@ -27,7 +27,7 @@ export default function BudgetsScreen() {
   // Dashboard store para notificar cambios
   const { onBudgetChange } = useDashboardStore();
 
-  // Calcular resumen dinámicamente (replicando exactamente la lógica de la web)
+  // Calcular resumen dinámicamente con análisis de rendimiento y proyecciones
   const stats = useMemo(() => {
     // Filtrar presupuestos activos y del mes actual
     const now = new Date();
@@ -39,15 +39,86 @@ export default function BudgetsScreen() {
       new Date(b.start_date) <= monthEnd &&
       new Date(b.end_date) >= monthStart
     );
+    
     const totalBudget = monthlyBudgets.reduce((sum, b) => sum + (b.amount || 0), 0);
     const monthlyExpenses = monthlyBudgets.reduce((sum, b) => sum + (b.spent || 0), 0);
     const remaining = totalBudget - monthlyExpenses;
-    return {
+
+    // Análisis de rendimiento Gen Z
+    let bestBudget = null;
+    let controlStatus = "Sin presupuestos";
+    let controlIcon = "📊";
+
+    if (monthlyBudgets.length > 0) {
+      // Encontrar el mejor presupuesto (alto uso pero sin exceder)
+      const goodBudgets = monthlyBudgets
+        .filter(b => b.amount > 0)
+        .map(b => ({
+          name: b.name,
+          percentage: (b.spent / b.amount) * 100,
+          isExceeded: b.spent > b.amount
+        }))
+        .filter(b => !b.isExceeded && b.percentage >= 50)
+        .sort((a, b) => b.percentage - a.percentage);
+
+      if (goodBudgets.length > 0) {
+        bestBudget = goodBudgets[0];
+      }
+
+      // Control general (simplificado)
+      const averageUsage = monthlyBudgets.reduce((sum, b) => {
+        return sum + (b.amount > 0 ? Math.min(100, (b.spent / b.amount) * 100) : 0);
+      }, 0) / monthlyBudgets.length;
+
+      if (averageUsage < 60) {
+        controlStatus = `${(100 - averageUsage).toFixed(0)}% bajo control`;
+        controlIcon = "✅";
+      } else if (averageUsage < 80) {
+        controlStatus = "Control normal";
+        controlIcon = "🟡";
+      } else {
+        controlStatus = "Control ajustado";
+        controlIcon = "⚠️";
+      }
+    }
+
+    // Alertas de proyección (presupuestos en riesgo de excederse)
+    const projectionAlerts = monthlyBudgets
+      .filter(b => b.amount > 0 && b.spent > b.amount * 0.9) // 90% o más usado
+      .map(b => {
+        const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+        const currentDay = now.getDate();
+        const remainingDays = daysInMonth - currentDay;
+        
+        if (remainingDays > 0) {
+          const dailyAverage = b.spent / currentDay;
+          const projectedTotal = b.spent + (dailyAverage * remainingDays);
+          const excess = Math.max(0, projectedTotal - b.amount);
+          
+          if (excess > 0) {
+            return {
+              name: b.name,
+              excess: excess
+            };
+          }
+        }
+        return null;
+      })
+      .filter(alert => alert !== null);
+
+    const result = {
       totalBudget,
       monthlyExpenses,
       remaining,
-      currency: 'RD$'
+      currency: 'RD$',
+      bestBudget,
+      controlStatus,
+      controlIcon,
+      projectionAlerts
     };
+
+    console.log('[BudgetsScreen] Stats calculados:', result);
+    return result;
   }, [budgets]);
 
   useEffect(() => {
@@ -618,5 +689,70 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     lineHeight: 20,
+  },
+  
+  // Nuevos estilos para análisis de rendimiento
+  performanceSection: {
+    marginTop: 16,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  performanceCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+  },
+  performanceCard: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    marginHorizontal: 6,
+  },
+  performanceLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  performanceBudget: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  performanceValue: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  
+  // Estilos para alertas de proyección
+  alertsSection: {
+    marginTop: 16,
+  },
+  alertCard: {
+    backgroundColor: '#fef3cd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  alertBudget: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#d97706',
+    fontWeight: '500',
   },
 });

@@ -21,6 +21,10 @@ import ToolsScreen from '../screens/ToolsScreen';
 import FakeToolsScreen from '../screens/FakeToolsScreen';
 import ZenioScreen from '../screens/ZenioScreen';
 import LoanCalculatorScreen from '../screens/LoanCalculatorScreen';
+import InvestmentSimulatorScreen from '../screens/InvestmentSimulatorScreen';
+import GoalCalculatorScreen from '../screens/GoalCalculatorScreen';
+import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
+import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import LoginScreen from '../screens/LoginScreen';
@@ -52,6 +56,10 @@ function ToolsStackNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ToolsHome" component={ToolsScreen} />
       <Stack.Screen name="LoanCalculator" component={LoanCalculatorScreen} />
+      <Stack.Screen name="InvestmentSimulator" component={InvestmentSimulatorScreen} />
+      <Stack.Screen name="GoalCalculator" component={GoalCalculatorScreen} />
+      <Stack.Screen name="SkipVsSave" component={SkipVsSaveScreen} />
+      <Stack.Screen name="InflationCalculator" component={InflationCalculatorScreen} />
     </Stack.Navigator>
   );
 }

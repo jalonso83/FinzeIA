@@ -566,6 +566,112 @@ export default function DashboardScreen() {
                 </View>
               </View>
 
+              {/* Análisis de rendimiento Gen Z */}
+              {dashboardData?.budgets.filter(b => b.is_active).length > 0 && (
+                <View style={styles.performanceSection}>
+                  <Text style={styles.performanceTitle}>🏆 Tu Rendimiento</Text>
+                  <View style={styles.performanceCards}>
+                    {(() => {
+                      const activeBudgets = dashboardData?.budgets.filter(b => b.is_active) || [];
+                      
+                      // Encontrar mejor presupuesto (uso balanceado entre 50-75%)
+                      const bestBudget = activeBudgets
+                        .filter(b => b.amount > 0)
+                        .map(b => ({
+                          name: b.category?.name || b.name,
+                          percentage: (b.spent / b.amount) * 100,
+                          isExceeded: b.spent > b.amount
+                        }))
+                        .filter(b => !b.isExceeded && b.percentage >= 50 && b.percentage <= 75)
+                        .sort((a, b) => b.percentage - a.percentage)[0];
+
+                      // Control general
+                      const averageUsage = activeBudgets.reduce((sum, b) => {
+                        return sum + (b.amount > 0 ? Math.min(100, (b.spent / b.amount) * 100) : 0);
+                      }, 0) / activeBudgets.length;
+
+                      let controlStatus = "Sin presupuestos";
+                      let controlIcon = "📊";
+                      
+                      if (averageUsage < 60) {
+                        controlStatus = `${(100 - averageUsage).toFixed(0)}% bajo control`;
+                        controlIcon = "✅";
+                      } else if (averageUsage < 80) {
+                        controlStatus = "Control normal";
+                        controlIcon = "🟡";
+                      } else {
+                        controlStatus = "Control ajustado";
+                        controlIcon = "⚠️";
+                      }
+
+                      return (
+                        <>
+                          {bestBudget ? (
+                            <View style={styles.performanceCard}>
+                              <Text style={styles.performanceLabel}>Control Balanceado</Text>
+                              <Text style={styles.performanceBudget}>{bestBudget.name}</Text>
+                              <Text style={styles.performanceValue}>{bestBudget.percentage.toFixed(1)}% utilizado ✅</Text>
+                            </View>
+                          ) : (
+                            <View style={styles.performanceCard}>
+                              <Text style={styles.performanceLabel}>Control Balanceado</Text>
+                              <Text style={styles.performanceBudget}>Ninguno en zona ideal</Text>
+                              <Text style={styles.performanceValue}>50-75% es lo ideal</Text>
+                            </View>
+                          )}
+                          <View style={styles.performanceCard}>
+                            <Text style={styles.performanceLabel}>Control General</Text>
+                            <Text style={styles.performanceValue}>
+                              {controlStatus} {controlIcon}
+                            </Text>
+                          </View>
+                        </>
+                      );
+                    })()}
+                  </View>
+                </View>
+              )}
+
+              {/* Alertas de proyección */}
+              {(() => {
+                const activeBudgets = dashboardData?.budgets.filter(b => b.is_active) || [];
+                const now = new Date();
+                const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
+                const currentDay = now.getDate();
+                const remainingDays = daysInMonth - currentDay;
+
+                const projectionAlerts = activeBudgets
+                  .filter(b => b.amount > 0 && b.spent > b.amount * 0.9) // 90% o más usado
+                  .map(b => {
+                    if (remainingDays > 0) {
+                      const dailyAverage = b.spent / currentDay;
+                      const projectedTotal = b.spent + (dailyAverage * remainingDays);
+                      const excess = Math.max(0, projectedTotal - b.amount);
+                      
+                      if (excess > 0) {
+                        return {
+                          name: b.category?.name || b.name,
+                          excess: excess
+                        };
+                      }
+                    }
+                    return null;
+                  })
+                  .filter(alert => alert !== null);
+
+                return projectionAlerts.length > 0 ? (
+                  <View style={styles.alertsSection}>
+                    <Text style={styles.performanceTitle}>⚠️ Alertas</Text>
+                    {projectionAlerts.map((alert, index) => (
+                      <View key={index} style={styles.alertCard}>
+                        <Text style={styles.alertBudget}>{alert.name}</Text>
+                        <Text style={styles.alertMessage}>Puede excederse: +{alert.excess.toFixed(0)} 📈</Text>
+                      </View>
+                    ))}
+                  </View>
+                ) : null;
+              })()}
+
               {/* Lista de presupuestos */}
               <View style={styles.budgetList}>
                 {dashboardData?.budgets
@@ -1328,5 +1434,71 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#4f46e5',
+  },
+  // Estilos para Análisis de Rendimiento en Presupuestos
+  performanceSection: {
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  performanceTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  performanceCards: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  performanceCard: {
+    flex: 1,
+    backgroundColor: '#f8fafc',
+    borderRadius: 8,
+    padding: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+  },
+  performanceLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  performanceBudget: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 4,
+  },
+  performanceValue: {
+    fontSize: 12,
+    color: '#059669',
+    fontWeight: '600',
+  },
+  // Estilos para Alertas de Proyección
+  alertsSection: {
+    marginTop: 16,
+  },
+  alertCard: {
+    backgroundColor: '#fef3cd',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 8,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  alertBudget: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#92400e',
+    marginBottom: 4,
+  },
+  alertMessage: {
+    fontSize: 12,
+    color: '#d97706',
+    fontWeight: '500',
   },
 });

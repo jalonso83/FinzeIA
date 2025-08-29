@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Modal,
   Animated,
+  ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
@@ -28,18 +29,58 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       color: '#2563EB',
       onPress: () => {
         setIsVisible(false);
-        // Navegar directamente al LoanCalculator dentro del stack de Tools
-        navigation.navigate('LoanCalculator');
+        // Navegar primero al tab Tools y luego a la screen específica
+        navigation.navigate('Tools', { screen: 'LoanCalculator' });
       },
     },
     {
       id: 'investment-calculator',
-      title: 'Calculadora de ROI',
-      description: 'Próximamente',
+      title: 'Simulador de Inversión',
+      description: 'Ve tu futuro financiero 🚀',
       icon: 'trending-up' as const,
+      color: '#8B5CF6',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        // Navegar primero al tab Tools y luego a la screen específica
+        navigation.navigate('Tools', { screen: 'InvestmentSimulator' });
+      },
+    },
+    {
+      id: 'goal-calculator',
+      title: 'Calculadora de Metas',
+      description: 'Planifica tus objetivos 🎯',
+      icon: 'flag' as const,
       color: '#059669',
-      disabled: true,
-      onPress: () => {},
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'GoalCalculator' });
+      },
+    },
+    {
+      id: 'skip-vs-save',
+      title: 'Reto: ¿Gastar o Ahorrar?',
+      description: 'Ve el impacto de tus gastos 💸',
+      icon: 'flash' as const,
+      color: '#059669',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'SkipVsSave' });
+      },
+    },
+    {
+      id: 'inflation-calculator',
+      title: 'Calculadora de Inflación',
+      description: 'Ve cómo se destruye tu dinero 📈',
+      icon: 'trending-up' as const,
+      color: '#ef4444',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'InflationCalculator' });
+      },
     },
     {
       id: 'currency-converter',
@@ -89,7 +130,11 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
               </TouchableOpacity>
             </View>
 
-            <View style={styles.utilitiesList}>
+            <ScrollView 
+              style={styles.utilitiesList}
+              contentContainerStyle={styles.utilitiesListContent}
+              showsVerticalScrollIndicator={false}
+            >
               {utilities.map((utility) => (
                 <TouchableOpacity
                   key={utility.id}
@@ -143,7 +188,7 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
                   )}
                 </TouchableOpacity>
               ))}
-            </View>
+            </ScrollView>
           </View>
         </TouchableOpacity>
       </Modal>
@@ -171,7 +216,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     paddingBottom: 34, // Safe area para iPhone
-    maxHeight: '60%',
+    maxHeight: '75%', // Aumentar altura máxima
   },
   menuHeader: {
     flexDirection: 'row',
@@ -191,6 +236,9 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   utilitiesList: {
+    maxHeight: 350, // Altura máxima para permitir scroll
+  },
+  utilitiesListContent: {
     paddingHorizontal: 20,
     paddingVertical: 16,
     gap: 12,
