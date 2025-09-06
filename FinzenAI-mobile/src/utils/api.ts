@@ -140,8 +140,8 @@ export const categoriesAPI = {
 
 // APIs para presupuestos
 export const budgetsAPI = {
-  getAll: () => 
-    api.get<{ budgets: Budget[] }>('/budgets'),
+  getAll: (params?: { is_active?: boolean; category_id?: string }) => 
+    api.get<{ budgets: Budget[] }>('/budgets', { params }),
   
   create: (data: Omit<Budget, 'id' | 'spent'>) => 
     api.post<Budget>('/budgets', data),

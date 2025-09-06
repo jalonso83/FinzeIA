@@ -132,7 +132,8 @@ export default function BudgetsScreen() {
   const loadBudgets = async () => {
     try {
       setLoading(true);
-      const response = await budgetsAPI.getAll();
+      // Solo obtener presupuestos activos
+      const response = await budgetsAPI.getAll({ is_active: true });
       
       // Usar la estructura correcta de la API
       setBudgets(response.data.budgets || response.data || []);
@@ -235,66 +236,34 @@ export default function BudgetsScreen() {
       </View>
 
       <ScrollView style={styles.scrollView}>
-        {/* Resumen de presupuestos (replicando la web) */}
+        {/* Resumen de presupuestos (patrón dashboard) */}
         <View style={styles.summaryContainer}>
           <Text style={styles.summaryTitle}>Resumen de Presupuestos</Text>
-          <View style={styles.summaryCards}>
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryCardTop}>
-                <Text style={styles.summaryCardLabel} numberOfLines={2}>Presupuesto mensual</Text>
-              </View>
-              <View style={styles.summaryCardMiddle}>
-                <Text 
-                  style={[styles.summaryCardValue, { color: '#2563EB' }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
-                  minimumFontScale={0.8}
-                >
-                  {stats.totalBudget.toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.summaryCardBottom}>
-                <Text style={styles.summaryCardCurrency}>{stats.currency}</Text>
-              </View>
+          
+          {/* Fila superior: Presupuesto mensual */}
+          <View style={styles.monthlyBudgetRow}>
+            <Text style={styles.monthlyBudgetLabel}>Presupuesto mensual</Text>
+            <Text style={styles.monthlyBudgetValue}>
+              {formatCurrency(stats.totalBudget)}
+            </Text>
+          </View>
+          
+          {/* Fila inferior: Dos columnas */}
+          <View style={styles.bottomRow}>
+            <View style={styles.bottomColumn}>
+              <Text style={styles.bottomLabel}>Gasto actual</Text>
+              <Text style={[styles.bottomValue, { color: '#ef4444' }]}>
+                {formatCurrency(stats.monthlyExpenses)}
+              </Text>
             </View>
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryCardTop}>
-                <Text style={styles.summaryCardLabel} numberOfLines={2}>Gasto actual</Text>
-              </View>
-              <View style={styles.summaryCardMiddle}>
-                <Text 
-                  style={[styles.summaryCardValue, { color: '#ef4444' }]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
-                  minimumFontScale={0.8}
-                >
-                  {stats.monthlyExpenses.toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.summaryCardBottom}>
-                <Text style={styles.summaryCardCurrency}>{stats.currency}</Text>
-              </View>
-            </View>
-            <View style={styles.summaryCard}>
-              <View style={styles.summaryCardTop}>
-                <Text style={styles.summaryCardLabel} numberOfLines={2}>Restante</Text>
-              </View>
-              <View style={styles.summaryCardMiddle}>
-                <Text 
-                  style={[
-                    styles.summaryCardValue, 
-                    { color: stats.remaining >= 0 ? '#059669' : '#dc2626' }
-                  ]}
-                  numberOfLines={1}
-                  adjustsFontSizeToFit={true}
-                  minimumFontScale={0.8}
-                >
-                  {Math.abs(stats.remaining).toFixed(2)}
-                </Text>
-              </View>
-              <View style={styles.summaryCardBottom}>
-                <Text style={styles.summaryCardCurrency}>{stats.currency}</Text>
-              </View>
+            <View style={styles.bottomColumn}>
+              <Text style={styles.bottomLabel}>Restante</Text>
+              <Text style={[
+                styles.bottomValue, 
+                { color: stats.remaining >= 0 ? '#059669' : '#dc2626' }
+              ]}>
+                {formatCurrency(Math.abs(stats.remaining))}
+              </Text>
             </View>
           </View>
         </View>
@@ -600,7 +569,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1e293b',
   },
-  // Estilos para el resumen de presupuestos (replicando la web)
+  // Estilos para el resumen de presupuestos (patrón dashboard)
   summaryContainer: {
     backgroundColor: 'white',
     borderRadius: 12,
@@ -621,58 +590,47 @@ const styles = StyleSheet.create({
     color: '#374151',
     marginBottom: 16,
   },
-  summaryCards: {
+  // Fila superior: Presupuesto mensual
+  monthlyBudgetRow: {
+    alignItems: 'center',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  monthlyBudgetLabel: {
+    fontSize: 16,
+    color: '#64748b',
+    fontWeight: '500',
+    textAlign: 'center',
+    marginBottom: 4,
+  },
+  monthlyBudgetValue: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2563EB',
+    textAlign: 'center',
+  },
+  // Fila inferior: Dos columnas
+  bottomRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 8,
+    gap: 16,
   },
-  summaryCard: {
+  bottomColumn: {
     flex: 1,
     alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: 12,
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    minWidth: 0, // Permitir que el flex funcione correctamente
-    height: 85, // Altura fija para todas las tarjetas
   },
-  summaryCardTop: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 28,
-  },
-  summaryCardMiddle: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 28,
-  },
-  summaryCardBottom: {
-    flex: 0.5,
-    justifyContent: 'center',
-    alignItems: 'center',
-    minHeight: 16,
-  },
-  summaryCardLabel: {
-    fontSize: 11,
+  bottomLabel: {
+    fontSize: 14,
     color: '#64748b',
+    marginBottom: 4,
     textAlign: 'center',
-    numberOfLines: 2,
   },
-  summaryCardValue: {
-    fontSize: 20,
+  bottomValue: {
+    fontSize: 16,
     fontWeight: 'bold',
     textAlign: 'center',
-    numberOfLines: 1,
-    adjustsFontSizeToFit: true,
-    minimumFontScale: 0.8,
-  },
-  summaryCardCurrency: {
-    fontSize: 10,
-    color: '#64748b',
-    textAlign: 'center',
-    fontWeight: '500',
   },
   // Estilo para la descripción
   descriptionContainer: {

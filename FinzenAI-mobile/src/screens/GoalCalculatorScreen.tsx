@@ -10,6 +10,7 @@ import {
   Dimensions,
   Animated,
   TextInput,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -75,6 +76,7 @@ export default function GoalCalculatorScreen() {
   const [selectedPercentage, setSelectedPercentage] = useState(0);
   const [selectedTimeframe, setSelectedTimeframe] = useState(36);
   const [result, setResult] = useState<GoalResult | null>(null);
+  const [showInfoModal, setShowInfoModal] = useState(false);
 
   useEffect(() => {
     loadGoalTypes();
@@ -334,7 +336,15 @@ export default function GoalCalculatorScreen() {
 
       {/* Comparación de métodos */}
       <View style={styles.comparisonCard}>
-        <Text style={styles.comparisonTitle}>💡 Ahorro vs Inversión</Text>
+        <View style={styles.comparisonTitleRow}>
+          <Text style={styles.comparisonTitle}>💡 Ahorro vs Inversión</Text>
+          <TouchableOpacity 
+            style={styles.infoButton} 
+            onPress={() => setShowInfoModal(true)}
+          >
+            <Ionicons name="information-circle-outline" size={16} color="#2563EB" />
+          </TouchableOpacity>
+        </View>
         
         <View style={styles.comparisonRow}>
           <View style={styles.comparisonMethod}>
@@ -424,6 +434,47 @@ export default function GoalCalculatorScreen() {
         {step === 4 && renderStep4()}
         {step === 5 && renderStep5()}
       </ScrollView>
+
+      {/* Modal de información */}
+      <Modal
+        visible={showInfoModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowInfoModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.modalCloseButton}
+              onPress={() => setShowInfoModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>🎯 ¿Qué significa esto?</Text>
+            
+            <Text style={styles.modalText}>
+              • Si solo ahorras (0% interés), necesitas guardar{' '}
+              <Text style={styles.modalHighlight}>
+                {result ? formatCurrency(result.monthlySavingsRequired) : 'X'}/mes
+              </Text>{'\n\n'}
+              • Si inviertes con rendimiento (5-8% anual aprox.), solo necesitas{' '}
+              <Text style={styles.modalHighlight}>
+                {result ? formatCurrency(result.monthlyInvestmentRequired) : 'Y'}/mes
+              </Text>{'\n\n'}
+              • La diferencia de{' '}
+              <Text style={styles.modalHighlight}>
+                {result ? formatCurrency(result.investmentAdvantage) : 'Z'}
+              </Text>{' '}
+              es lo que "ahorras" mensualmente al invertir vs solo guardar dinero.
+            </Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -719,7 +770,7 @@ const styles = StyleSheet.create({
   comparisonCard: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 20,
+    padding: 16,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -730,8 +781,6 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '600',
     color: '#374151',
-    marginBottom: 16,
-    textAlign: 'center',
   },
   comparisonRow: {
     flexDirection: 'row',
@@ -818,5 +867,67 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#64748b',
+  },
+  // Estilos para el header del card y modal de información
+  comparisonTitleRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  infoButton: {
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+  },
+  // Estilos del modal de información
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 4,
+    zIndex: 1,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 16,
+    textAlign: 'center',
+    paddingRight: 32, // Espacio para el botón cerrar
+  },
+  modalText: {
+    fontSize: 16,
+    color: '#374151',
+    lineHeight: 24,
+  },
+  modalBold: {
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  modalHighlight: {
+    fontWeight: 'bold',
+    color: '#2563EB',
   },
 });
