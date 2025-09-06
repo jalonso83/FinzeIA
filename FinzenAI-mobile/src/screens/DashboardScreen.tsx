@@ -1,8 +1,8 @@
 // Dashboard Screen - Pantalla principal móvil
 // Reutilizará la lógica del Dashboard web adaptada para móvil
 
-import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity } from 'react-native';
+import React, { useState, useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, AppState } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -14,9 +14,15 @@ import ExpensesPieChart from '../components/dashboard/ExpensesPieChart';
 import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI } from '../utils/api';
 import api from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface DashboardData {
   totalBalance: number;
+  monthlyBalance: number;
+  cumulativeBalance: number;
+  previousMonthsBalance: number;
+  previousMonthsIncome: number;
+  previousMonthsExpenses: number;
   allIncome: number;
   allExpenses: number;
   monthlyIncome: number;
@@ -51,9 +57,13 @@ export default function DashboardScreen() {
   const navigation = useNavigation<any>();
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
+  const lastDateRef = useRef<string>(new Date().toDateString());
   
   // Suscribirse a cambios del dashboard
   const { refreshTrigger } = useDashboardStore();
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     loadDashboardData();
@@ -66,6 +76,47 @@ export default function DashboardScreen() {
       loadDashboardData();
     }
   }, [refreshTrigger]);
+
+  // Recargar dashboard automáticamente al cambiar de día/mes
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        const currentDate = new Date().toDateString();
+        
+        // Verificar si cambió el día/mes desde la última vez
+        if (lastDateRef.current !== currentDate) {
+          console.log('Dashboard: Fecha cambió mientras la app estaba en background, recargando datos...', { 
+            from: lastDateRef.current, 
+            to: currentDate 
+          });
+          lastDateRef.current = currentDate;
+          loadDashboardData();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    
+    // También verificar cada 4 horas si la app está activa
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        const currentDate = new Date().toDateString();
+        if (lastDateRef.current !== currentDate) {
+          console.log('Dashboard: Fecha cambió, recargando datos por intervalo...', {
+            from: lastDateRef.current,
+            to: currentDate
+          });
+          lastDateRef.current = currentDate;
+          loadDashboardData();
+        }
+      }
+    }, 4 * 60 * 60 * 1000); // 4 horas
+
+    return () => {
+      subscription?.remove();
+      clearInterval(interval);
+    };
+  }, []);
 
   const loadDashboardData = async () => {
     let gamificationResponse: any, streakResponse: any, transactionsResponse: any, budgetsResponse: any, goalsResponse: any, categoriesResponse: any;
@@ -175,7 +226,10 @@ export default function DashboardScreen() {
         const currentYear = new Date().getFullYear();
         
         transactions.forEach((transaction: any) => {
-          const transactionDate = new Date(transaction.date);
+          // Crear fecha segura para evitar problemas de zona horaria
+          const transactionDate = transaction.date.includes('T') 
+            ? new Date(transaction.date) 
+            : new Date(transaction.date + 'T12:00:00');
           if (transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear) {
             monthlyTransactions++; // Contar transacciones del mes actual
             if (transaction.type === 'INCOME') {
@@ -189,6 +243,48 @@ export default function DashboardScreen() {
         // BALANCE TOTAL = TODOS LOS INGRESOS - TODOS LOS GASTOS (como en la web)
         totalBalance = allIncome - allExpenses;
       }
+
+      // Calcular balance mensual
+      const monthlyBalance = monthlyIncome - monthlyExpenses;
+
+      // Calcular balance acumulado (mes actual + todos los meses anteriores)
+      let cumulativeBalance = 0;
+      let previousMonthsIncome = 0;
+      let previousMonthsExpenses = 0;
+      
+      if (transactionsResponse.status === 'fulfilled') {
+        const transactions = transactionsResponse.value.data.transactions || transactionsResponse.value.data || [];
+        
+        // Calcular el balance acumulado hasta el mes actual
+        const currentMonth = new Date().getMonth();
+        const currentYear = new Date().getFullYear();
+        
+        transactions.forEach((transaction: any) => {
+          // Crear fecha segura para evitar problemas de zona horaria
+          const transactionDate = transaction.date.includes('T') 
+            ? new Date(transaction.date) 
+            : new Date(transaction.date + 'T12:00:00');
+          const transactionMonth = transactionDate.getMonth();
+          const transactionYear = transactionDate.getFullYear();
+          
+          // Solo incluir transacciones hasta el mes actual (incluyendo meses anteriores)
+          if (transactionYear < currentYear || (transactionYear === currentYear && transactionMonth <= currentMonth)) {
+            if (transaction.type === 'INCOME') {
+              cumulativeBalance += transaction.amount;
+              if (transactionYear < currentYear || (transactionYear === currentYear && transactionMonth < currentMonth)) {
+                previousMonthsIncome += transaction.amount;
+              }
+            } else {
+              cumulativeBalance -= transaction.amount;
+              if (transactionYear < currentYear || (transactionYear === currentYear && transactionMonth < currentMonth)) {
+                previousMonthsExpenses += transaction.amount;
+              }
+            }
+          }
+        });
+      }
+      
+      const previousMonthsBalance = previousMonthsIncome - previousMonthsExpenses;
 
       // Procesar presupuestos activos
       let activeBudgets = 0;
@@ -252,11 +348,21 @@ export default function DashboardScreen() {
 
       // Calcular transacciones recientes (últimas 10) igual que en la web
       const recentTransactions = [...transactions]
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+        .sort((a, b) => {
+          // Crear fechas seguras para comparar
+          const dateA = a.date.includes('T') ? new Date(a.date) : new Date(a.date + 'T12:00:00');
+          const dateB = b.date.includes('T') ? new Date(b.date) : new Date(b.date + 'T12:00:00');
+          return dateB.getTime() - dateA.getTime();
+        })
         .slice(0, 10);
 
       const dashboardData: DashboardData = {
         totalBalance,
+        monthlyBalance,
+        cumulativeBalance,
+        previousMonthsBalance,
+        previousMonthsIncome,
+        previousMonthsExpenses,
         allIncome,
         allExpenses,
         monthlyIncome,
@@ -304,6 +410,11 @@ export default function DashboardScreen() {
       // En caso de error, usar datos por defecto
       const fallbackData: DashboardData = {
         totalBalance: 0,
+        monthlyBalance: 0,
+        cumulativeBalance: 0,
+        previousMonthsBalance: 0,
+        previousMonthsIncome: 0,
+        previousMonthsExpenses: 0,
         allIncome: 0,
         allExpenses: 0,
         monthlyIncome: 0,
@@ -341,9 +452,6 @@ export default function DashboardScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `$${amount.toLocaleString('es-ES')}`;
-  };
 
   if (loading) {
     return (
@@ -380,25 +488,62 @@ export default function DashboardScreen() {
           
           <View style={styles.balanceDetail}>
             <View style={styles.balanceItem}>
-              <Ionicons name="trending-up" size={16} color="#059669" />
+              <View style={styles.balanceItemHeader}>
+                <Ionicons name="trending-up" size={16} color="#059669" />
+                <Text style={styles.balanceItemLabel}>Ingresos</Text>
+              </View>
               <Text style={[styles.balanceItemText, { color: '#059669' }]}>
-                {formatCurrency(dashboardData.allIncome)}
+                {formatCurrency(dashboardData.monthlyIncome)}
               </Text>
-              <Text style={styles.balanceItemLabel}>Ingresos</Text>
             </View>
             <View style={styles.balanceItem}>
-              <Ionicons name="trending-down" size={16} color="#dc2626" />
+              <View style={styles.balanceItemHeader}>
+                <Ionicons name="trending-down" size={16} color="#dc2626" />
+                <Text style={styles.balanceItemLabel}>Gastos</Text>
+              </View>
               <Text style={[styles.balanceItemText, { color: '#dc2626' }]}>
-                {formatCurrency(dashboardData.allExpenses)}
+                {formatCurrency(dashboardData.monthlyExpenses)}
               </Text>
-              <Text style={styles.balanceItemLabel}>Gastos</Text>
             </View>
           </View>
           
           <View style={styles.saldoTotalContainer}>
             <Text style={styles.saldoTotalLabel}>Saldo Total</Text>
             <Text style={styles.saldoTotalAmount}>
-              {formatCurrency(dashboardData.totalBalance)}
+              {formatCurrency(dashboardData.monthlyBalance)}
+            </Text>
+          </View>
+        </View>
+
+        {/* Comprehensive Balance Card */}
+        <View style={styles.comprehensiveBalanceCard}>
+          <Text style={styles.comprehensiveBalanceTitle}>Balance Mensual + Saldo Anterior</Text>
+          
+          <View style={styles.comprehensiveBalanceDetail}>
+            <View style={styles.comprehensiveBalanceItem}>
+              <View style={styles.comprehensiveBalanceItemHeader}>
+                <Ionicons name="trending-up" size={16} color="#059669" />
+                <Text style={styles.comprehensiveBalanceItemLabel}>Ingresos</Text>
+              </View>
+              <Text style={[styles.comprehensiveBalanceItemText, { color: '#059669' }]}>
+                {formatCurrency(dashboardData.monthlyIncome + dashboardData.previousMonthsIncome)}
+              </Text>
+            </View>
+            <View style={styles.comprehensiveBalanceItem}>
+              <View style={styles.comprehensiveBalanceItemHeader}>
+                <Ionicons name="trending-down" size={16} color="#dc2626" />
+                <Text style={styles.comprehensiveBalanceItemLabel}>Gastos</Text>
+              </View>
+              <Text style={[styles.comprehensiveBalanceItemText, { color: '#dc2626' }]}>
+                {formatCurrency(dashboardData.monthlyExpenses + dashboardData.previousMonthsExpenses)}
+              </Text>
+            </View>
+          </View>
+          
+          <View style={styles.comprehensiveSaldoContainer}>
+            <Text style={styles.comprehensiveSaldoLabel}>Saldo Total</Text>
+            <Text style={styles.comprehensiveSaldoAmount}>
+              {formatCurrency(dashboardData.cumulativeBalance)}
             </Text>
           </View>
         </View>
@@ -418,6 +563,16 @@ export default function DashboardScreen() {
         <View style={styles.quickStats}>
           <TouchableOpacity 
             style={styles.statCard}
+            onPress={() => navigation.navigate('Transactions')}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="bar-chart-outline" size={24} color="#7c3aed" />
+            <Text style={styles.statNumber}>{dashboardData.monthlyTransactions}</Text>
+            <Text style={styles.statLabel}>Transacciones del Mes</Text>
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.statCard}
             onPress={() => navigation.navigate('Budgets')}
             activeOpacity={0.7}
           >
@@ -435,12 +590,6 @@ export default function DashboardScreen() {
             <Text style={styles.statNumber}>{dashboardData.activeGoals}</Text>
             <Text style={styles.statLabel}>Metas Activas</Text>
           </TouchableOpacity>
-          
-          <View style={styles.statCard}>
-            <Ionicons name="bar-chart-outline" size={24} color="#7c3aed" />
-            <Text style={styles.statNumber}>{dashboardData.monthlyTransactions}</Text>
-            <Text style={styles.statLabel}>Transacciones del Mes</Text>
-          </View>
         </View>
 
         {/* Transacciones Recientes */}
@@ -475,18 +624,24 @@ export default function DashboardScreen() {
                         {transaction.description || name || 'Sin descripción'}
                       </Text>
                       <Text style={styles.transactionDate}>
-                        {new Date(transaction.date).toLocaleDateString('es-ES', { 
-                          year: 'numeric', 
-                          month: 'long', 
-                          day: 'numeric' 
-                        })}
+                        {(() => {
+                          // Crear fecha segura para mostrar
+                          const date = transaction.date.includes('T') 
+                            ? new Date(transaction.date) 
+                            : new Date(transaction.date + 'T12:00:00');
+                          return date.toLocaleDateString('es-ES', { 
+                            year: 'numeric', 
+                            month: 'long', 
+                            day: 'numeric' 
+                          });
+                        })()}
                       </Text>
                     </View>
                     <Text style={[
                       styles.transactionAmount,
                       isIncome ? styles.incomeAmount : styles.expenseAmount
                     ]}>
-                      {isIncome ? '+' : '−'}RD${transaction.amount.toLocaleString('es-DO')}
+                      {isIncome ? '+' : '−'}{formatCurrency(transaction.amount)}
                     </Text>
                   </View>
                 );
@@ -507,12 +662,23 @@ export default function DashboardScreen() {
           )}
         </View>
 
-        {/* Gráfico de Gastos por Categoría */}
+        {/* Gráfico de Transacciones por Categoría */}
         {!loading && (
           <View style={styles.expensesChartCard}>
-            <Text style={styles.cardTitle}>Gastos por Categoría</Text>
+            <View style={styles.cardHeader}>
+              <Text style={styles.cardTitle}>Transacciones por Categoría</Text>
+              <Text style={styles.cardSubtitle}>{new Date().toLocaleDateString('es-ES', { month: 'long', year: 'numeric' })}</Text>
+            </View>
             <ExpensesPieChart 
-              transactions={dashboardData.transactions || []} 
+              transactions={dashboardData.transactions?.filter(transaction => {
+                // Crear fecha segura para evitar problemas de zona horaria
+                const transactionDate = transaction.date.includes('T') 
+                  ? new Date(transaction.date) 
+                  : new Date(transaction.date + 'T12:00:00');
+                const currentDate = new Date();
+                return transactionDate.getMonth() === currentDate.getMonth() && 
+                       transactionDate.getFullYear() === currentDate.getFullYear();
+              }) || []} 
               categories={dashboardData.categories || []} 
             />
           </View>
@@ -541,28 +707,33 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <View style={styles.budgetContent}>
-              {/* Resumen general */}
-              <View style={styles.budgetSummaryGrid}>
-                <View style={styles.budgetSummaryItem}>
+              {/* Resumen general - Layout mejorado */}
+              <View style={styles.budgetSummaryContainer}>
+                {/* Presupuesto Total - Fila completa */}
+                <View style={styles.budgetTotalRow}>
                   <Text style={styles.budgetSummaryLabel}>Presupuesto Total</Text>
                   <Text style={[styles.budgetSummaryAmount, styles.totalAmount]}>
-                    RD${dashboardData?.totalBudget.toLocaleString('es-DO')}
+                    {formatCurrency(dashboardData?.totalBudget || 0)}
                   </Text>
                 </View>
-                <View style={styles.budgetSummaryItem}>
-                  <Text style={styles.budgetSummaryLabel}>Gastado</Text>
-                  <Text style={[styles.budgetSummaryAmount, styles.spentAmount]}>
-                    RD${dashboardData?.totalSpent.toLocaleString('es-DO')}
-                  </Text>
-                </View>
-                <View style={styles.budgetSummaryItem}>
-                  <Text style={styles.budgetSummaryLabel}>Restante</Text>
-                  <Text style={[
-                    styles.budgetSummaryAmount,
-                    (dashboardData?.remainingBudget >= 0) ? styles.remainingPositive : styles.remainingNegative
-                  ]}>
-                    RD${dashboardData?.remainingBudget.toLocaleString('es-DO')}
-                  </Text>
+                
+                {/* Gastado y Restante - Dos columnas */}
+                <View style={styles.budgetBottomRow}>
+                  <View style={styles.budgetBottomItem}>
+                    <Text style={styles.budgetSummaryLabel}>Gastado</Text>
+                    <Text style={[styles.budgetSummaryAmount, styles.spentAmount]}>
+                      {formatCurrency(dashboardData?.totalSpent || 0)}
+                    </Text>
+                  </View>
+                  <View style={styles.budgetBottomItem}>
+                    <Text style={styles.budgetSummaryLabel}>Restante</Text>
+                    <Text style={[
+                      styles.budgetSummaryAmount,
+                      (dashboardData?.remainingBudget >= 0) ? styles.remainingPositive : styles.remainingNegative
+                    ]}>
+                      {formatCurrency(dashboardData?.remainingBudget || 0)}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -574,16 +745,43 @@ export default function DashboardScreen() {
                     {(() => {
                       const activeBudgets = dashboardData?.budgets.filter(b => b.is_active) || [];
                       
-                      // Encontrar mejor presupuesto (uso balanceado entre 50-75%)
-                      const bestBudget = activeBudgets
+                      // Encontrar mejor presupuesto con nueva lógica
+                      const budgetAnalysis = activeBudgets
                         .filter(b => b.amount > 0)
                         .map(b => ({
                           name: b.category?.name || b.name,
                           percentage: (b.spent / b.amount) * 100,
-                          isExceeded: b.spent > b.amount
-                        }))
-                        .filter(b => !b.isExceeded && b.percentage >= 50 && b.percentage <= 75)
-                        .sort((a, b) => b.percentage - a.percentage)[0];
+                          isExceeded: b.spent > b.amount,
+                          spent: b.spent,
+                          amount: b.amount
+                        }));
+                      
+                      // Prioridades de control (lógica corregida):
+                      // 1. Excelente control: 0-25% (sin usar o muy poco usado)
+                      // 2. Uso balanceado: 25-50% (zona ideal saludable)
+                      // 3. Control moderado: 50-75% (más de la mitad gastado, requiere atención)
+                      // 4. Uso alto: 75-100% (requiere mucha atención)
+                      
+                      const excellentControl = budgetAnalysis.filter(b => !b.isExceeded && b.percentage >= 0 && b.percentage <= 25);
+                      const balancedUse = budgetAnalysis.filter(b => !b.isExceeded && b.percentage > 25 && b.percentage <= 50);
+                      const moderateControl = budgetAnalysis.filter(b => !b.isExceeded && b.percentage > 50 && b.percentage <= 75);
+                      
+                      let bestBudget = null;
+                      let controlType = "";
+                      
+                      if (excellentControl.length > 0) {
+                        // Mostrar el que menos ha gastado (mejor control)
+                        bestBudget = excellentControl.sort((a, b) => a.percentage - b.percentage)[0];
+                        controlType = "excelente";
+                      } else if (balancedUse.length > 0) {
+                        // Mostrar el más cercano al 37.5% (centro de la nueva zona ideal 25-50%)
+                        bestBudget = balancedUse.sort((a, b) => Math.abs(a.percentage - 37.5) - Math.abs(b.percentage - 37.5))[0];
+                        controlType = "balanceado";
+                      } else if (moderateControl.length > 0) {
+                        // Mostrar el que mejor control tiene (menor porcentaje en esta zona)
+                        bestBudget = moderateControl.sort((a, b) => a.percentage - b.percentage)[0];
+                        controlType = "moderado";
+                      }
 
                       // Control general
                       const averageUsage = activeBudgets.reduce((sum, b) => {
@@ -608,15 +806,24 @@ export default function DashboardScreen() {
                         <>
                           {bestBudget ? (
                             <View style={styles.performanceCard}>
-                              <Text style={styles.performanceLabel}>Control Balanceado</Text>
+                              <Text style={styles.performanceLabel}>
+                                {controlType === "excelente" ? "Control Excelente" : 
+                                 controlType === "balanceado" ? "Uso Balanceado" : 
+                                 "Control Moderado"}
+                              </Text>
                               <Text style={styles.performanceBudget}>{bestBudget.name}</Text>
-                              <Text style={styles.performanceValue}>{bestBudget.percentage.toFixed(1)}% utilizado ✅</Text>
+                              <Text style={styles.performanceValue}>
+                                {bestBudget.percentage.toFixed(1)}% utilizado {
+                                  controlType === "excelente" ? "🏆" : 
+                                  controlType === "balanceado" ? "✅" : "👍"
+                                }
+                              </Text>
                             </View>
                           ) : (
                             <View style={styles.performanceCard}>
-                              <Text style={styles.performanceLabel}>Control Balanceado</Text>
-                              <Text style={styles.performanceBudget}>Ninguno en zona ideal</Text>
-                              <Text style={styles.performanceValue}>50-75% es lo ideal</Text>
+                              <Text style={styles.performanceLabel}>Control de Gastos</Text>
+                              <Text style={styles.performanceBudget}>Revisa tus presupuestos</Text>
+                              <Text style={styles.performanceValue}>Todos excedidos ⚠️</Text>
                             </View>
                           )}
                           <View style={styles.performanceCard}>
@@ -665,7 +872,7 @@ export default function DashboardScreen() {
                     {projectionAlerts.map((alert, index) => (
                       <View key={index} style={styles.alertCard}>
                         <Text style={styles.alertBudget}>{alert.name}</Text>
-                        <Text style={styles.alertMessage}>Puede excederse: +{alert.excess.toFixed(0)} 📈</Text>
+                        <Text style={styles.alertMessage}>Puede excederse: +{formatCurrency(alert.excess)} 📈</Text>
                       </View>
                     ))}
                   </View>
@@ -709,10 +916,10 @@ export default function DashboardScreen() {
                           </View>
                           <View style={styles.budgetItemAmounts}>
                             <Text style={styles.budgetItemSpent}>
-                              RD${spent.toLocaleString('es-DO')}
+                              {formatCurrency(spent)}
                             </Text>
                             <Text style={styles.budgetItemTotal}>
-                              RD${amount.toLocaleString('es-DO')}
+                              {formatCurrency(amount)}
                             </Text>
                           </View>
                         </View>
@@ -762,25 +969,30 @@ export default function DashboardScreen() {
             </View>
           ) : (
             <View style={styles.goalsContent}>
-              {/* Resumen general */}
-              <View style={styles.goalsSummaryGrid}>
-                <View style={styles.goalsSummaryItem}>
+              {/* Resumen general - Layout mejorado */}
+              <View style={styles.goalsSummaryContainer}>
+                {/* Meta Total - Fila completa */}
+                <View style={styles.goalsTotalRow}>
                   <Text style={styles.goalsSummaryLabel}>Meta Total</Text>
                   <Text style={[styles.goalsSummaryAmount, styles.goalTotalAmount]}>
-                    RD${dashboardData?.totalGoalTarget.toLocaleString('es-DO')}
+                    {formatCurrency(dashboardData?.totalGoalTarget || 0)}
                   </Text>
                 </View>
-                <View style={styles.goalsSummaryItem}>
-                  <Text style={styles.goalsSummaryLabel}>Ahorrado</Text>
-                  <Text style={[styles.goalsSummaryAmount, styles.goalSavedAmount]}>
-                    RD${dashboardData?.totalGoalSaved.toLocaleString('es-DO')}
-                  </Text>
-                </View>
-                <View style={styles.goalsSummaryItem}>
-                  <Text style={styles.goalsSummaryLabel}>Por Ahorrar</Text>
-                  <Text style={[styles.goalsSummaryAmount, styles.goalRemainingAmount]}>
-                    RD${dashboardData?.totalGoalRemaining.toLocaleString('es-DO')}
-                  </Text>
+                
+                {/* Ahorrado y Por Ahorrar - Dos columnas */}
+                <View style={styles.goalsBottomRow}>
+                  <View style={styles.goalsBottomItem}>
+                    <Text style={styles.goalsSummaryLabel}>Ahorrado</Text>
+                    <Text style={[styles.goalsSummaryAmount, styles.goalSavedAmount]}>
+                      {formatCurrency(dashboardData?.totalGoalSaved || 0)}
+                    </Text>
+                  </View>
+                  <View style={styles.goalsBottomItem}>
+                    <Text style={styles.goalsSummaryLabel}>Por Ahorrar</Text>
+                    <Text style={[styles.goalsSummaryAmount, styles.goalRemainingAmount]}>
+                      {formatCurrency(dashboardData?.totalGoalRemaining || 0)}
+                    </Text>
+                  </View>
                 </View>
               </View>
 
@@ -815,10 +1027,10 @@ export default function DashboardScreen() {
                           </View>
                           <View style={styles.goalItemAmounts}>
                             <Text style={styles.goalItemCurrent}>
-                              RD${current.toLocaleString('es-DO')}
+                              {formatCurrency(current)}
                             </Text>
                             <Text style={styles.goalItemTarget}>
-                              RD${target.toLocaleString('es-DO')}
+                              {formatCurrency(target)}
                             </Text>
                           </View>
                         </View>
@@ -942,17 +1154,26 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
   },
   balanceItem: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     alignItems: 'center',
     gap: 8,
+    flex: 1,
+  },
+  balanceItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
   },
   balanceItemText: {
-    fontSize: 16,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
+    textAlign: 'center',
   },
   balanceItemLabel: {
     fontSize: 12,
     color: '#64748b',
+    fontWeight: '500',
   },
   saldoTotalContainer: {
     backgroundColor: '#2563EB',
@@ -968,7 +1189,72 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   saldoTotalAmount: {
-    fontSize: 20,
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: 'white',
+  },
+  // Estilos para Comprehensive Balance Card
+  comprehensiveBalanceCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  comprehensiveBalanceTitle: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 16,
+    fontWeight: '500',
+  },
+  comprehensiveBalanceDetail: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  comprehensiveBalanceItem: {
+    flexDirection: 'column',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  comprehensiveBalanceItemHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    justifyContent: 'center',
+  },
+  comprehensiveBalanceItemText: {
+    fontSize: 18,
+    fontWeight: '700',
+    textAlign: 'center',
+  },
+  comprehensiveBalanceItemLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    fontWeight: '500',
+  },
+  comprehensiveSaldoContainer: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  comprehensiveSaldoLabel: {
+    fontSize: 12,
+    color: 'white',
+    fontWeight: '500',
+    marginBottom: 4,
+  },
+  comprehensiveSaldoAmount: {
+    fontSize: 24,
     fontWeight: 'bold',
     color: 'white',
   },
@@ -1086,11 +1372,19 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
+  cardHeader: {
+    marginBottom: 16,
+  },
   cardTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1e293b',
-    marginBottom: 16,
+    marginBottom: 2,
+  },
+  cardSubtitle: {
+    fontSize: 12,
+    color: '#94a3b8',
+    fontWeight: 'normal',
   },
   // Estilos para Transacciones Recientes
   recentTransactionsCard: {
@@ -1194,13 +1488,21 @@ const styles = StyleSheet.create({
   budgetContent: {
     gap: 0,
   },
-  budgetSummaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  budgetSummaryContainer: {
     marginBottom: 20,
-    gap: 8,
+    gap: 12,
   },
-  budgetSummaryItem: {
+  budgetTotalRow: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  budgetBottomRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  budgetBottomItem: {
     flex: 1,
     backgroundColor: '#f8fafc',
     borderRadius: 12,
@@ -1329,13 +1631,21 @@ const styles = StyleSheet.create({
   goalsContent: {
     gap: 0,
   },
-  goalsSummaryGrid: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  goalsSummaryContainer: {
     marginBottom: 20,
-    gap: 8,
+    gap: 12,
   },
-  goalsSummaryItem: {
+  goalsTotalRow: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 12,
+    padding: 16,
+    alignItems: 'center',
+  },
+  goalsBottomRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  goalsBottomItem: {
     flex: 1,
     backgroundColor: '#f8fafc',
     borderRadius: 12,

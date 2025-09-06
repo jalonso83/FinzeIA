@@ -294,8 +294,6 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           />
         </TouchableOpacity>
 
-        {/* Indicador de notificación (opcional) */}
-        <View style={styles.notificationDot} />
       </Animated.View>
 
       {/* Chat Modal */}
@@ -448,17 +446,6 @@ const styles = StyleSheet.create({
   zenioIcon: {
     width: 36,
     height: 36,
-  },
-  notificationDot: {
-    position: 'absolute',
-    top: 8,
-    right: 8,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#ef4444',
-    borderWidth: 2,
-    borderColor: '#ffffff',
   },
   chatModalContainer: {
     flex: 1,

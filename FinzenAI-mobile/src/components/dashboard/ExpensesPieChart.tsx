@@ -1,11 +1,12 @@
-import React, { useMemo } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  ScrollView,
+  TouchableOpacity,
 } from 'react-native';
 import Svg, { Path } from 'react-native-svg';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface Transaction {
   id: string;
@@ -39,6 +40,11 @@ interface CategoryData {
 }
 
 const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categories }) => {
+  const [selectedType, setSelectedType] = useState<'EXPENSE' | 'INCOME'>('INCOME');
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
+  
   // Paleta de colores para las categorías
   const colors = [
     '#FF6384', // Rosa
@@ -58,26 +64,23 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
     '#FF9800', // Naranja oscuro
   ];
 
-  // Calcular gastos por categoría
-  const expensesByCategory = useMemo(() => {
-    // Verificar que transactions sea un array válido
+
+  // Calcular transacciones por categoría según el tipo seleccionado
+  const transactionsByCategory = useMemo(() => {
     if (!transactions || !Array.isArray(transactions) || transactions.length === 0) {
       return [];
     }
     
-    const expenses = transactions.filter(t => t && t.type === 'EXPENSE');
+    const filteredTransactions = transactions.filter(t => t && t.type === selectedType);
     
-    console.log('ExpensesPieChart - Total transactions:', transactions.length);
-    console.log('ExpensesPieChart - Expense transactions:', expenses.length);
-    
-    if (expenses.length === 0) {
+    if (filteredTransactions.length === 0) {
       return [];
     }
     
     // Agrupar por categoría
     const categoryTotals: { [key: string]: number } = {};
     
-    expenses.forEach(transaction => {
+    filteredTransactions.forEach(transaction => {
       const categoryId = typeof transaction.category === 'object' 
         ? transaction.category?.id 
         : transaction.category;
@@ -90,7 +93,6 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
     // Convertir a array y ordenar por monto
     const sortedCategories = Object.entries(categoryTotals)
       .map(([categoryId, total]) => {
-        // Verificar que categories sea un array válido
         const category = categories && Array.isArray(categories) 
           ? categories.find(c => c && c.id === categoryId)
           : null;
@@ -101,34 +103,63 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
           total: total,
         };
       })
-      .sort((a, b) => b.total - a.total)
-      // Mostrar TODAS las categorías con gastos
+      .sort((a, b) => b.total - a.total);
 
-    const totalExpenses = sortedCategories.reduce((sum, item) => sum + item.total, 0);
-    
-    console.log('ExpensesPieChart - Categories with totals:', sortedCategories);
-    console.log('ExpensesPieChart - Total expenses:', totalExpenses);
+    const totalAmount = sortedCategories.reduce((sum, item) => sum + item.total, 0);
 
     // Asignar colores únicos y calcular porcentajes
     return sortedCategories.map((item, index) => ({
       ...item,
       color: colors[index % colors.length],
-      percentage: totalExpenses > 0 ? (item.total / totalExpenses) * 100 : 0,
+      percentage: totalAmount > 0 ? (item.total / totalAmount) * 100 : 0,
     }));
-  }, [transactions, categories]);
-
-  const formatCurrency = (amount: number): string => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
-  };
+  }, [transactions, categories, selectedType]);
 
   // Crear paths del SVG para el gráfico de dona
-  const createDonutPaths = (data: CategoryData[], radius = 60, innerRadius = 35) => {
+  const createDonutPaths = (data: CategoryData[]) => {
+    
+    if (!data || data.length === 0) {
+      return [];
+    }
+    
     const centerX = 70;
     const centerY = 70;
-    let currentAngle = -90; // Empezar desde la parte superior
+    const radius = 60;
+    const innerRadius = 35;
+    let currentAngle = -90;
 
-    return data.map((item, index) => {
+    // CASO ESPECIAL: Si solo hay una categoría (100%), crear un círculo completo con agujero
+    if (data.length === 1 && data[0].percentage >= 99) {
+      const item = data[0];
+      
+      // Crear un círculo completo con agujero usando dos arcos de 180° cada uno
+      const pathData = [
+        // Arco superior (0° a 180°)
+        `M ${centerX + radius} ${centerY}`,
+        `A ${radius} ${radius} 0 0 1 ${centerX - radius} ${centerY}`,
+        // Arco inferior (180° a 360°)
+        `A ${radius} ${radius} 0 0 1 ${centerX + radius} ${centerY}`,
+        // Línea al agujero interior
+        `L ${centerX + innerRadius} ${centerY}`,
+        // Arco interior inferior (360° a 180°) - dirección opuesta
+        `A ${innerRadius} ${innerRadius} 0 0 0 ${centerX - innerRadius} ${centerY}`,
+        // Arco interior superior (180° a 0°) - dirección opuesta  
+        `A ${innerRadius} ${innerRadius} 0 0 0 ${centerX + innerRadius} ${centerY}`,
+        'Z'
+      ].join(' ');
+      
+      return [{
+        path: pathData,
+        color: item.color,
+      }];
+    }
+
+    // CASO NORMAL: Múltiples categorías
+    const paths = data.map((item, index) => {
       const angle = (item.percentage / 100) * 360;
+      
+      if (angle <= 0) return null;
+
       const startAngle = currentAngle * (Math.PI / 180);
       const endAngle = (currentAngle + angle) * (Math.PI / 180);
       
@@ -145,10 +176,10 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
       const largeArcFlag = angle > 180 ? 1 : 0;
       
       const pathData = [
-        `M ${x1} ${y1}`,
-        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2} ${y2}`,
-        `L ${x3} ${y3}`,
-        `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4} ${y4}`,
+        `M ${x1.toFixed(2)} ${y1.toFixed(2)}`,
+        `A ${radius} ${radius} 0 ${largeArcFlag} 1 ${x2.toFixed(2)} ${y2.toFixed(2)}`,
+        `L ${x3.toFixed(2)} ${y3.toFixed(2)}`,
+        `A ${innerRadius} ${innerRadius} 0 ${largeArcFlag} 0 ${x4.toFixed(2)} ${y4.toFixed(2)}`,
         'Z'
       ].join(' ');
       
@@ -158,53 +189,130 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
         path: pathData,
         color: item.color,
       };
-    });
+    }).filter(path => path !== null);
+
+    return paths;
   };
 
-  const totalExpenses = expensesByCategory.reduce((sum, item) => sum + item.total, 0);
+  const totalAmount = transactionsByCategory.reduce((sum, item) => sum + item.total, 0);
+  const isIncome = selectedType === 'INCOME';
+  const donutPaths = createDonutPaths(transactionsByCategory);
 
-  if (expensesByCategory.length === 0) {
+
+  if (transactionsByCategory.length === 0) {
     return (
       <View style={styles.container}>
+        {/* Switch de tipo de transacción */}
+        <View style={styles.switchContainer}>
+          <TouchableOpacity
+            style={[
+              styles.switchButton, 
+              selectedType === 'INCOME' && styles.switchButtonActive,
+              selectedType === 'INCOME' && styles.incomeButtonActive
+            ]}
+            onPress={() => setSelectedType('INCOME')}
+          >
+            <Text style={[
+              styles.switchText, 
+              selectedType === 'INCOME' && styles.switchTextActive,
+              selectedType === 'INCOME' && styles.incomeTextActive
+            ]}>
+              Ingresos
+            </Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.switchButton, 
+              selectedType === 'EXPENSE' && styles.switchButtonActive,
+              selectedType === 'EXPENSE' && styles.expenseButtonActive
+            ]}
+            onPress={() => setSelectedType('EXPENSE')}
+          >
+            <Text style={[
+              styles.switchText, 
+              selectedType === 'EXPENSE' && styles.switchTextActive,
+              selectedType === 'EXPENSE' && styles.expenseTextActive
+            ]}>
+              Gastos
+            </Text>
+          </TouchableOpacity>
+        </View>
+        
         <View style={styles.emptyContainer}>
           <Text style={styles.emptyIcon}>📈</Text>
           <Text style={styles.emptyTitle}>No hay datos para mostrar</Text>
           <Text style={styles.emptySubtitle}>
-            Agrega transacciones para ver el análisis por categorías
+            Agrega {isIncome ? 'ingresos' : 'gastos'} para ver el análisis por categorías
           </Text>
         </View>
       </View>
     );
   }
 
-  const donutPaths = createDonutPaths(expensesByCategory);
-
   return (
     <View style={styles.container}>
-      {/* Total en una línea */}
-      <View style={styles.summaryRow}>
-        <Text style={styles.summaryText}>Total de Gastos: </Text>
-        <Text style={styles.summaryAmount}>{formatCurrency(totalExpenses)}</Text>
+      {/* Switch de tipo de transacción */}
+      <View style={styles.switchContainer}>
+        <TouchableOpacity
+          style={[
+            styles.switchButton, 
+            selectedType === 'INCOME' && styles.switchButtonActive,
+            selectedType === 'INCOME' && styles.incomeButtonActive
+          ]}
+          onPress={() => setSelectedType('INCOME')}
+        >
+          <Text style={[
+            styles.switchText, 
+            selectedType === 'INCOME' && styles.switchTextActive,
+            selectedType === 'INCOME' && styles.incomeTextActive
+          ]}>
+            Ingresos
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.switchButton, 
+            selectedType === 'EXPENSE' && styles.switchButtonActive,
+            selectedType === 'EXPENSE' && styles.expenseButtonActive
+          ]}
+          onPress={() => setSelectedType('EXPENSE')}
+        >
+          <Text style={[
+            styles.switchText, 
+            selectedType === 'EXPENSE' && styles.switchTextActive,
+            selectedType === 'EXPENSE' && styles.expenseTextActive
+          ]}>
+            Gastos
+          </Text>
+        </TouchableOpacity>
       </View>
 
-      {/* Gráfico de pastel en todo el card */}
+      {/* Total en una línea */}
+      <View style={styles.summaryRow}>
+        <Text style={styles.summaryText}>Total de {isIncome ? 'Ingresos' : 'Gastos'}: </Text>
+        <Text style={[styles.summaryAmount, isIncome ? styles.incomeColor : styles.expenseColor]}>
+          {formatCurrency(totalAmount)}
+        </Text>
+      </View>
+
+      {/* Gráfico de pastel */}
       <View style={styles.chartContainer}>
-        <Svg width={140} height={140} style={styles.svgChart}>
+        <Svg width={140} height={140} viewBox="0 0 140 140">
           {donutPaths.map((pathData, index) => (
             <Path
-              key={index}
+              key={`${selectedType}-${index}`}
               d={pathData.path}
               fill={pathData.color}
               stroke="#ffffff"
-              strokeWidth={1}
+              strokeWidth={2}
             />
           ))}
         </Svg>
       </View>
 
-      {/* Detalle por todas las categorías que sean */}
+      {/* Lista de categorías */}
       <View style={styles.categoriesList}>
-        {expensesByCategory.map((item, index) => (
+        {transactionsByCategory.map((item, index) => (
           <View key={item.id} style={styles.categoryRow}>
             <View style={[styles.categoryColor, { backgroundColor: item.color }]} />
             <Text style={styles.categoryIcon}>{item.icon}</Text>
@@ -242,6 +350,58 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     paddingHorizontal: 40,
   },
+  switchContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#f1f5f9',
+    borderRadius: 8,
+    padding: 3,
+    marginBottom: 16,
+  },
+  switchButton: {
+    flex: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+    borderRadius: 6,
+    alignItems: 'center',
+  },
+  switchButtonActive: {
+    backgroundColor: '#ffffff',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  switchText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#64748b',
+  },
+  switchTextActive: {
+    color: '#1e293b',
+    fontWeight: '600',
+  },
+  expenseButtonActive: {
+    backgroundColor: '#fef2f2',
+    borderColor: '#fecaca',
+    borderWidth: 1,
+  },
+  incomeButtonActive: {
+    backgroundColor: '#f0fdf4',
+    borderColor: '#bbf7d0',
+    borderWidth: 1,
+  },
+  expenseTextActive: {
+    color: '#dc2626',
+    fontWeight: '700',
+  },
+  incomeTextActive: {
+    color: '#059669',
+    fontWeight: '700',
+  },
   summaryRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -256,14 +416,16 @@ const styles = StyleSheet.create({
   summaryAmount: {
     fontSize: 16,
     fontWeight: 'bold',
+  },
+  expenseColor: {
     color: '#dc2626',
+  },
+  incomeColor: {
+    color: '#059669',
   },
   chartContainer: {
     alignItems: 'center',
     marginVertical: 16,
-  },
-  svgChart: {
-    // SVG styles are handled by the component itself
   },
   categoriesList: {
     gap: 8,

@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoriesAPI, budgetsAPI, Category, Budget } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface BudgetFormProps {
   visible: boolean;
@@ -44,6 +45,9 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   
   // Dashboard store para notificar cambios
   const { onBudgetChange } = useDashboardStore();
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   const periods = [
     { value: 'weekly', label: 'Semanal' },
@@ -272,7 +276,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           <View style={styles.section}>
             <Text style={styles.label}>Monto del Presupuesto</Text>
             <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={formData.amount}
@@ -317,7 +321,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
                 <View style={styles.infoContent}>
                   <Text style={styles.infoTitle}>Presupuesto {periods.find(p => p.value === formData.period)?.label}</Text>
                   <Text style={styles.infoDescription}>
-                    Podrás gastar hasta ${Number(formData.amount).toLocaleString('es-ES')} {periods.find(p => p.value === formData.period)?.label.toLowerCase()}
+                    Podrás gastar hasta {formatCurrency(Number(formData.amount))} {periods.find(p => p.value === formData.period)?.label.toLowerCase()}
                   </Text>
                 </View>
               </View>

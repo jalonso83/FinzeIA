@@ -22,6 +22,30 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
   
   const utilities = [
     {
+      id: 'skip-vs-save',
+      title: 'Reto: ¿Gastar o Ahorrar?',
+      description: 'Ve el impacto de tus gastos 💸',
+      icon: 'flash' as const,
+      color: '#059669',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'SkipVsSave' });
+      },
+    },
+    {
+      id: 'goal-calculator',
+      title: 'Calculadora de Metas',
+      description: 'Planifica tus objetivos 🎯',
+      icon: 'flag' as const,
+      color: '#059669',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'GoalCalculator' });
+      },
+    },
+    {
       id: 'loan-calculator',
       title: 'Calculadora de Préstamos',
       description: 'Calcula cuotas y amortización',
@@ -47,30 +71,6 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       },
     },
     {
-      id: 'goal-calculator',
-      title: 'Calculadora de Metas',
-      description: 'Planifica tus objetivos 🎯',
-      icon: 'flag' as const,
-      color: '#059669',
-      disabled: false,
-      onPress: () => {
-        setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'GoalCalculator' });
-      },
-    },
-    {
-      id: 'skip-vs-save',
-      title: 'Reto: ¿Gastar o Ahorrar?',
-      description: 'Ve el impacto de tus gastos 💸',
-      icon: 'flash' as const,
-      color: '#059669',
-      disabled: false,
-      onPress: () => {
-        setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'SkipVsSave' });
-      },
-    },
-    {
       id: 'inflation-calculator',
       title: 'Calculadora de Inflación',
       description: 'Ve cómo se destruye tu dinero 📈',
@@ -82,15 +82,27 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
         navigation.navigate('Tools', { screen: 'InflationCalculator' });
       },
     },
-    {
-      id: 'currency-converter',
-      title: 'Conversor de Monedas',
-      description: 'Próximamente',
-      icon: 'cash' as const,
-      color: '#d97706',
-      disabled: true,
-      onPress: () => {},
-    },
+    // {
+    //   id: 'ant-expense-detective',
+    //   title: 'Detective de Gastos Hormiga',
+    //   description: 'Descubre a dónde se va tu dinero 🕵️',
+    //   icon: 'search' as const,
+    //   color: '#7c3aed',
+    //   disabled: false,
+    //   onPress: () => {
+    //     setIsVisible(false);
+    //     navigation.navigate('Tools', { screen: 'AntExpenseDetective' });
+    //   },
+    // },
+    // {
+    //   id: 'currency-converter',
+    //   title: 'Conversor de Monedas',
+    //   description: 'Próximamente',
+    //   icon: 'cash' as const,
+    //   color: '#d97706',
+    //   disabled: true,
+    //   onPress: () => {},
+    // },
   ];
 
   const openMenu = () => {

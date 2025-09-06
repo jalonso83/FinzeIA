@@ -14,6 +14,7 @@ import GoalForm from '../components/forms/GoalForm';
 import ContributionForm from '../components/forms/ContributionForm';
 import { goalsAPI } from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface Goal {
   id: string;
@@ -116,9 +117,8 @@ export default function GoalsScreen() {
   const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
   const totalToSave = totalTarget - totalSaved;
 
-  const formatCurrency = (amount: number): string => {
-    return `$${amount.toLocaleString('es-ES')}`;
-  };
+  // Usar hook global para formateo de moneda
+  const { formatCurrency } = useCurrency();
 
   const calculateProgress = (saved: number, target: number): number => {
     if (target === 0) return 0;
@@ -196,7 +196,7 @@ export default function GoalsScreen() {
                   </Text>
                 </View>
                 <View style={styles.summaryCardBottom}>
-                  <Text style={styles.summaryCardCurrency}>RD$</Text>
+                  <Text style={styles.summaryCardCurrency}>{formatCurrency(0).replace('0', '').trim()}</Text>
                 </View>
               </View>
               <View style={styles.summaryCard}>
@@ -214,7 +214,7 @@ export default function GoalsScreen() {
                   </Text>
                 </View>
                 <View style={styles.summaryCardBottom}>
-                  <Text style={styles.summaryCardCurrency}>RD$</Text>
+                  <Text style={styles.summaryCardCurrency}>{formatCurrency(0).replace('0', '').trim()}</Text>
                 </View>
               </View>
               <View style={styles.summaryCard}>
@@ -232,7 +232,7 @@ export default function GoalsScreen() {
                   </Text>
                 </View>
                 <View style={styles.summaryCardBottom}>
-                  <Text style={styles.summaryCardCurrency}>RD$</Text>
+                  <Text style={styles.summaryCardCurrency}>{formatCurrency(0).replace('0', '').trim()}</Text>
                 </View>
               </View>
             </View>

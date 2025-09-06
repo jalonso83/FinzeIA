@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface VibeData {
   volatilityLevel: 'zen' | 'chill' | 'wild' | 'caos';
@@ -33,14 +34,14 @@ const VibeCard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     loadVibeData();
   }, []);
 
-  const formatCurrency = (amount: number): string => {
-    return `$${Math.round(amount).toLocaleString('es-ES')}`;
-  };
 
   const calculateVibeData = (volatility: number, burnRate: number, runway: number | null): VibeData => {
     // Calcular nivel de volatilidad

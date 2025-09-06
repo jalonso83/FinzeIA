@@ -17,6 +17,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { categoriesAPI, transactionsAPI, Category, Transaction } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface TransactionFormProps {
   visible: boolean;
@@ -34,7 +35,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [formData, setFormData] = useState({
     description: '',
     amount: '',
-    type: 'EXPENSE' as 'INCOME' | 'EXPENSE',
+    type: 'INCOME' as 'INCOME' | 'EXPENSE',
     categoryId: '',
     date: new Date().toISOString().split('T')[0],
   });
@@ -53,11 +54,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [lastExchangeRates, setLastExchangeRates] = useState<Record<string, number>>({});
   
-  // Currency info (replicando la web - aquí deberías usar la moneda del usuario)
-  const currency = { code: 'DOP', symbol: 'RD$', decimalPlaces: 2 };
-  
   // Dashboard store para notificar cambios
   const { onTransactionChange } = useDashboardStore();
+  
+  // Hook para moneda del usuario
+  const { userCurrencyInfo } = useCurrency();
+  const currency = userCurrencyInfo;
 
   useEffect(() => {
     if (visible) {
@@ -245,7 +247,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     setFormData({
       description: '',
       amount: '',
-      type: 'EXPENSE',
+      type: 'INCOME',
       categoryId: '',
       date: new Date().toISOString().split('T')[0],
     });
@@ -276,7 +278,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         amount: Number(formData.amount),
         type: formData.type,
         category_id: formData.categoryId,
-        date: new Date(formData.date).toISOString(),
+        date: formData.date + 'T12:00:00.000Z', // Enviar como mediodía UTC para evitar problemas de zona horaria
       };
 
       if (editTransaction) {
@@ -337,37 +339,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <TouchableOpacity
                 style={[
                   styles.typeButton,
-                  formData.type === 'EXPENSE' && styles.typeButtonActive,
-                ]}
-                onPress={() => {
-                  const newType = 'EXPENSE';
-                  // Solo resetear categoryId si la categoría actual no es compatible con el nuevo tipo
-                  const currentCategory = categories.find(cat => cat.id === formData.categoryId);
-                  const shouldKeepCategory = currentCategory && (currentCategory.type === newType || currentCategory.type === 'BOTH');
-                  
-                  setFormData({ 
-                    ...formData, 
-                    type: newType, 
-                    categoryId: shouldKeepCategory ? formData.categoryId : '' 
-                  });
-                }}
-              >
-                <Ionicons 
-                  name="remove-circle" 
-                  size={20} 
-                  color={formData.type === 'EXPENSE' ? 'white' : '#dc2626'} 
-                />
-                <Text style={[
-                  styles.typeButtonText,
-                  formData.type === 'EXPENSE' && styles.typeButtonTextActive,
-                ]}>
-                  Gasto
-                </Text>
-              </TouchableOpacity>
-
-              <TouchableOpacity
-                style={[
-                  styles.typeButton,
                   formData.type === 'INCOME' && styles.typeButtonActive,
                 ]}
                 onPress={() => {
@@ -393,6 +364,37 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   formData.type === 'INCOME' && styles.typeButtonTextActive,
                 ]}>
                   Ingreso
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.typeButton,
+                  formData.type === 'EXPENSE' && styles.typeButtonActive,
+                ]}
+                onPress={() => {
+                  const newType = 'EXPENSE';
+                  // Solo resetear categoryId si la categoría actual no es compatible con el nuevo tipo
+                  const currentCategory = categories.find(cat => cat.id === formData.categoryId);
+                  const shouldKeepCategory = currentCategory && (currentCategory.type === newType || currentCategory.type === 'BOTH');
+                  
+                  setFormData({ 
+                    ...formData, 
+                    type: newType, 
+                    categoryId: shouldKeepCategory ? formData.categoryId : '' 
+                  });
+                }}
+              >
+                <Ionicons 
+                  name="remove-circle" 
+                  size={20} 
+                  color={formData.type === 'EXPENSE' ? 'white' : '#dc2626'} 
+                />
+                <Text style={[
+                  styles.typeButtonText,
+                  formData.type === 'EXPENSE' && styles.typeButtonTextActive,
+                ]}>
+                  Gasto
                 </Text>
               </TouchableOpacity>
             </View>

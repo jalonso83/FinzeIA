@@ -15,6 +15,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { budgetsAPI, Budget } from '../utils/api';
 import BudgetForm from '../components/forms/BudgetForm';
 import { useDashboardStore } from '../stores/dashboard';
+import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -26,6 +27,9 @@ export default function BudgetsScreen() {
   
   // Dashboard store para notificar cambios
   const { onBudgetChange } = useDashboardStore();
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   // Calcular resumen dinámicamente con análisis de rendimiento y proyecciones
   const stats = useMemo(() => {
@@ -110,7 +114,7 @@ export default function BudgetsScreen() {
       totalBudget,
       monthlyExpenses,
       remaining,
-      currency: 'RD$',
+      currency: formatCurrency(0).replace('0', '').trim(), // Extraer símbolo dinámico
       bestBudget,
       controlStatus,
       controlIcon,
@@ -202,9 +206,9 @@ export default function BudgetsScreen() {
     return 'normal';
   };
 
-  // Función para formatear montos (replicando la web)
+  // Función para formatear montos usando hook global
   const formatAmount = (amount: number) => {
-    return `RD$${amount.toFixed(2)}`;
+    return formatCurrency(amount);
   };
 
   if (loading) {

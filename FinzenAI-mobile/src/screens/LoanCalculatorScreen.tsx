@@ -11,6 +11,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useCurrency } from '../hooks/useCurrency';
 
 interface AmortizationRow {
   payment: number;
@@ -22,6 +23,7 @@ interface AmortizationRow {
 
 export default function LoanCalculatorScreen() {
   const navigation = useNavigation();
+  const { formatCurrency } = useCurrency();
   
   const [loanAmount, setLoanAmount] = useState('');
   const [loanType, setLoanType] = useState('hipotecario');
@@ -109,12 +111,6 @@ export default function LoanCalculatorScreen() {
     setAmortizationTable(table);
   };
 
-  const formatCurrency = (amount: number): string => {
-    return `RD$${amount.toLocaleString('es-DO', { 
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2 
-    })}`;
-  };
 
   const clearCalculation = () => {
     setLoanAmount('');

@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -53,6 +54,7 @@ const timeOptions = [
 
 export default function InflationCalculatorScreen() {
   const navigation = useNavigation();
+  const { formatCurrency } = useCurrency();
   const [step, setStep] = useState(1); // 1: Monto, 2: Tiempo, 3: Resultado
   const [loading, setLoading] = useState(false);
   const [animatedValue] = useState(new Animated.Value(0));
@@ -96,9 +98,6 @@ export default function InflationCalculatorScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
-  };
 
   const resetCalculator = () => {
     setStep(1);
@@ -142,7 +141,7 @@ export default function InflationCalculatorScreen() {
       <View style={styles.customSection}>
         <Text style={styles.customTitle}>💡 O ingresa tu monto:</Text>
         <View style={styles.customInputContainer}>
-          <Text style={styles.currencyPrefix}>RD$</Text>
+          <Text style={styles.currencyPrefix}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
           <TextInput
             style={styles.customInput}
             value={customAmount}

@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface PatternsData {
   mostActiveDay: {
@@ -33,6 +34,9 @@ const PatternsAndTrends: React.FC = () => {
   const [patternsData, setPatternsData] = useState<PatternsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   useEffect(() => {
     loadPatternsData();
@@ -68,9 +72,6 @@ const PatternsAndTrends: React.FC = () => {
     }
   };
 
-  const formatCurrency = (amount: number): string => {
-    return `$${amount.toLocaleString('es-ES')}`;
-  };
 
   const formatDate = (dateStr: string): string => {
     return new Date(dateStr).toLocaleDateString('es-DO', {
@@ -80,7 +81,7 @@ const PatternsAndTrends: React.FC = () => {
   };
 
   const getWeekdayName = (index: number): string => {
-    const days = ['Dom', 'Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb'];
+    const days = ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'];
     return days[index];
   };
 
@@ -134,17 +135,6 @@ const PatternsAndTrends: React.FC = () => {
           </View>
         )}
 
-        {/* Mayor gasto */}
-        {patternsData.highestExpenseDay && (
-          <View style={[styles.patternCard, styles.expenseCard]}>
-            <View style={styles.patternHeader}>
-              <Text style={styles.patternLabel}>Mayor gasto</Text>
-              <Text style={styles.patternDate}>{formatDate(patternsData.highestExpenseDay.date)}</Text>
-            </View>
-            <Text style={styles.patternAmount}>{formatCurrency(patternsData.highestExpenseDay.amount)}</Text>
-          </View>
-        )}
-
         {/* Mayor ingreso */}
         {patternsData.highestIncomeDay && (
           <View style={[styles.patternCard, styles.incomeCard]}>
@@ -156,31 +146,56 @@ const PatternsAndTrends: React.FC = () => {
           </View>
         )}
 
+        {/* Mayor gasto */}
+        {patternsData.highestExpenseDay && (
+          <View style={[styles.patternCard, styles.expenseCard]}>
+            <View style={styles.patternHeader}>
+              <Text style={styles.patternLabel}>Mayor gasto</Text>
+              <Text style={styles.patternDate}>{formatDate(patternsData.highestExpenseDay.date)}</Text>
+            </View>
+            <Text style={styles.patternAmount}>{formatCurrency(patternsData.highestExpenseDay.amount)}</Text>
+          </View>
+        )}
+
 
         {/* Actividad por día de la semana (versión compacta) */}
         {patternsData.weekdayActivity && patternsData.weekdayActivity.length > 0 && (
           <View style={styles.weekdayCard}>
             <Text style={styles.weekdayTitle}>Actividad por día</Text>
             <View style={styles.weekdayGridVertical}>
-              {patternsData.weekdayActivity.map((amount, index) => {
-                const maxAmount = Math.max(...patternsData.weekdayActivity);
-                const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+              {(() => {
+                // Reordenar los datos: de [Dom, Lun, Mar, Mie, Jue, Vie, Sab] a [Lun, Mar, Mie, Jue, Vie, Sab, Dom]
+                const reorderedData = [
+                  patternsData.weekdayActivity[1], // Lun
+                  patternsData.weekdayActivity[2], // Mar
+                  patternsData.weekdayActivity[3], // Mié
+                  patternsData.weekdayActivity[4], // Jue
+                  patternsData.weekdayActivity[5], // Vie
+                  patternsData.weekdayActivity[6], // Sáb
+                  patternsData.weekdayActivity[0], // Dom
+                ];
                 
-                return (
-                  <View key={index} style={styles.weekdayItemVertical}>
-                    <Text style={styles.weekdayNameVertical}>{getWeekdayName(index)}</Text>
-                    <View style={styles.weekdayBarVertical}>
-                      <View 
-                        style={[
-                          styles.weekdayFillVertical,
-                          { width: `${percentage}%` }
-                        ]}
-                      />
+                const maxAmount = Math.max(...reorderedData);
+                
+                return reorderedData.map((amount, index) => {
+                  const percentage = maxAmount > 0 ? (amount / maxAmount) * 100 : 0;
+                  
+                  return (
+                    <View key={index} style={styles.weekdayItemVertical}>
+                      <Text style={styles.weekdayNameVertical}>{getWeekdayName(index)}</Text>
+                      <View style={styles.weekdayBarVertical}>
+                        <View 
+                          style={[
+                            styles.weekdayFillVertical,
+                            { width: `${percentage}%` }
+                          ]}
+                        />
+                      </View>
+                      <Text style={styles.weekdayAmountVertical}>{formatCurrency(amount)}</Text>
                     </View>
-                    <Text style={styles.weekdayAmountVertical}>{formatCurrency(amount)}</Text>
-                  </View>
-                );
-              })}
+                  );
+                });
+              })()}
             </View>
           </View>
         )}
@@ -211,14 +226,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   title: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: 'bold',
     color: '#1e293b',
   },
   subtitle: {
     fontSize: 12,
-    color: '#64748b',
-    marginTop: 2,
+    color: '#94a3b8',
+    marginTop: 1,
+    fontWeight: 'normal',
   },
   headerInfoButton: {
     padding: 8,
@@ -349,14 +365,14 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     fontWeight: '500',
-    width: 45,
+    width: 40,
   },
   weekdayBarVertical: {
     flex: 1,
     height: 6,
     backgroundColor: '#e5e7eb',
     borderRadius: 3,
-    marginHorizontal: 8,
+    marginHorizontal: 6,
   },
   weekdayFillVertical: {
     height: '100%',
@@ -367,7 +383,7 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     fontWeight: '600',
-    width: 60,
+    width: 80,
     textAlign: 'right',
   },
 });

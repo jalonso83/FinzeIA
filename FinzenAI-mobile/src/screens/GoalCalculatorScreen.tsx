@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -62,6 +63,7 @@ const timeframeOptions = [
 
 export default function GoalCalculatorScreen() {
   const navigation = useNavigation();
+  const { formatCurrency } = useCurrency();
   const [step, setStep] = useState(1); // 1: Tipo, 2: Valor, 3: Porcentaje, 4: Tiempo, 5: Resultado
   const [goalTypes, setGoalTypes] = useState<Record<string, GoalType>>({});
   const [loading, setLoading] = useState(false);
@@ -120,9 +122,6 @@ export default function GoalCalculatorScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
-  };
 
   const resetCalculator = () => {
     setStep(1);
@@ -228,9 +227,9 @@ export default function GoalCalculatorScreen() {
 
   const renderStep3 = () => (
     <View style={styles.stepContainer}>
-      <Text style={styles.stepTitle}>📊 ¿Qué porcentaje necesitas?</Text>
+      <Text style={styles.stepTitle}>📊 ¿Qué porcentaje necesitas ahorrar?</Text>
       <Text style={styles.stepSubtitle}>
-        De {formatCurrency(parseInt(totalValue))} total
+        Para alcanzar tu meta de {formatCurrency(parseInt(totalValue))} total
       </Text>
 
       <View style={styles.percentageOptions}>

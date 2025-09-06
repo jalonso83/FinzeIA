@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -61,6 +62,7 @@ const timeframeOptions = [
 
 export default function SkipVsSaveScreen() {
   const navigation = useNavigation();
+  const { formatCurrency } = useCurrency();
   const [step, setStep] = useState(1); // 1: Gasto, 2: Frecuencia, 3: Tiempo, 4: Resultado
   const [commonExpenses, setCommonExpenses] = useState<CommonExpense[]>([]);
   const [loading, setLoading] = useState(false);
@@ -121,9 +123,6 @@ export default function SkipVsSaveScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
-  };
 
   const resetChallenge = () => {
     setStep(1);
@@ -187,7 +186,7 @@ export default function SkipVsSaveScreen() {
             keyboardType="numeric"
             placeholderTextColor="#9CA3AF"
           />
-          <Text style={styles.customLabel}>RD$ por día</Text>
+          <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()} por día</Text>
         </View>
       </View>
 

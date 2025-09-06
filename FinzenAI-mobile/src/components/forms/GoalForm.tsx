@@ -15,6 +15,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoriesAPI, goalsAPI, Category } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface Goal {
   id: string;
@@ -87,6 +88,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
   
   // Dashboard store para notificar cambios
   const { onGoalChange } = useDashboardStore();
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   const priorities = [
     { value: 'high', label: 'Alta', color: '#dc2626', bgColor: '#fef2f2' },
@@ -316,7 +320,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
           <View style={styles.section}>
             <Text style={styles.label}>Monto objetivo *</Text>
             <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
+              <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
               <TextInput
                 style={styles.amountInput}
                 value={formData.targetAmount}
@@ -421,7 +425,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
             <View style={styles.section}>
               <Text style={styles.label}>Monto fijo mensual *</Text>
               <View style={styles.amountContainer}>
-                <Text style={styles.currencySymbol}>$</Text>
+                <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
                 <TextInput
                   style={styles.amountInput}
                   value={formData.monthlyContributionAmount}

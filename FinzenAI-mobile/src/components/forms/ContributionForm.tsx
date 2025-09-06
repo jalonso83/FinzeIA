@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { goalsAPI } from '../../utils/api';
+import { useCurrency } from '../../hooks/useCurrency';
 
 interface Goal {
   id: string;
@@ -40,10 +41,9 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
-
-  const formatCurrency = (amount: number): string => {
-    return `$${amount.toLocaleString('es-ES')}`;
-  };
+  
+  // Hook para moneda del usuario
+  const { formatCurrency } = useCurrency();
 
   const calculateRemaining = () => {
     return goal.targetAmount - goal.currentAmount;

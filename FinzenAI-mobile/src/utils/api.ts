@@ -180,6 +180,24 @@ export const authAPI = {
   
   logout: () => 
     api.post('/auth/logout'),
+
+  getProfile: () => 
+    api.get('/auth/profile'),
+
+  updateProfile: (userData: { 
+    name?: string; 
+    lastName?: string;
+    phone?: string;
+    birthDate?: string;
+    country?: string;
+    state?: string;
+    city?: string;
+    currency?: string;
+    preferredLanguage?: string;
+    occupation?: string;
+    company?: string;
+  }) => 
+    api.put('/auth/profile', userData),
 };
 
 // API de gamificación

@@ -25,6 +25,7 @@ import InvestmentSimulatorScreen from '../screens/InvestmentSimulatorScreen';
 import GoalCalculatorScreen from '../screens/GoalCalculatorScreen';
 import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
 import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
+import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import LoginScreen from '../screens/LoginScreen';
@@ -60,6 +61,7 @@ function ToolsStackNavigator() {
       <Stack.Screen name="GoalCalculator" component={GoalCalculatorScreen} />
       <Stack.Screen name="SkipVsSave" component={SkipVsSaveScreen} />
       <Stack.Screen name="InflationCalculator" component={InflationCalculatorScreen} />
+      <Stack.Screen name="AntExpenseDetective" component={AntExpenseDetectiveScreen} />
     </Stack.Navigator>
   );
 }
@@ -104,8 +106,13 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
         tabBarInactiveTintColor: 'gray',
         headerShown: route.name === 'Dashboard', // Solo mostrar header en Dashboard
         headerTitle: route.name === 'Dashboard' ? `Hola, ${user?.name}!` : '',
+        headerTitleAlign: 'left', // Alinear título a la izquierda en ambas plataformas
         headerRight: route.name === 'Dashboard' ? () => (
-          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 16 }}>
+          <View style={{ 
+            flexDirection: 'row', 
+            alignItems: 'center', 
+            marginRight: Math.max(insets.right + 8, 16) // Asegurar margen mínimo de 16, más espacio en notch
+          }}>
             <TouchableOpacity 
               onPress={() => setShowUserMenu(true)}
               style={{ 
@@ -213,6 +220,7 @@ function MainNavigator() {
   const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
   const { updateUser } = useAuthStore();
+  const insets = useSafeAreaInsets();
 
   const UserMenuModal = () => (
     <Modal
@@ -227,8 +235,8 @@ function MainNavigator() {
           backgroundColor: 'rgba(0,0,0,0.5)',
           justifyContent: 'flex-start',
           alignItems: 'flex-end',
-          paddingTop: 60,
-          paddingRight: 16,
+          paddingTop: Math.max(insets.top + 50, 90), // Asegurar que esté debajo del header
+          paddingRight: Math.max(insets.right + 8, 16), // Consistente con el botón
         }}
         activeOpacity={1}
         onPress={() => setShowUserMenu(false)}

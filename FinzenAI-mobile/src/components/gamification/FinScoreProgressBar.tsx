@@ -1,6 +1,7 @@
-import React from 'react';
-import { View, Text, StyleSheet } from 'react-native';
+import React, { useState } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Modal, ScrollView } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 import Svg, { Circle } from 'react-native-svg';
 
 interface UserStreak {
@@ -38,144 +39,69 @@ const FinScoreProgressBar: React.FC<FinScoreProgressBarProps> = ({
   pointsToNextLevel,
   streak,
 }) => {
+  const [showInfoModal, setShowInfoModal] = useState(false);
+  
   // Calcular progreso del nivel actual con nueva escala
   const currentLevelRange = getLevelRange(level);
   const progressInLevel = currentScore - currentLevelRange.min;
   const totalNeededInLevel = currentLevelRange.max - currentLevelRange.min + 1;
   const progressPercentage = (progressInLevel / totalNeededInLevel) * 100;
 
-  // Render del círculo de streak compacto (replicando StreakCounter completo)
-  const renderStreakCircle = () => {
-    const size = 70;
-    const strokeWidth = 6;
-    const radius = (size - strokeWidth) / 2;
-    const center = size / 2;
+  // Render del badge de streak rectangular (más compatible multiplataforma)
+  const renderStreakBadge = () => {
     const streakValue = streak?.isActive ? streak.currentStreak : 0;
-
-    // Si no hay racha o está inactiva
-    if (!streak || !streak.isActive || streak.currentStreak === 0) {
-      const circumference = 2 * Math.PI * radius;
-      return (
-        <View style={[styles.streakContainer, { width: size, height: size }]}>
-          <Svg
-            width={size}
-            height={size}
-            viewBox={`0 0 ${size} ${size}`}
-            style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
-          >
-            {/* Fondo verde del círculo */}
-            <Circle
-              cx={center}
-              cy={center}
-              r={radius + strokeWidth/2 + 3}
-              fill="#10B981"
-            />
-            {/* Círculo de fondo para el aro */}
-            <Circle
-              cx={center}
-              cy={center}
-              r={radius}
-              fill="none"
-              stroke="#E5E7EB"
-              strokeWidth={strokeWidth}
-              opacity={0.4}
-            />
-            {/* Círculo de progreso azul (sin progreso para 0) */}
-            <Circle
-              cx={center}
-              cy={center}
-              r={radius}
-              stroke="#2563EB"
-              strokeWidth={strokeWidth}
-              fill="none"
-              strokeLinecap="round"
-              strokeDasharray={circumference}
-              strokeDashoffset={circumference}
-            />
-          </Svg>
-          <View style={styles.streakText}>
-            <Text style={styles.streakNumber}>0</Text>
-            <Text style={styles.streakLabel}>DÍAS</Text>
-            <Text style={styles.metaText}>Meta: 3</Text>
-          </View>
-        </View>
-      );
-    }
-
-    // Cálculos para el anillo de progreso basado en próxima meta
+    
+    // Cálculo de la próxima meta
     const milestones = [3, 7, 14, 30, 60, 100];
-    const nextMilestone = milestones.find(m => m > streak.currentStreak) || 100;
-    const previousMilestone = milestones.find(m => m <= streak.currentStreak) || 0;
+    const nextMilestone = milestones.find(m => m > streakValue) || 100;
+    const previousMilestone = milestones.find(m => m <= streakValue) || 0;
     const progress = previousMilestone === 0 
-      ? (streak.currentStreak / nextMilestone) * 100
-      : ((streak.currentStreak - previousMilestone) / (nextMilestone - previousMilestone)) * 100;
-
-    const circumference = 2 * Math.PI * radius;
-    const strokeDasharray = circumference;
-    const strokeDashoffset = circumference - (progress / 100) * circumference;
+      ? (streakValue / nextMilestone) * 100
+      : ((streakValue - previousMilestone) / (nextMilestone - previousMilestone)) * 100;
 
     return (
-      <View style={[styles.streakContainer, { width: size, height: size }]}>
-        <Svg
-          width={size}
-          height={size}
-          viewBox={`0 0 ${size} ${size}`}
-          style={{ position: 'absolute', transform: [{ rotate: '-90deg' }] }}
-        >
-          {/* Fondo verde del círculo */}
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius + strokeWidth/2 + 3}
-            fill="#10B981"
-          />
-          {/* Círculo de fondo para el aro */}
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke="#E5E7EB"
-            strokeWidth={strokeWidth}
-            fill="none"
-            opacity={0.4}
-          />
-          {/* Círculo de progreso azul */}
-          <Circle
-            cx={center}
-            cy={center}
-            r={radius}
-            stroke="#2563EB"
-            strokeWidth={strokeWidth}
-            fill="none"
-            strokeLinecap="round"
-            strokeDasharray={strokeDasharray}
-            strokeDashoffset={strokeDashoffset}
-          />
-          {/* Punto brillante al final del progreso */}
-          {progress > 5 && (
-            <Circle
-              cx={center + radius * Math.cos((progress / 100) * 2 * Math.PI - Math.PI / 2)}
-              cy={center + radius * Math.sin((progress / 100) * 2 * Math.PI - Math.PI / 2)}
-              r={strokeWidth / 2.5}
-              fill="#FFFFFF"
-            />
-          )}
-        </Svg>
-        <View style={styles.streakText}>
-          <Text style={styles.streakNumber}>{streak.currentStreak}</Text>
-          <Text style={styles.streakLabel}>
-            {streak.currentStreak === 1 ? 'DÍA' : 'DÍAS'}
-          </Text>
-          <Text style={styles.metaText}>
-            Meta: {nextMilestone}
-          </Text>
+      <View style={styles.streakBadge}>
+        {/* Header con ícono */}
+        <View style={styles.streakHeader}>
+          <Text style={styles.streakIcon}>🔥</Text>
         </View>
+        
+        {/* Número principal */}
+        <Text style={styles.streakMainNumber}>{streakValue}</Text>
+        
+        {/* Label */}
+        <Text style={styles.streakMainLabel}>
+          {streakValue === 1 ? 'DÍA' : 'DÍAS'}
+        </Text>
+        
+        {/* Barra de progreso mini */}
+        <View style={styles.miniProgressContainer}>
+          <View style={styles.miniProgressBar}>
+            <View 
+              style={[
+                styles.miniProgressFill, 
+                { width: `${Math.min(progress, 100)}%` }
+              ]} 
+            />
+          </View>
+        </View>
+        
+        {/* Meta */}
+        <Text style={styles.streakMeta}>Meta: {nextMilestone}</Text>
       </View>
     );
   };
 
   return (
     <View style={styles.container}>
+      {/* Ícono de información en esquina superior derecha */}
+      <TouchableOpacity
+        onPress={() => setShowInfoModal(true)}
+        style={styles.infoButton}
+      >
+        <Ionicons name="information-circle-outline" size={16} color="#2563EB" />
+      </TouchableOpacity>
+
       <View style={styles.cardContent}>
         {/* Columna izquierda - Información del nivel */}
         <View style={styles.leftColumn}>
@@ -218,11 +144,79 @@ const FinScoreProgressBar: React.FC<FinScoreProgressBarProps> = ({
           </View>
         </View>
 
-        {/* Columna derecha - Círculo de streak */}
+        {/* Columna derecha - Badge de streak */}
         <View style={styles.rightColumn}>
-          {renderStreakCircle()}
+          {renderStreakBadge()}
         </View>
       </View>
+
+      {/* Modal de información */}
+      <Modal
+        visible={showInfoModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowInfoModal(false)}
+      >
+        <TouchableOpacity
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowInfoModal(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity
+              style={styles.modalCloseButton}
+              onPress={() => setShowInfoModal(false)}
+            >
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+            
+            <Text style={styles.modalTitle}>¿Qué es tu Índice FinZen?</Text>
+            
+            <View style={styles.metricExplanation}>
+              <Text style={styles.metricName}>📊 Índice de Salud Financiera</Text>
+              <Text style={styles.metricDescription}>
+                Tu Índice FinZen es una medida integral de tu salud financiera que va de 0 a 100, calculado en base a tus hábitos y comportamiento financiero.
+              </Text>
+            </View>
+
+            <View style={styles.metricExplanation}>
+              <Text style={styles.metricName}>🎯 Niveles</Text>
+              <Text style={styles.metricDescription}>
+                • 0-54: Principiante{'\n'}
+                • 55-69: Intermedio{'\n'}
+                • 70-81: Avanzado{'\n'}
+                • 82-91: Experto{'\n'}
+                • 92-100: Maestro
+              </Text>
+            </View>
+
+            <View style={styles.metricExplanation}>
+              <Text style={styles.metricName}>📈 Progreso</Text>
+              <Text style={styles.metricDescription}>
+                La barra verde muestra qué tan cerca estás del siguiente nivel. Los puntos se obtienen manteniendo presupuestos, registrando transacciones y alcanzando metas.
+              </Text>
+            </View>
+
+            <View style={styles.metricExplanation}>
+              <Text style={styles.metricName}>🔥 Racha de días</Text>
+              <Text style={styles.metricDescription}>
+                Cuenta los días consecutivos que has interactuado con la app. Mantener una racha te ayuda a desarrollar hábitos financieros consistentes.
+              </Text>
+            </View>
+
+            <View style={styles.metricExplanation}>
+              <Text style={styles.metricName}>💡 Tips para mejorar tu Índice</Text>
+              <Text style={styles.metricDescription}>
+                • Registra transacciones regularmente{'\n'}
+                • Mantén tus presupuestos activos{'\n'}
+                • Completa tus metas de ahorro{'\n'}
+                • Desarrolla hábitos financieros consistentes{'\n'}
+                • Interactúa con la app diariamente para mantener tu racha
+              </Text>
+            </View>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -232,6 +226,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderRadius: 12,
     padding: 16,
+    paddingTop: 28,
+    paddingBottom: 24,
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -241,10 +237,22 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
     overflow: 'visible',
+    minHeight: 130,
   },
   header: {
     alignItems: 'flex-start',
     marginBottom: 12,
+  },
+  infoButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    padding: 6,
+    borderRadius: 12,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)',
+    borderWidth: 1,
+    borderColor: 'rgba(37, 99, 235, 0.2)',
+    zIndex: 2,
   },
   levelTitle: {
     fontSize: 20,
@@ -320,59 +328,123 @@ const styles = StyleSheet.create({
     marginRight: 16,
   },
   rightColumn: {
-    width: 80,
-    height: 80,
+    width: 75,
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
+    marginTop: 20,
+    paddingTop: 8,
   },
   infoText: {
     fontSize: 10,
     color: '#6b7280',
     textAlign: 'left',
   },
-  // Estilos para el círculo de streak (replicando StreakCounter)
-  streakContainer: {
-    position: 'relative',
+  // Estilos para el badge de streak rectangular
+  streakBadge: {
+    backgroundColor: '#10B981',
+    borderRadius: 12,
+    padding: 8,
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'visible',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.15,
+    shadowRadius: 3,
+    elevation: 4,
+    width: 65,
+    minHeight: 78,
   },
-  streakText: {
-    position: 'absolute',
-    width: '100%',
-    height: '100%',
-    alignItems: 'center',
-    justifyContent: 'center',
+  streakHeader: {
+    marginBottom: 2,
   },
-  streakNumber: {
-    fontSize: 16,
+  streakIcon: {
+    fontSize: 12,
+    textAlign: 'center',
+  },
+  streakMainNumber: {
+    fontSize: 22,
     fontWeight: 'bold',
     color: 'white',
     textAlign: 'center',
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 2,
-    lineHeight: 20,
+    lineHeight: 26,
   },
-  streakLabel: {
-    fontSize: 7,
+  streakMainLabel: {
+    fontSize: 8,
     color: 'rgba(255, 255, 255, 0.9)',
     textAlign: 'center',
-    marginTop: -1,
-    fontWeight: '500',
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+    fontWeight: '600',
+    marginBottom: 6,
   },
-  metaText: {
+  miniProgressContainer: {
+    width: '100%',
+    marginBottom: 4,
+  },
+  miniProgressBar: {
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.3)',
+    borderRadius: 1.5,
+    overflow: 'hidden',
+  },
+  miniProgressFill: {
+    height: '100%',
+    backgroundColor: '#2563EB',
+    borderRadius: 1.5,
+  },
+  streakMeta: {
     fontSize: 7,
     color: 'rgba(255, 255, 255, 0.8)',
     textAlign: 'center',
-    marginTop: 1,
     fontWeight: '400',
-    textShadowColor: 'rgba(0, 0, 0, 0.25)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+  },
+  // Estilos del modal de información
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 16,
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 24,
+    paddingBottom: 32,
+    width: '100%',
+    maxWidth: 440,
+    maxHeight: '92%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  modalCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 1,
+    padding: 4,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1f2937',
+    marginBottom: 16,
+    paddingRight: 40,
+  },
+  metricExplanation: {
+    marginBottom: 18,
+  },
+  metricName: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1f2937',
+    marginBottom: 6,
+  },
+  metricDescription: {
+    fontSize: 12,
+    color: '#6b7280',
+    lineHeight: 18,
   },
 });
 

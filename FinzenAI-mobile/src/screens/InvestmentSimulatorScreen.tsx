@@ -16,6 +16,7 @@ import { useNavigation } from '@react-navigation/native';
 import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
 
 const { width } = Dimensions.get('window');
 
@@ -81,6 +82,7 @@ const yearOptions = [5, 10, 15, 20, 25];
 
 export default function InvestmentSimulatorScreen() {
   const navigation = useNavigation();
+  const { formatCurrency } = useCurrency();
   const [monthlyAmount, setMonthlyAmount] = useState(2500);
   const [tempAmount, setTempAmount] = useState(2500);
   const [selectedYears, setSelectedYears] = useState(10);
@@ -140,9 +142,6 @@ export default function InvestmentSimulatorScreen() {
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
-  };
 
   const resetSimulation = () => {
     setResult(null);
