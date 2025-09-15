@@ -3,18 +3,26 @@
 
 import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
-// Configuración de la API - usar backend de producción para tunnel mode
-const API_BASE_URL = __DEV__ 
-  ? 'https://finzenai-backend-production.up.railway.app/api'  // Producción para tunnel mode
-  : 'https://finzenai-backend-production.up.railway.app/api'; // Producción
+// Configuración de la API - HARDCODEADA PARA DEBUGGING
+const API_BASE_URL = 'https://finzenai-backend-production.up.railway.app';
+const API_URL_WITH_PATH = `${API_BASE_URL}/api`;
+
+// Debug para verificar la URL
+console.log('=== DEBUG API CONFIG ===');
+console.log('expoConfig API_URL:', Constants.expoConfig?.extra?.API_URL);
+console.log('manifest API_URL:', Constants.manifest?.extra?.API_URL);
+console.log('Final API_BASE_URL:', API_BASE_URL);
+console.log('Final API_URL_WITH_PATH:', API_URL_WITH_PATH);
+console.log('========================');
 
 // Clave para almacenar el token de forma segura
 const TOKEN_KEY = 'finzen_auth_token';
 
 // Crear instancia de axios
 const api: AxiosInstance = axios.create({
-  baseURL: API_BASE_URL,
+  baseURL: API_URL_WITH_PATH,
   timeout: 60000, // 60 segundos para Zenio AI
   headers: {
     'Content-Type': 'application/json',
@@ -68,9 +76,15 @@ api.interceptors.request.use(
 // Interceptor para manejar respuestas
 api.interceptors.response.use(
   (response: AxiosResponse) => {
+    console.log('✅ API SUCCESS:', response.config.url, response.status);
     return response;
   },
   async (error) => {
+    console.log('❌ API ERROR:', error.config?.url);
+    console.log('Error details:', error.message);
+    console.log('Response status:', error.response?.status);
+    console.log('Response data:', error.response?.data);
+    
     // Manejar errores de autenticación
     if (error.response?.status === 401) {
       // Limpiar token y forzar logout

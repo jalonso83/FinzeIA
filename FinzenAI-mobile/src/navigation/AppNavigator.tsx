@@ -28,6 +28,7 @@ import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
+import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
 import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';

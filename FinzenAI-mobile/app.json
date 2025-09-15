@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "FinzenAI-mobile",
-    "slug": "FinzenAI-mobile",
+    "slug": "finzenai-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -13,17 +13,34 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.jl.alonso.finzenaimobile",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false,
+        "NSMicrophoneUsageDescription": "Esta app necesita acceso al micrófono para permitirte hablar con Zenio, tu asistente financiero.",
+        "NSSpeechRecognitionUsageDescription": "Esta app necesita acceso al reconocimiento de voz para transcribir tus consultas financieras a Zenio."
+      }
     },
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
       },
-      "edgeToEdgeEnabled": true
+      "edgeToEdgeEnabled": true,
+      "package": "com.jl.alonso.finzenaimobile",
+      "permissions": [
+        "RECORD_AUDIO"
+      ]
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "extra": {
+      "eas": {
+        "projectId": "90a0c5a6-5410-4eea-bcb7-afc42092cc0c"
+      },
+      "API_URL": "${API_URL}"
+    },
+    "owner": "jl.alonso"
   }
 }

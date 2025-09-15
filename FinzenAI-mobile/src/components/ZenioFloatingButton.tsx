@@ -18,6 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/auth';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
+import { useSpeech } from '../hooks/useSpeech';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -66,6 +67,26 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   
   // Animaciones
   const scale = useRef(new Animated.Value(1)).current;
+  
+  // Hook de voz
+  const speech = useSpeech();
+
+  // Manejar transcripción de voz
+  useEffect(() => {
+    if (speech.transcript) {
+      setInputText(speech.transcript);
+      speech.clearTranscript();
+    }
+  }, [speech.transcript]);
+
+  // Manejar errores de voz
+  useEffect(() => {
+    if (speech.error) {
+      Alert.alert('Error de Voz', speech.error, [
+        { text: 'OK', onPress: speech.clearError },
+      ]);
+    }
+  }, [speech.error]);
 
   // Cargar categorías al montar el componente
   useEffect(() => {
@@ -149,7 +170,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
     scrollToBottom();
   }, [messages]);
 
-  const sendMessage = async () => {
+  const sendMessage = async (isVoiceMessage = false) => {
     if (!inputText.trim() || loading) return;
 
     const newMessage: Message = {
@@ -187,6 +208,12 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, zenioMessage]);
+        
+        // Si el mensaje original fue por voz, Zenio responde hablando
+        if (isVoiceMessage && !speech.isSpeaking) {
+          console.log('🔊 Zenio va a responder hablando...');
+          await speech.speakResponse(response.data.message);
+        }
       }
 
       if (response.data.threadId && !threadId) {
@@ -240,11 +267,23 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
     }
   };
 
-  const startVoiceRecording = () => {
-    // TODO: Implementar grabación de voz con expo-av
-    setIsRecording(true);
-    Alert.alert('Próximamente', 'La funcionalidad de voz estará disponible pronto');
-    setTimeout(() => setIsRecording(false), 2000);
+  const startVoiceRecording = async () => {
+    if (speech.isListening) {
+      // Detener grabación
+      const transcript = await speech.stopListening();
+      if (transcript) {
+        // Enviar mensaje automáticamente si hay transcripción
+        await sendMessage(true);
+      }
+      setIsRecording(false);
+    } else {
+      // Iniciar grabación
+      if (speech.isSpeaking) {
+        speech.stopSpeaking();
+      }
+      setIsRecording(true);
+      await speech.startListening();
+    }
   };
 
   const handlePress = () => {
@@ -369,6 +408,12 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                   <Text style={styles.typingText}>Zenio está escribiendo...</Text>
                 </View>
               )}
+              {speech.isSpeaking && (
+                <View style={styles.speakingIndicator}>
+                  <Ionicons name="volume-high" size={16} color="#10B981" />
+                  <Text style={styles.speakingText}>Zenio está hablando...</Text>
+                </View>
+              )}
             </ScrollView>
 
             {/* Input Container */}
@@ -386,14 +431,22 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               />
               <View style={styles.inputActions}>
                 <TouchableOpacity
-                  style={[styles.voiceButton, isRecording && styles.voiceButtonActive]}
+                  style={[
+                    styles.voiceButton, 
+                    (speech.isListening || speech.isLoading) && styles.voiceButtonActive
+                  ]}
                   onPress={startVoiceRecording}
+                  disabled={loading || speech.isLoading}
                 >
-                  <Ionicons 
-                    name={isRecording ? "mic" : "mic-outline"} 
-                    size={20} 
-                    color={isRecording ? "white" : "#64748b"} 
-                  />
+                  {speech.isLoading ? (
+                    <ActivityIndicator size="small" color="white" />
+                  ) : (
+                    <Ionicons 
+                      name={speech.isListening ? "stop" : "mic"} 
+                      size={20} 
+                      color={(speech.isListening || speech.isLoading) ? "white" : "#64748b"} 
+                    />
+                  )}
                 </TouchableOpacity>
                 <TouchableOpacity
                   style={[
@@ -557,6 +610,22 @@ const styles = StyleSheet.create({
     color: '#64748b',
     fontSize: 14,
     fontStyle: 'italic',
+  },
+  speakingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    alignSelf: 'flex-start',
+    backgroundColor: '#dcfdf7',
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    marginVertical: 4,
+  },
+  speakingText: {
+    color: '#059669',
+    fontSize: 14,
+    fontStyle: 'italic',
+    marginLeft: 4,
   },
   inputContainer: {
     flexDirection: 'row',
