@@ -12,6 +12,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import api from '../utils/api';
+import { useSpeech } from '../hooks/useSpeech';
 
 interface ZenioChatProps {
   onClose?: () => void;
@@ -24,6 +25,7 @@ interface Message {
   from: 'user' | 'zenio';
   text: string;
   timestamp?: Date;
+  id?: string;
 }
 
 const ZenioChat: React.FC<ZenioChatProps> = ({ 
@@ -35,14 +37,19 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   // Si es onboarding, inicia con saludo. Si no, inicia vacío.
   const [messages, setMessages] = useState<Message[]>(
     isOnboarding
-      ? [{ from: 'zenio', text: '¡Hola! Soy Zenio, tu asistente financiero. ¿En qué puedo ayudarte hoy?', timestamp: new Date() }]
+      ? [{ from: 'zenio', text: '¡Hola! Soy Zenio, tu asistente financiero. ¿En qué puedo ayudarte hoy?', timestamp: new Date(), id: 'initial' }]
       : []
   );
   const [input, setInput] = useState(isOnboarding ? (initialMessage || 'Hola Zenio, soy nuevo y quiero empezar mi onboarding') : '');
   const [submitting, setSubmitting] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Speech hook
+  const speech = useSpeech();
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -55,6 +62,23 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
     scrollToBottom();
   }, [messages]);
 
+  // Función para reproducir mensaje individual
+  const playMessage = async (messageId: string, text: string) => {
+    if (speech.isSpeaking && currentlyPlayingId === messageId) {
+      speech.stopSpeaking();
+      setCurrentlyPlayingId(null);
+      return;
+    }
+
+    if (speech.isSpeaking) {
+      speech.stopSpeaking();
+    }
+
+    setCurrentlyPlayingId(messageId);
+    await speech.speakResponse(text);
+    setCurrentlyPlayingId(null);
+  };
+
   // Función para enviar mensaje a Zenio
   const sendMessage = async () => {
     if (!input.trim() || submitting) return;
@@ -66,7 +90,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
     const newUserMessage: Message = {
       from: 'user',
       text: userMessage,
-      timestamp: new Date()
+      timestamp: new Date(),
+      id: Date.now().toString()
     };
     
     setMessages(prev => [...prev, newUserMessage]);
@@ -99,13 +124,22 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         }
 
         // Agregar respuesta de Zenio
+        const messageId = (Date.now() + 1).toString();
         const zenioMessage: Message = {
           from: 'zenio',
           text: zenioResponse,
-          timestamp: new Date()
+          timestamp: new Date(),
+          id: messageId
         };
 
         setMessages(prev => [...prev, zenioMessage]);
+
+        // Auto-reproducir si está habilitado
+        if (autoPlay && !speech.isSpeaking) {
+          setCurrentlyPlayingId(messageId);
+          await speech.speakResponse(zenioResponse);
+          setCurrentlyPlayingId(null);
+        }
 
         // Notificar al parent si hay callback
         if (onZenioMessage) {
@@ -138,7 +172,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
       const errorMsg: Message = {
         from: 'zenio',
         text: `❌ ${errorMessage}`,
-        timestamp: new Date()
+        timestamp: new Date(),
+        id: (Date.now() + 2).toString()
       };
       
       setMessages(prev => [...prev, errorMsg]);
@@ -176,11 +211,38 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
             <Text style={styles.zenioStatus}>Tu copiloto financiero</Text>
           </View>
         </View>
-        {onClose && (
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#64748b" />
+        <View style={styles.headerControls}>
+          {/* Botón toggle auto-play */}
+          <TouchableOpacity
+            onPress={() => setAutoPlay(!autoPlay)}
+            style={[styles.autoPlayButton, autoPlay && styles.autoPlayButtonActive]}
+          >
+            <Ionicons
+              name={autoPlay ? "volume-high" : "volume-mute"}
+              size={18}
+              color={autoPlay ? "#2563EB" : "#64748b"}
+            />
           </TouchableOpacity>
-        )}
+
+          {/* Botón STOP si hay audio reproduciéndose */}
+          {speech.isSpeaking && (
+            <TouchableOpacity
+              onPress={() => {
+                speech.stopSpeaking();
+                setCurrentlyPlayingId(null);
+              }}
+              style={styles.stopButton}
+            >
+              <Ionicons name="stop" size={18} color="#ef4444" />
+            </TouchableOpacity>
+          )}
+
+          {onClose && (
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+          )}
+        </View>
       </View>
 
       {/* Mensajes */}
@@ -244,6 +306,23 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
                 </Text>
               )}
             </View>
+
+            {/* Botón de play para mensajes de Zenio */}
+            {message.from === 'zenio' && message.id && (
+              <TouchableOpacity
+                style={[
+                  styles.playButton,
+                  currentlyPlayingId === message.id && styles.playButtonActive
+                ]}
+                onPress={() => playMessage(message.id!, message.text)}
+              >
+                <Ionicons
+                  name={currentlyPlayingId === message.id ? "pause" : "play"}
+                  size={12}
+                  color={currentlyPlayingId === message.id ? "#ffffff" : "#64748b"}
+                />
+              </TouchableOpacity>
+            )}
           </View>
         ))}
         
@@ -435,6 +514,43 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#f1f5f9',
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  autoPlayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  autoPlayButtonActive: {
+    backgroundColor: '#eff6ff',
+  },
+  stopButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fef2f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  playButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    marginTop: 4,
+  },
+  playButtonActive: {
+    backgroundColor: '#2563EB',
   },
 });
 
