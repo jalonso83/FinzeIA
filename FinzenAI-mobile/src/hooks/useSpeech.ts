@@ -21,7 +21,7 @@ export const useSpeech = () => {
     error: null,
   });
 
-  const { user } = useAuthStore();
+  const { user, token } = useAuthStore();
   const recordingRef = useRef<Audio.Recording | null>(null);
 
   // Iniciar grabación de audio
@@ -92,7 +92,7 @@ export const useSpeech = () => {
       const response = await fetch(`https://finzenai-backend-production.up.railway.app/api/zenio/transcribe`, {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${user?.token}`,
+          'Authorization': `Bearer ${token}`,
           'Content-Type': 'multipart/form-data',
         },
         body: formData,
@@ -143,13 +143,12 @@ export const useSpeech = () => {
         language: 'es-ES',
         pitch: 1.0,
         rate: 0.75,
-        quality: Speech.VoiceQuality.Enhanced,
       };
 
       // Obtener voces disponibles
       const availableVoices = await Speech.getAvailableVoicesAsync();
-      const spanishVoice = availableVoices.find(voice => 
-        voice.language.startsWith('es') && voice.quality === Speech.VoiceQuality.Enhanced
+      const spanishVoice = availableVoices.find(voice =>
+        voice.language.startsWith('es')
       );
 
       if (spanishVoice) {

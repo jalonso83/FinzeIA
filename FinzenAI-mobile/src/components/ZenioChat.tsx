@@ -210,10 +210,10 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
             >
               {message.from === 'zenio' ? (
                 <Markdown style={{
-                  body: [
-                    styles.messageText,
-                    styles.zenioMessageText
-                  ],
+                  body: {
+                    ...styles.messageText,
+                    ...styles.zenioMessageText
+                  },
                   paragraph: {
                     margin: 0,
                     marginBottom: 4,

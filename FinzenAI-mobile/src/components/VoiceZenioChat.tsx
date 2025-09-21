@@ -258,10 +258,16 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
           <Ionicons name="chatbubble-ellipses" size={24} color="#2563EB" />
           <Text style={styles.headerTitle}>Chat con Zenio</Text>
           {speech.isSpeaking && (
-            <View style={styles.speakingIndicator}>
-              <Ionicons name="volume-high" size={16} color="#10B981" />
-              <Text style={styles.speakingText}>Hablando...</Text>
-            </View>
+            <TouchableOpacity
+              style={styles.stopButton}
+              onPress={() => {
+                speech.stopSpeaking();
+                setCurrentlyPlayingId(null);
+              }}
+            >
+              <Ionicons name="stop" size={16} color="#ef4444" />
+              <Text style={styles.stopButtonText}>DETENER</Text>
+            </TouchableOpacity>
           )}
         </View>
         <View style={styles.headerControls}>
@@ -312,10 +318,10 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
             >
               {!message.isUser ? (
                 <Markdown style={{
-                  body: [
-                    styles.messageText,
-                    styles.zenioText
-                  ],
+                  body: {
+                    ...styles.messageText,
+                    ...styles.zenioText
+                  },
                   paragraph: {
                     margin: 0,
                     marginBottom: 4,
@@ -722,6 +728,22 @@ const styles = StyleSheet.create({
   },
   playButtonActive: {
     backgroundColor: '#fee2e2',
+  },
+  stopButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    backgroundColor: '#fee2e2',
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: '#ef4444',
+  },
+  stopButtonText: {
+    marginLeft: 4,
+    fontSize: 12,
+    color: '#ef4444',
+    fontWeight: 'bold',
   },
 });
 
