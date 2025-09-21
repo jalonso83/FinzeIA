@@ -60,16 +60,35 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [threadId, setThreadId] = useState<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
-  
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+
   const { user } = useAuthStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
-  
+
   // Animaciones
   const scale = useRef(new Animated.Value(1)).current;
-  
+
   // Hook de voz
   const speech = useSpeech();
+
+  // Función para reproducir mensaje individual
+  const playMessage = async (messageId: string, text: string) => {
+    if (speech.isSpeaking && currentlyPlayingId === messageId) {
+      speech.stopSpeaking();
+      setCurrentlyPlayingId(null);
+      return;
+    }
+
+    if (speech.isSpeaking) {
+      speech.stopSpeaking();
+    }
+
+    setCurrentlyPlayingId(messageId);
+    await speech.speakResponse(text);
+    setCurrentlyPlayingId(null);
+  };
 
   // Manejar transcripción de voz
   useEffect(() => {
@@ -201,18 +220,21 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       const response = await api.post('/zenio/chat', payload);
       
       if (response.data.message) {
+        const messageId = (Date.now() + 1).toString();
         const zenioMessage: Message = {
-          id: (Date.now() + 1).toString(),
+          id: messageId,
           text: response.data.message,
           isUser: false,
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, zenioMessage]);
-        
-        // Si el mensaje original fue por voz, Zenio responde hablando
-        if (isVoiceMessage && !speech.isSpeaking) {
+
+        // Auto-reproducir si está habilitado o si el mensaje original fue por voz
+        if ((autoPlay || isVoiceMessage) && !speech.isSpeaking) {
           console.log('🔊 Zenio va a responder hablando...');
+          setCurrentlyPlayingId(messageId);
           await speech.speakResponse(response.data.message);
+          setCurrentlyPlayingId(null);
         }
       }
 
@@ -347,8 +369,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           {/* Header del chat */}
           <View style={[styles.chatHeader, { paddingTop: insets.top + 10 }]}>
             <View style={styles.chatHeaderLeft}>
-              <Image 
-                source={require('../assets/isotipo.png')} 
+              <Image
+                source={require('../assets/isotipo.png')}
                 style={styles.chatHeaderIcon}
                 resizeMode="contain"
               />
@@ -357,13 +379,40 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                 <Text style={styles.chatHeaderSubtitle}>Tu copiloto financiero</Text>
               </View>
             </View>
-            
-            <TouchableOpacity
-              style={styles.closeButton}
-              onPress={handleCloseChat}
-            >
-              <Ionicons name="close" size={24} color="#64748b" />
-            </TouchableOpacity>
+
+            <View style={styles.headerControls}>
+              {/* Botón toggle auto-play */}
+              <TouchableOpacity
+                onPress={() => setAutoPlay(!autoPlay)}
+                style={[styles.autoPlayButton, autoPlay && styles.autoPlayButtonActive]}
+              >
+                <Ionicons
+                  name={autoPlay ? "volume-high" : "volume-mute"}
+                  size={18}
+                  color={autoPlay ? "#2563EB" : "#64748b"}
+                />
+              </TouchableOpacity>
+
+              {/* Botón STOP si hay audio reproduciéndose */}
+              {speech.isSpeaking && (
+                <TouchableOpacity
+                  onPress={() => {
+                    speech.stopSpeaking();
+                    setCurrentlyPlayingId(null);
+                  }}
+                  style={styles.stopButton}
+                >
+                  <Ionicons name="stop" size={18} color="#ef4444" />
+                </TouchableOpacity>
+              )}
+
+              <TouchableOpacity
+                style={styles.closeButton}
+                onPress={handleCloseChat}
+              >
+                <Ionicons name="close" size={24} color="#64748b" />
+              </TouchableOpacity>
+            </View>
           </View>
 
           {/* Chat Content */}
@@ -382,25 +431,44 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                     message.isUser ? styles.userMessage : styles.zenioMessage,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      message.isUser ? styles.userMessageText : styles.zenioMessageText,
-                    ]}
-                  >
-                    {message.text}
-                  </Text>
-                  <Text
-                    style={[
-                      styles.messageTime,
-                      message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
-                    ]}
-                  >
-                    {message.timestamp.toLocaleTimeString('es-DO', { 
-                      hour: '2-digit', 
-                      minute: '2-digit' 
-                    })}
-                  </Text>
+                  <View style={styles.messageContent}>
+                    <Text
+                      style={[
+                        styles.messageText,
+                        message.isUser ? styles.userMessageText : styles.zenioMessageText,
+                      ]}
+                    >
+                      {message.text}
+                    </Text>
+                    <Text
+                      style={[
+                        styles.messageTime,
+                        message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
+                      ]}
+                    >
+                      {message.timestamp.toLocaleTimeString('es-DO', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                  </View>
+
+                  {/* Botón de play para mensajes de Zenio */}
+                  {!message.isUser && (
+                    <TouchableOpacity
+                      style={[
+                        styles.playButton,
+                        currentlyPlayingId === message.id && styles.playButtonActive
+                      ]}
+                      onPress={() => playMessage(message.id, message.text)}
+                    >
+                      <Ionicons
+                        name={currentlyPlayingId === message.id ? "pause" : "play"}
+                        size={12}
+                        color={currentlyPlayingId === message.id ? "#ffffff" : "#64748b"}
+                      />
+                    </TouchableOpacity>
+                  )}
                 </View>
               ))}
               {loading && (
@@ -677,6 +745,46 @@ const styles = StyleSheet.create({
   },
   sendButtonDisabled: {
     backgroundColor: '#9ca3af',
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  autoPlayButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  autoPlayButtonActive: {
+    backgroundColor: '#eff6ff',
+  },
+  stopButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#fef2f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  messageContent: {
+    flex: 1,
+  },
+  playButton: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 8,
+    marginTop: 4,
+  },
+  playButtonActive: {
+    backgroundColor: '#2563EB',
   },
 });
 
