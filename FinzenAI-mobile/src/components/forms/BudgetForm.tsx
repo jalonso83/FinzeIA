@@ -115,15 +115,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       
       // Obtener el nombre de la categoría seleccionada (replicando la web)
       const selectedCategory = categories.find(c => c.id === formData.categoryId);
-      const categoryName = selectedCategory ? selectedCategory.name : formData.name.trim();
+      const categoryName = selectedCategory ? selectedCategory.name : '';
       
       const budgetData = {
         name: categoryName,
-        category_id: formData.categoryId,
+        categoryId: formData.categoryId,
         amount: Number(formData.amount),
         period: formData.period,
         start_date: start,
         end_date: end,
+        is_active: true,
       };
 
       if (editBudget) {

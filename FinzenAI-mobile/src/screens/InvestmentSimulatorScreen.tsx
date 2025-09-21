@@ -189,7 +189,6 @@ export default function InvestmentSimulatorScreen() {
                   onValueChange={setTempAmount}
                   minimumTrackTintColor="#8B5CF6"
                   maximumTrackTintColor="#e2e8f0"
-                  thumbStyle={styles.sliderThumb}
                 />
                 <Text style={styles.sliderValue}>
                   {formatCurrency(tempAmount)}

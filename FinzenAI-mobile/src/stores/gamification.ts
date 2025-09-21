@@ -5,7 +5,7 @@ import React from 'react';
 import { create } from 'zustand';
 import { devtools, persist, subscribeWithSelector } from 'zustand/middleware';
 import { immer } from 'zustand/middleware/immer';
-import toast from 'react-hot-toast';
+// import toast from 'react-hot-toast';
 
 import { gamificationService, APIError } from '../services/gamificationService';
 import type {
@@ -103,7 +103,7 @@ export const useGamificationStore = create<GamificationStore>()(
               set({ error: errorMessage, isLoading: false });
               
               if (!(error instanceof APIError && error.statusCode === 401)) {
-                toast.error(errorMessage);
+                console.error(errorMessage);
               }
             }
           },
@@ -132,7 +132,7 @@ export const useGamificationStore = create<GamificationStore>()(
                 lastUpdated: new Date().toISOString()
               });
               
-              toast.success('FinScore recalculado exitosamente');
+              console.log('FinScore recalculado exitosamente');
               
               // Recargar stats también
               get().fetchGamificationStats();
@@ -142,7 +142,7 @@ export const useGamificationStore = create<GamificationStore>()(
                 : 'Error recalculando FinScore';
               
               set({ error: errorMessage, isLoading: false });
-              toast.error(errorMessage);
+              console.error(errorMessage);
             }
           },
 
@@ -154,7 +154,7 @@ export const useGamificationStore = create<GamificationStore>()(
             } catch (error) {
               console.error('Error obteniendo badges del usuario:', error);
               if (error instanceof APIError && error.statusCode !== 404) {
-                toast.error('Error cargando badges');
+                console.error('Error cargando badges');
               }
             }
           },
@@ -189,7 +189,7 @@ export const useGamificationStore = create<GamificationStore>()(
             } catch (error) {
               console.error('Error obteniendo estadísticas:', error);
               if (error instanceof APIError && error.statusCode !== 404) {
-                toast.error('Error cargando estadísticas');
+                console.error('Error cargando estadísticas');
               }
             }
           },

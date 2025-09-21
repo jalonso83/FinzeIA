@@ -495,15 +495,11 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#64748b',
     textAlign: 'center',
-    numberOfLines: 2,
   },
   summaryCardValue: {
     fontSize: 20,
     fontWeight: 'bold',
     textAlign: 'center',
-    numberOfLines: 1,
-    adjustsFontSizeToFit: true,
-    minimumFontScale: 0.8,
   },
   summaryCardCurrency: {
     fontSize: 10,
@@ -668,9 +664,6 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     textAlign: 'right',
     flex: 0.6,
-    numberOfLines: 1,
-    adjustsFontSizeToFit: true,
-    minimumFontScale: 0.8,
   },
   contributionsInfo: {
     alignItems: 'center',

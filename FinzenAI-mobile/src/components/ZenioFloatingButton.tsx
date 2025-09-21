@@ -426,7 +426,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                 placeholderTextColor="#9ca3af"
                 multiline
                 maxLength={500}
-                onSubmitEditing={sendMessage}
+                onSubmitEditing={() => sendMessage()}
                 blurOnSubmit={false}
               />
               <View style={styles.inputActions}>
@@ -453,7 +453,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                     styles.sendButton,
                     (!inputText.trim() || loading) && styles.sendButtonDisabled
                   ]}
-                  onPress={sendMessage}
+                  onPress={() => sendMessage()}
                   disabled={!inputText.trim() || loading}
                 >
                   {loading ? (
