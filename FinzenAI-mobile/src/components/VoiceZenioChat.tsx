@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import { useSpeech } from '../hooks/useSpeech';
 import { zenioAPI, categoriesAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
@@ -39,10 +40,44 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
+  const [autoPlay, setAutoPlay] = useState(false);
+  const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const speech = useSpeech();
   const { user } = useAuthStore();
+
+  // Función para reproducir un mensaje específico
+  const playMessage = async (messageId: string, text: string) => {
+    if (currentlyPlayingId === messageId) {
+      // Si ya se está reproduciendo este mensaje, detenerlo
+      speech.stopSpeaking();
+      setCurrentlyPlayingId(null);
+    } else {
+      // Detener cualquier reproducción actual
+      speech.stopSpeaking();
+      setCurrentlyPlayingId(messageId);
+
+      try {
+        await speech.speakResponse(text);
+        setCurrentlyPlayingId(null);
+      } catch (error) {
+        console.error('Error playing message:', error);
+        setCurrentlyPlayingId(null);
+      }
+    }
+  };
+
+  // Función para auto-reproducir cuando llega respuesta de Zenio
+  const autoPlayResponse = async (text: string) => {
+    if (autoPlay && !speech.isSpeaking) {
+      try {
+        await speech.speakResponse(text);
+      } catch (error) {
+        console.error('Error auto-playing response:', error);
+      }
+    }
+  };
 
   // Cargar categorías al montar
   useEffect(() => {
@@ -137,6 +172,11 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
       isVoice,
     };
     setMessages(prev => [...prev, newMessage]);
+
+    // Auto-reproducir si es mensaje de Zenio y auto-play está activado
+    if (!isUser) {
+      autoPlayResponse(text);
+    }
   };
 
   const handleSendMessage = async (message: string, isVoice = false) => {
@@ -224,6 +264,24 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
             </View>
           )}
         </View>
+        <View style={styles.headerControls}>
+          <TouchableOpacity
+            style={[styles.autoPlayToggle, autoPlay && styles.autoPlayActive]}
+            onPress={() => setAutoPlay(!autoPlay)}
+          >
+            <Ionicons
+              name={autoPlay ? "volume-high" : "volume-mute"}
+              size={16}
+              color={autoPlay ? "#10B981" : "#64748b"}
+            />
+            <Text style={[
+              styles.autoPlayText,
+              autoPlay && styles.autoPlayActiveText
+            ]}>
+              Auto
+            </Text>
+          </TouchableOpacity>
+        </View>
         {onClose && (
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={24} color="#64748b" />
@@ -252,14 +310,35 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
                 message.isUser ? styles.userBubble : styles.zenioBubble,
               ]}
             >
-              <Text
-                style={[
-                  styles.messageText,
-                  message.isUser ? styles.userText : styles.zenioText,
-                ]}
-              >
-                {message.text}
-              </Text>
+              {!message.isUser ? (
+                <Markdown style={{
+                  body: [
+                    styles.messageText,
+                    styles.zenioText
+                  ],
+                  paragraph: {
+                    margin: 0,
+                    marginBottom: 4,
+                  },
+                  strong: {
+                    fontWeight: 'bold',
+                  },
+                  em: {
+                    fontStyle: 'italic',
+                  }
+                }}>
+                  {message.text}
+                </Markdown>
+              ) : (
+                <Text
+                  style={[
+                    styles.messageText,
+                    styles.userText,
+                  ]}
+                >
+                  {message.text}
+                </Text>
+              )}
               <View style={styles.messageFooter}>
                 <Text
                   style={[
@@ -276,6 +355,29 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
                     color={message.isUser ? '#1e293b' : '#64748b'}
                     style={styles.voiceIcon}
                   />
+                )}
+                {!message.isUser && (
+                  <TouchableOpacity
+                    style={[
+                      styles.playButton,
+                      currentlyPlayingId === message.id && styles.playButtonActive
+                    ]}
+                    onPress={() => playMessage(message.id, message.text)}
+                  >
+                    <Ionicons
+                      name={
+                        currentlyPlayingId === message.id
+                          ? "pause"
+                          : "play"
+                      }
+                      size={12}
+                      color={
+                        currentlyPlayingId === message.id
+                          ? "#ef4444"
+                          : "#2563EB"
+                      }
+                    />
+                  </TouchableOpacity>
                 )}
               </View>
             </View>
@@ -586,6 +688,40 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#dc2626',
     fontWeight: '500',
+  },
+  headerControls: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 8,
+  },
+  autoPlayToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  autoPlayActive: {
+    backgroundColor: '#dcfce7',
+  },
+  autoPlayText: {
+    fontSize: 12,
+    color: '#64748b',
+    marginLeft: 4,
+    fontWeight: '500',
+  },
+  autoPlayActiveText: {
+    color: '#10B981',
+  },
+  playButton: {
+    marginLeft: 8,
+    padding: 4,
+    borderRadius: 12,
+    backgroundColor: '#f1f5f9',
+  },
+  playButtonActive: {
+    backgroundColor: '#fee2e2',
   },
 });
 

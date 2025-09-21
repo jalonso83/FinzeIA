@@ -10,6 +10,7 @@ import {
   Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import api from '../utils/api';
 
 interface ZenioChatProps {
@@ -207,12 +208,33 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
                 message.from === 'user' ? styles.userMessage : styles.zenioMessage
               ]}
             >
-              <Text style={[
-                styles.messageText,
-                message.from === 'user' ? styles.userMessageText : styles.zenioMessageText
-              ]}>
-                {message.text}
-              </Text>
+              {message.from === 'zenio' ? (
+                <Markdown style={{
+                  body: [
+                    styles.messageText,
+                    styles.zenioMessageText
+                  ],
+                  paragraph: {
+                    margin: 0,
+                    marginBottom: 4,
+                  },
+                  strong: {
+                    fontWeight: 'bold',
+                  },
+                  em: {
+                    fontStyle: 'italic',
+                  }
+                }}>
+                  {message.text}
+                </Markdown>
+              ) : (
+                <Text style={[
+                  styles.messageText,
+                  styles.userMessageText
+                ]}>
+                  {message.text}
+                </Text>
+              )}
               {message.timestamp && (
                 <Text style={[
                   styles.messageTime,
