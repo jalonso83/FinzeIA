@@ -1,6 +1,8 @@
-import { useState, useEffect } from 'react';
+import { useState, useRef } from 'react';
 import * as Speech from 'expo-speech';
-import Voice from '@react-native-voice/voice';
+import { Audio } from 'expo-av';
+import * as FileSystem from 'expo-file-system/legacy';
+import { useAuthStore } from '../stores/auth';
 
 export interface SpeechHookState {
   isListening: boolean;
@@ -19,100 +21,114 @@ export const useSpeech = () => {
     error: null,
   });
 
-  useEffect(() => {
-    // Configurar callbacks de Voice
-    Voice.onSpeechStart = onSpeechStart;
-    Voice.onSpeechRecognized = onSpeechRecognized;
-    Voice.onSpeechEnd = onSpeechEnd;
-    Voice.onSpeechError = onSpeechError;
-    Voice.onSpeechResults = onSpeechResults;
-    Voice.onSpeechPartialResults = onSpeechPartialResults;
+  const { user } = useAuthStore();
+  const recordingRef = useRef<Audio.Recording | null>(null);
 
-    return () => {
-      // Cleanup
-      Voice.destroy().then(Voice.removeAllListeners);
-    };
-  }, []);
-
-  const onSpeechStart = () => {
-    console.log('🎤 Speech started');
-    setState(prev => ({ ...prev, isListening: true, error: null }));
-  };
-
-  const onSpeechRecognized = () => {
-    console.log('🎤 Speech recognized');
-  };
-
-  const onSpeechEnd = () => {
-    console.log('🎤 Speech ended');
-    setState(prev => ({ ...prev, isListening: false }));
-  };
-
-  const onSpeechError = (error: any) => {
-    console.error('🎤 Speech error:', error);
-    setState(prev => ({ 
-      ...prev, 
-      isListening: false, 
-      error: error.error?.message || 'Error de reconocimiento de voz' 
-    }));
-  };
-
-  const onSpeechResults = (event: any) => {
-    console.log('🎤 Speech results:', event.value);
-    const transcript = event.value[0] || '';
-    setState(prev => ({ 
-      ...prev, 
-      transcript,
-      isListening: false 
-    }));
-  };
-
-  const onSpeechPartialResults = (event: any) => {
-    console.log('🎤 Partial results:', event.value);
-    // Opcional: mostrar resultados parciales
-  };
-
-  // Iniciar escucha de voz
+  // Iniciar grabación de audio
   const startListening = async () => {
     try {
-      setState(prev => ({ ...prev, error: null, transcript: '' }));
-      
-      // Verificar si el servicio está disponible
-      const isAvailable = await Voice.isAvailable();
-      if (!isAvailable) {
-        throw new Error('El reconocimiento de voz no está disponible');
+      setState(prev => ({ ...prev, isLoading: true, error: null, transcript: '' }));
+
+      // Solicitar permisos de audio
+      const permission = await Audio.requestPermissionsAsync();
+      if (permission.status !== 'granted') {
+        throw new Error('Se requieren permisos de micrófono');
       }
 
-      // Iniciar reconocimiento de voz
-      await Voice.start('es-ES'); // Español
-      console.log('🎤 Iniciando reconocimiento de voz...');
-      
+      // Configurar modo de audio
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: true,
+        playsInSilentModeIOS: true,
+      });
+
+      // Iniciar grabación
+      const { recording } = await Audio.Recording.createAsync(
+        Audio.RecordingOptionsPresets.HIGH_QUALITY
+      );
+
+      recordingRef.current = recording;
+      setState(prev => ({ ...prev, isListening: true, isLoading: false }));
+      console.log('🎤 Iniciando grabación de audio...');
+
     } catch (error) {
-      console.error('Error starting listening:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isListening: false, 
-        error: error instanceof Error ? error.message : 'Error al iniciar reconocimiento de voz' 
+      console.error('❌ Error iniciando grabación:', error);
+      setState(prev => ({
+        ...prev,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Error iniciando grabación de audio'
       }));
     }
   };
 
-  // Detener reconocimiento de voz
+  // Detener grabación y enviar a Whisper API
   const stopListening = async () => {
     try {
-      await Voice.stop();
-      console.log('🎤 Deteniendo reconocimiento de voz...');
-      
-      // El resultado vendrá por el callback onSpeechResults
-      // Retornamos el transcript actual
-      return state.transcript;
-      
+      if (!recordingRef.current) {
+        throw new Error('No hay grabación activa');
+      }
+
+      setState(prev => ({ ...prev, isListening: false, isLoading: true }));
+
+      // Detener grabación
+      await recordingRef.current.stopAndUnloadAsync();
+      const uri = recordingRef.current.getURI();
+      recordingRef.current = null;
+
+      if (!uri) {
+        throw new Error('No se pudo obtener el archivo de audio');
+      }
+
+      console.log('🎤 Grabación detenida, enviando a Whisper API...');
+
+      // Crear FormData para envío
+      const formData = new FormData();
+      formData.append('audio', {
+        uri,
+        type: 'audio/wav',
+        name: 'audio.wav',
+      } as any);
+
+      // Enviar a backend
+      const response = await fetch(`https://finzenai-backend-production.up.railway.app/api/zenio/transcribe`, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${user?.token}`,
+          'Content-Type': 'multipart/form-data',
+        },
+        body: formData,
+      });
+
+      // Limpiar archivo temporal
+      await FileSystem.deleteAsync(uri, { idempotent: true });
+
+      if (!response.ok) {
+        throw new Error(`Error del servidor: ${response.statusText}`);
+      }
+
+      const result = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.message || 'Error en la transcripción');
+      }
+
+      const transcript = result.transcription || '';
+      console.log('🎤 Transcripción completada:', transcript);
+
+      setState(prev => ({
+        ...prev,
+        transcript,
+        isLoading: false
+      }));
+
+      return transcript;
+
     } catch (error) {
-      console.error('Error stopping listening:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isListening: false, 
-        error: error instanceof Error ? error.message : 'Error al detener reconocimiento' 
+      console.error('❌ Error procesando audio:', error);
+      setState(prev => ({
+        ...prev,
+        isListening: false,
+        isLoading: false,
+        error: error instanceof Error ? error.message : 'Error procesando audio'
       }));
       return null;
     }

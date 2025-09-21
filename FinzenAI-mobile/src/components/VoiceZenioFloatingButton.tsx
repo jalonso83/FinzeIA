@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -8,6 +8,8 @@ import {
   Image,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useAuthStore } from '../stores/auth';
+import { categoriesAPI } from '../utils/api';
 import VoiceZenioChat from './VoiceZenioChat';
 
 interface VoiceZenioFloatingButtonProps {
@@ -24,8 +26,28 @@ interface VoiceZenioFloatingButtonProps {
 
 const VoiceZenioFloatingButton: React.FC<VoiceZenioFloatingButtonProps> = () => {
   const [showChat, setShowChat] = useState(false);
+  const [threadId, setThreadId] = useState<string | undefined>(undefined);
+  const [hasSentFirst, setHasSentFirst] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
+
   const scale = useRef(new Animated.Value(1)).current;
   const insets = useSafeAreaInsets();
+  const { user } = useAuthStore();
+
+  // Cargar categorías al montar el componente
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await categoriesAPI.getAll();
+        setCategories(response.data || []);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        setCategories([]);
+      }
+    };
+
+    loadCategories();
+  }, []);
 
   const handlePress = () => {
     // Animate button press
@@ -83,9 +105,9 @@ const VoiceZenioFloatingButton: React.FC<VoiceZenioFloatingButtonProps> = () => 
         statusBarTranslucent
         onRequestClose={handleCloseChat}
       >
-        <VoiceZenioChat 
+        <VoiceZenioChat
           onClose={handleCloseChat}
-          threadId={undefined}
+          threadId={threadId}
           isOnboarding={false}
         />
       </Modal>
@@ -103,18 +125,20 @@ const styles = StyleSheet.create({
   button: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#2563EB',
+    backgroundColor: '#ffffff',
     borderRadius: 30,
     justifyContent: 'center',
     alignItems: 'center',
-    shadowColor: '#2563EB',
+    shadowColor: '#000',
     shadowOffset: {
       width: 0,
       height: 4,
     },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 8,
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 12,
+    borderWidth: 2,
+    borderColor: '#2563EB',
   },
   zenioIcon: {
     width: 36,

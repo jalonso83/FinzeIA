@@ -29,7 +29,8 @@
       "edgeToEdgeEnabled": true,
       "package": "com.jl.alonso.finzenaimobile",
       "permissions": [
-        "RECORD_AUDIO"
+        "RECORD_AUDIO",
+        "INTERNET"
       ]
     },
     "web": {
@@ -41,6 +42,11 @@
       },
       "API_URL": "${API_URL}"
     },
-    "owner": "jl.alonso"
+    "owner": "jl.alonso",
+    "plugins": [
+      "expo-secure-store",
+      "expo-asset",
+      "expo-font"
+    ]
   }
 }

@@ -11,7 +11,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useSpeech } from '../hooks/useSpeech';
-import { zenioAPI } from '../utils/api';
+import { zenioAPI, categoriesAPI } from '../utils/api';
+import { useAuthStore } from '../stores/auth';
 
 interface Message {
   id: string;
@@ -32,20 +33,78 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
   threadId: initialThreadId,
   isOnboarding = false,
 }) => {
-  const [messages, setMessages] = useState<Message[]>([
-    {
-      id: '1',
-      text: '¡Hola! Soy Zenio, tu asistente financiero inteligente. Puedes hablarme o escribirme. ¿En qué puedo ayudarte hoy?',
-      isUser: false,
-      timestamp: new Date(),
-    },
-  ]);
+  const [messages, setMessages] = useState<Message[]>([]);
   const [inputText, setInputText] = useState('');
   const [threadId, setThreadId] = useState<string | undefined>(initialThreadId);
   const [isLoading, setIsLoading] = useState(false);
+  const [hasSentFirst, setHasSentFirst] = useState(false);
+  const [categories, setCategories] = useState<any[]>([]);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const speech = useSpeech();
+  const { user } = useAuthStore();
+
+  // Cargar categorías al montar
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const response = await categoriesAPI.getAll();
+        setCategories(response.data || []);
+      } catch (error) {
+        console.error('Error loading categories:', error);
+        setCategories([]);
+      }
+    };
+
+    loadCategories();
+  }, []);
+
+  // Auto-inicializar conversación cuando se abre el chat
+  useEffect(() => {
+    const initializeConversation = async () => {
+      if (!hasSentFirst && user && categories.length > 0) {
+        const userName = user.name || user.email || 'Usuario';
+        const userMessage = `Hola Zenio, soy ${userName}`;
+
+        try {
+          setIsLoading(true);
+          const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+
+          const payload = {
+            message: userMessage,
+            categories: categories.map(cat => ({
+              id: cat.id,
+              name: cat.name,
+              type: cat.type
+            })),
+            timezone: userTimezone,
+            autoGreeting: true
+          };
+
+          const response = await zenioAPI.chat(payload.message, threadId, isOnboarding);
+
+          if (response.data) {
+            const { message: zenioResponse, threadId: newThreadId } = response.data;
+
+            if (newThreadId && newThreadId !== threadId) {
+              setThreadId(newThreadId);
+            }
+
+            addMessage(zenioResponse, false);
+          }
+
+          setHasSentFirst(true);
+        } catch (error) {
+          console.error('Error al inicializar conversación:', error);
+          addMessage('Hola! Soy Zenio, tu asistente financiero. ¿En qué puedo ayudarte hoy?', false);
+        } finally {
+          setIsLoading(false);
+        }
+      }
+    };
+
+    initializeConversation();
+  }, [user, categories, hasSentFirst]);
 
   // Auto-scroll al final cuando hay nuevos mensajes
   useEffect(() => {
