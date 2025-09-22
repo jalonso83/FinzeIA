@@ -431,27 +431,25 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                     message.isUser ? styles.userMessage : styles.zenioMessage,
                   ]}
                 >
-                  <View style={styles.messageContent}>
-                    <Text
-                      style={[
-                        styles.messageText,
-                        message.isUser ? styles.userMessageText : styles.zenioMessageText,
-                      ]}
-                    >
-                      {message.text}
-                    </Text>
-                    <Text
-                      style={[
-                        styles.messageTime,
-                        message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
-                      ]}
-                    >
-                      {message.timestamp.toLocaleTimeString('es-DO', {
-                        hour: '2-digit',
-                        minute: '2-digit'
-                      })}
-                    </Text>
-                  </View>
+                  <Text
+                    style={[
+                      styles.messageText,
+                      message.isUser ? styles.userMessageText : styles.zenioMessageText,
+                    ]}
+                  >
+                    {message.text}
+                  </Text>
+                  <Text
+                    style={[
+                      styles.messageTime,
+                      message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
+                    ]}
+                  >
+                    {message.timestamp.toLocaleTimeString('es-DO', {
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </Text>
 
                   {/* Botón de play para mensajes de Zenio */}
                   {!message.isUser && (
@@ -626,6 +624,7 @@ const styles = StyleSheet.create({
   messageContainer: {
     marginVertical: 4,
     maxWidth: '80%',
+    position: 'relative',
   },
   userMessage: {
     alignSelf: 'flex-end',
@@ -770,18 +769,16 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  messageContent: {
-    flex: 1,
-  },
   playButton: {
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    width: 20,
+    height: 20,
+    borderRadius: 10,
     backgroundColor: '#f1f5f9',
     justifyContent: 'center',
     alignItems: 'center',
-    marginLeft: 8,
-    marginTop: 4,
   },
   playButtonActive: {
     backgroundColor: '#2563EB',

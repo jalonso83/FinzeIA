@@ -142,17 +142,34 @@ export const useSpeech = () => {
       const speechOptions: Speech.SpeechOptions = {
         language: 'es-ES',
         pitch: 1.0,
-        rate: 0.75,
+        rate: 1.2,
       };
 
       // Obtener voces disponibles
       const availableVoices = await Speech.getAvailableVoicesAsync();
-      const spanishVoice = availableVoices.find(voice =>
+
+      // Buscar una voz masculina en español
+      const maleSpanishVoice = availableVoices.find(voice =>
+        voice.language.startsWith('es') &&
+        (voice.name.toLowerCase().includes('male') ||
+         voice.name.toLowerCase().includes('masculine') ||
+         voice.name.toLowerCase().includes('man') ||
+         voice.name.toLowerCase().includes('diego') ||
+         voice.name.toLowerCase().includes('jorge') ||
+         voice.name.toLowerCase().includes('carlos'))
+      );
+
+      // Si no hay voz masculina específica, buscar cualquier voz española
+      const fallbackSpanishVoice = availableVoices.find(voice =>
         voice.language.startsWith('es')
       );
 
-      if (spanishVoice) {
-        speechOptions.voice = spanishVoice.identifier;
+      if (maleSpanishVoice) {
+        speechOptions.voice = maleSpanishVoice.identifier;
+        console.log('🔊 Usando voz masculina:', maleSpanishVoice.name);
+      } else if (fallbackSpanishVoice) {
+        speechOptions.voice = fallbackSpanishVoice.identifier;
+        console.log('🔊 Usando voz española disponible:', fallbackSpanishVoice.name);
       }
 
       console.log('🔊 Zenio hablando:', text);
