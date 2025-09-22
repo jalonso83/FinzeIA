@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../stores/auth';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
@@ -431,14 +432,55 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                     message.isUser ? styles.userMessage : styles.zenioMessage,
                   ]}
                 >
-                  <Text
-                    style={[
-                      styles.messageText,
-                      message.isUser ? styles.userMessageText : styles.zenioMessageText,
-                    ]}
-                  >
-                    {message.text}
-                  </Text>
+                  {message.isUser ? (
+                    <Text
+                      style={[
+                        styles.messageText,
+                        styles.userMessageText,
+                      ]}
+                    >
+                      {message.text}
+                    </Text>
+                  ) : (
+                    <Markdown
+                      style={{
+                        body: {
+                          ...styles.messageText,
+                          ...styles.zenioMessageText,
+                        },
+                        paragraph: {
+                          margin: 0,
+                          marginBottom: 4,
+                        },
+                        strong: {
+                          fontWeight: 'bold',
+                        },
+                        em: {
+                          fontStyle: 'italic',
+                        },
+                        heading1: {
+                          fontSize: 18,
+                          fontWeight: 'bold',
+                          marginBottom: 8,
+                        },
+                        heading2: {
+                          fontSize: 16,
+                          fontWeight: 'bold',
+                          marginBottom: 6,
+                        },
+                        heading3: {
+                          fontSize: 14,
+                          fontWeight: 'bold',
+                          marginBottom: 4,
+                        },
+                        list_item: {
+                          marginBottom: 2,
+                        },
+                      }}
+                    >
+                      {message.text}
+                    </Markdown>
+                  )}
                   <Text
                     style={[
                       styles.messageTime,
