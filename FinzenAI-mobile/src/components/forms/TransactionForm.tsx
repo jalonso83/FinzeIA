@@ -277,7 +277,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         description: formData.description.trim(),
         amount: Number(formData.amount),
         type: formData.type,
-        categoryId: formData.categoryId,
+        category_id: formData.categoryId,
         date: formData.date + 'T12:00:00.000Z', // Enviar como mediodía UTC para evitar problemas de zona horaria
       };
 

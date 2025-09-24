@@ -171,8 +171,32 @@ export default function RegisterScreen() {
     return emailRegex.test(email);
   };
 
+  // Función para formatear fecha automáticamente
+  const formatBirthDate = (value: string) => {
+    // Remover todos los caracteres que no sean números
+    const cleaned = value.replace(/\D/g, '');
+
+    // Aplicar formato YYYY-MM-DD
+    if (cleaned.length >= 8) {
+      return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
+    } else if (cleaned.length >= 6) {
+      return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6)}`;
+    } else if (cleaned.length >= 4) {
+      return `${cleaned.substring(0, 4)}-${cleaned.substring(4)}`;
+    } else {
+      return cleaned;
+    }
+  };
+
   const handleChange = (field: string, value: string) => {
-    setForm({ ...form, [field]: value });
+    let finalValue = value;
+
+    // Aplicar formato especial para fecha de nacimiento
+    if (field === 'birthDate') {
+      finalValue = formatBirthDate(value);
+    }
+
+    setForm({ ...form, [field]: finalValue });
     // Limpiar error cuando el usuario empiece a escribir
     if (errors[field]) {
       setErrors({ ...errors, [field]: '' });
@@ -372,6 +396,8 @@ export default function RegisterScreen() {
                     onChangeText={(value) => handleChange('birthDate', value)}
                     placeholder="YYYY-MM-DD"
                     placeholderTextColor="#9ca3af"
+                    keyboardType="numeric"
+                    maxLength={10}
                   />
                   {errors.birthDate && <Text style={styles.errorText}>{errors.birthDate}</Text>}
                 </View>

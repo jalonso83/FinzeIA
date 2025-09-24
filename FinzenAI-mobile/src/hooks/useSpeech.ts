@@ -147,29 +147,45 @@ export const useSpeech = () => {
 
       // Obtener voces disponibles
       const availableVoices = await Speech.getAvailableVoicesAsync();
+      console.log('🔊 Voces disponibles:', availableVoices.map(v => `${v.name} (${v.language})`));
 
-      // Buscar una voz masculina en español
+      // Buscar específicamente voces masculinas comunes en iOS
       const maleSpanishVoice = availableVoices.find(voice =>
         voice.language.startsWith('es') &&
-        (voice.name.toLowerCase().includes('male') ||
-         voice.name.toLowerCase().includes('masculine') ||
-         voice.name.toLowerCase().includes('man') ||
-         voice.name.toLowerCase().includes('diego') ||
+        (voice.name.toLowerCase().includes('diego') ||
          voice.name.toLowerCase().includes('jorge') ||
-         voice.name.toLowerCase().includes('carlos'))
+         voice.name.toLowerCase().includes('carlos') ||
+         voice.name.toLowerCase().includes('male') ||
+         voice.name.toLowerCase().includes('man') ||
+         voice.name.toLowerCase().includes('masculine') ||
+         voice.name.toLowerCase().includes('hombre'))
       );
 
-      // Si no hay voz masculina específica, buscar cualquier voz española
-      const fallbackSpanishVoice = availableVoices.find(voice =>
-        voice.language.startsWith('es')
+      // Voces iOS conocidas masculinas en español
+      const iosMaleVoices = availableVoices.find(voice =>
+        (voice.identifier === 'com.apple.ttsbundle.Diego-compact' ||
+         voice.identifier === 'com.apple.ttsbundle.Jorge-compact' ||
+         voice.identifier === 'com.apple.voice.compact.es-ES.Diego' ||
+         voice.identifier === 'com.apple.voice.compact.es-MX.Diego')
       );
+
+      // Intentar configurar pitch más bajo para voz más masculina
+      speechOptions.pitch = 0.8; // Más grave
 
       if (maleSpanishVoice) {
         speechOptions.voice = maleSpanishVoice.identifier;
-        console.log('🔊 Usando voz masculina:', maleSpanishVoice.name);
-      } else if (fallbackSpanishVoice) {
-        speechOptions.voice = fallbackSpanishVoice.identifier;
-        console.log('🔊 Usando voz española disponible:', fallbackSpanishVoice.name);
+        console.log('🔊 Usando voz masculina encontrada:', maleSpanishVoice.name);
+      } else if (iosMaleVoices) {
+        speechOptions.voice = iosMaleVoices.identifier;
+        console.log('🔊 Usando voz iOS masculina:', iosMaleVoices.name);
+      } else {
+        // Buscar cualquier voz española y hacerla más grave
+        const spanishVoice = availableVoices.find(voice => voice.language.startsWith('es'));
+        if (spanishVoice) {
+          speechOptions.voice = spanishVoice.identifier;
+          speechOptions.pitch = 0.7; // Aún más grave para simular voz masculina
+          console.log('🔊 Usando voz española con pitch bajo:', spanishVoice.name);
+        }
       }
 
       console.log('🔊 Zenio hablando:', text);

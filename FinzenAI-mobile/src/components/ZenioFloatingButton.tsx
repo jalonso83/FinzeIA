@@ -74,6 +74,19 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   // Hook de voz
   const speech = useSpeech();
 
+  // Función para limpiar markdown del texto
+  const cleanMarkdownForSpeech = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '$1')  // **texto** → texto
+      .replace(/\*(.*?)\*/g, '$1')     // *texto* → texto
+      .replace(/#{1,6}\s+/g, '')       // ### Título → Título
+      .replace(/`(.*?)`/g, '$1')       // `código` → código
+      .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1') // [link](url) → link
+      .replace(/^\s*[-*+]\s+/gm, '')   // - lista → lista
+      .replace(/^\s*\d+\.\s+/gm, '')   // 1. lista → lista
+      .trim();
+  };
+
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
     if (speech.isSpeaking && currentlyPlayingId === messageId) {
@@ -87,7 +100,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
     }
 
     setCurrentlyPlayingId(messageId);
-    await speech.speakResponse(text);
+    const cleanText = cleanMarkdownForSpeech(text);
+    await speech.speakResponse(cleanText);
     setCurrentlyPlayingId(null);
   };
 
@@ -234,7 +248,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         if ((autoPlay || isVoiceMessage) && !speech.isSpeaking) {
           console.log('🔊 Zenio va a responder hablando...');
           setCurrentlyPlayingId(messageId);
-          await speech.speakResponse(response.data.message);
+          const cleanText = cleanMarkdownForSpeech(response.data.message);
+          await speech.speakResponse(cleanText);
           setCurrentlyPlayingId(null);
         }
       }

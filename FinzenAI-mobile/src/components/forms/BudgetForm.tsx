@@ -61,7 +61,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       if (editBudget) {
         setFormData({
           amount: editBudget.amount.toString(),
-          categoryId: editBudget.category?.id || editBudget.categoryId || '',
+          categoryId: editBudget.category?.id || editBudget.category_id || '',
           period: editBudget.period,
         });
       } else {
@@ -119,7 +119,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       
       const budgetData = {
         name: categoryName,
-        categoryId: formData.categoryId,
+        category_id: formData.categoryId,
         amount: Number(formData.amount),
         period: formData.period,
         start_date: start,

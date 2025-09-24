@@ -108,20 +108,41 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
         headerShown: route.name === 'Dashboard', // Solo mostrar header en Dashboard
         headerTitle: route.name === 'Dashboard' ? `Hola, ${user?.name}!` : '',
         headerTitleAlign: 'left', // Alinear título a la izquierda en ambas plataformas
+        headerStyle: {
+          backgroundColor: 'white',
+          borderBottomWidth: 1,
+          borderBottomColor: '#e5e7eb',
+          shadowColor: '#000',
+          shadowOffset: {
+            width: 0,
+            height: 1,
+          },
+          shadowOpacity: 0.08,
+          shadowRadius: 2,
+          elevation: 1,
+        },
         headerRight: route.name === 'Dashboard' ? () => (
           <View style={{ 
             flexDirection: 'row', 
             alignItems: 'center', 
             marginRight: Math.max(insets.right + 8, 16) // Asegurar margen mínimo de 16, más espacio en notch
           }}>
-            <TouchableOpacity 
+            <TouchableOpacity
               onPress={() => setShowUserMenu(true)}
-              style={{ 
-                flexDirection: 'row', 
-                alignItems: 'center', 
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
                 padding: 8,
                 backgroundColor: '#f8fafc',
                 borderRadius: 20,
+                shadowColor: '#000',
+                shadowOffset: {
+                  width: 0,
+                  height: 2,
+                },
+                shadowOpacity: 0.1,
+                shadowRadius: 3,
+                elevation: 2,
               }}
             >
               <View style={{

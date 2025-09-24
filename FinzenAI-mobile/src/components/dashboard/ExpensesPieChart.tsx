@@ -81,9 +81,9 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
     const categoryTotals: { [key: string]: number } = {};
     
     filteredTransactions.forEach(transaction => {
-      const categoryId = typeof transaction.category === 'object' 
-        ? transaction.category?.id 
-        : transaction.category;
+      const categoryId = typeof transaction.category === 'object'
+        ? transaction.category?.id
+        : transaction.category_id;
       
       if (categoryId) {
         categoryTotals[categoryId] = (categoryTotals[categoryId] || 0) + transaction.amount;

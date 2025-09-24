@@ -103,7 +103,7 @@ export interface Transaction {
   amount: number;
   type: 'INCOME' | 'EXPENSE';
   date: string;
-  categoryId: string;
+  category_id: string;
   category?: Category;
   userId: string;
 }
@@ -120,7 +120,7 @@ export interface Budget {
   name: string;
   amount: number;
   spent: number;
-  categoryId: string;
+  category_id: string;
   category?: Category;
   period: string;
   start_date: string;
