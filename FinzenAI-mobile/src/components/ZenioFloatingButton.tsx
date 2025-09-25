@@ -12,11 +12,14 @@ import {
   TextInput,
   ActivityIndicator,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../stores/auth';
+import { useDashboardStore } from '../stores/dashboard';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
@@ -65,6 +68,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
 
   const { user } = useAuthStore();
+  const { refreshDashboard } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -263,30 +267,39 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         switch (response.data.action) {
           case 'transaction_created':
             onTransactionCreated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'transaction_updated':
             onTransactionUpdated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'transaction_deleted':
             onTransactionDeleted?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'budget_created':
             onBudgetCreated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'budget_updated':
             onBudgetUpdated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'budget_deleted':
             onBudgetDeleted?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'goal_created':
             onGoalCreated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'goal_updated':
             onGoalUpdated?.();
+            refreshDashboard(); // Refresh dashboard
             break;
           case 'goal_deleted':
             onGoalDeleted?.();
+            refreshDashboard(); // Refresh dashboard
             break;
         }
       }
@@ -381,7 +394,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         statusBarTranslucent
         onRequestClose={handleCloseChat}
       >
-        <View style={styles.chatModalContainer}>
+        <KeyboardAvoidingView
+          style={styles.chatModalContainer}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        >
           {/* Header del chat */}
           <View style={[styles.chatHeader, { paddingTop: insets.top + 10 }]}>
             <View style={styles.chatHeaderLeft}>
@@ -588,7 +605,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               </View>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
