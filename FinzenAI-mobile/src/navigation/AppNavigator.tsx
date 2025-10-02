@@ -7,7 +7,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TouchableOpacity, Alert, View, Text, Modal, Image } from 'react-native';
+import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform } from 'react-native';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import api from '../utils/api';
@@ -120,13 +120,14 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
           shadowOpacity: 0.08,
           shadowRadius: 2,
           elevation: 1,
-          height: 100, // Más altura para evitar superposición en iPhone
+          height: Platform.OS === 'ios' ? Math.max(110 + insets.top, 120) : 80,
         },
         headerRight: route.name === 'Dashboard' ? () => (
-          <View style={{ 
-            flexDirection: 'row', 
-            alignItems: 'center', 
-            marginRight: Math.max(insets.right + 8, 16) // Asegurar margen mínimo de 16, más espacio en notch
+          <View style={{
+            flexDirection: 'row',
+            alignItems: 'center',
+            marginRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
+            marginTop: Platform.OS === 'ios' ? Math.max(insets.top - 20, 0) : 0,
           }}>
             <TouchableOpacity
               onPress={() => setShowUserMenu(true)}
@@ -144,7 +145,7 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
                 shadowOpacity: 0.15,
                 shadowRadius: 4,
                 elevation: 3,
-                marginBottom: 8, // Espacio extra para iPhone
+                marginBottom: Platform.OS === 'ios' ? 20 : 8,
               }}
             >
               <View style={{
@@ -259,8 +260,8 @@ function MainNavigator() {
           backgroundColor: 'rgba(0,0,0,0.5)',
           justifyContent: 'flex-start',
           alignItems: 'flex-end',
-          paddingTop: Math.max(insets.top + 50, 90), // Asegurar que esté debajo del header
-          paddingRight: Math.max(insets.right + 8, 16), // Consistente con el botón
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top + 80, 120) : 90,
+          paddingRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
         }}
         activeOpacity={1}
         onPress={() => setShowUserMenu(false)}

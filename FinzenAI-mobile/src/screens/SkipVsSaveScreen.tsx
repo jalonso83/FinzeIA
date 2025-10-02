@@ -379,14 +379,14 @@ export default function SkipVsSaveScreen() {
         <View style={styles.progressBars}>
           <View style={styles.progressBarContainer}>
             <Text style={styles.progressBarLabel}>💸 Gastado</Text>
-            <View style={styles.progressBar}>
+            <View style={styles.resultProgressBar}>
               <View style={[styles.progressBarFill, styles.spentBar, { width: '100%' }]} />
             </View>
           </View>
           <View style={styles.progressBarContainer}>
             <Text style={styles.progressBarLabel}>📈 Invertido</Text>
-            <View style={styles.progressBar}>
-              <View style={[styles.progressBarFill, styles.investedBar, { width: `${(result.totalInvested / result.totalSpent) * 100}%` }]} />
+            <View style={styles.resultProgressBar}>
+              <View style={[styles.progressBarFill, styles.investedBar, { width: `${Math.min((result.totalInvested / result.totalSpent) * 100, 100)}%` }]} />
             </View>
           </View>
         </View>
@@ -480,6 +480,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#e2e8f0',
     borderRadius: 2,
     marginBottom: 8,
+    overflow: 'hidden',
   },
   progressFill: {
     height: '100%',
@@ -847,6 +848,13 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     fontWeight: '500',
+  },
+  resultProgressBar: {
+    height: 8,
+    backgroundColor: '#e2e8f0',
+    borderRadius: 4,
+    overflow: 'hidden',
+    width: '100%',
   },
   progressBarFill: {
     height: '100%',

@@ -16,6 +16,7 @@ import { transactionsAPI, Transaction } from '../utils/api';
 import TransactionForm from '../components/forms/TransactionForm';
 import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
+import { useDashboardStore } from '../stores/dashboard';
 
 type FilterType = 'all' | 'INCOME' | 'EXPENSE';
 
@@ -35,9 +36,19 @@ export default function TransactionsScreen() {
   // Hook para moneda del usuario
   const { formatCurrency, userCountry } = useCurrency();
 
+  // Dashboard store para refresh automático
+  const { refreshTrigger } = useDashboardStore();
+
   useEffect(() => {
     loadTransactions();
   }, []);
+
+  // Refresh cuando Zenio crea/modifica transacciones
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      loadTransactions();
+    }
+  }, [refreshTrigger]);
 
   // Filtrar transacciones cuando cambien los filtros
   useEffect(() => {
@@ -135,6 +146,35 @@ export default function TransactionsScreen() {
   const formatAmount = (amount: number, type: string) => {
     const formattedAmount = formatCurrency(amount);
     return type === 'INCOME' ? `+${formattedAmount}` : `-${formattedAmount}`;
+  };
+
+  const handleDeleteTransaction = async (transaction: Transaction) => {
+    Alert.alert(
+      'Eliminar Transacción',
+      `¿Estás seguro de que quieres eliminar esta transacción?\n\n${transaction.description}\n${formatAmount(transaction.amount, transaction.type)}`,
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Eliminar',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              await transactionsAPI.delete(transaction.id);
+              // Recargar transacciones después de eliminar
+              await loadTransactions();
+              // Actualizar dashboard
+              onTransactionChange();
+            } catch (error) {
+              console.error('Error eliminando transacción:', error);
+              Alert.alert('Error', 'No se pudo eliminar la transacción');
+            }
+          },
+        },
+      ]
+    );
   };
 
   // Función para crear fecha sin problemas de zona horaria
@@ -269,41 +309,49 @@ export default function TransactionsScreen() {
             <View key={group.date} style={styles.dateGroup}>
               <Text style={styles.dateHeader}>{group.dateHeader}</Text>
               {group.transactions.map((transaction) => (
-                <TouchableOpacity 
-                  key={transaction.id} 
-                  style={styles.transactionCard}
-                  onPress={() => {
-                    setEditingTransaction(transaction);
-                    setShowForm(true);
-                  }}
-                  activeOpacity={0.7}
-                >
-                  <View style={styles.transactionHeader}>
-                    <View style={styles.transactionInfo}>
-                      <Text style={styles.transactionDescription}>
-                        {transaction.description}
-                      </Text>
-                      {transaction.category && (
-                        <Text style={styles.transactionCategory}>
-                          {transaction.category.name}
+                <View key={transaction.id} style={styles.transactionCard}>
+                  <TouchableOpacity
+                    style={styles.transactionContent}
+                    onPress={() => {
+                      setEditingTransaction(transaction);
+                      setShowForm(true);
+                    }}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.transactionHeader}>
+                      <View style={styles.transactionInfo}>
+                        <Text style={styles.transactionDescription}>
+                          {transaction.description}
                         </Text>
-                      )}
+                        {transaction.category && (
+                          <Text style={styles.transactionCategory}>
+                            {transaction.category.name}
+                          </Text>
+                        )}
+                      </View>
+                      <View style={styles.transactionRight}>
+                        <Text
+                          style={[
+                            styles.transactionAmount,
+                            transaction.type === 'INCOME'
+                              ? styles.incomeAmount
+                              : styles.expenseAmount,
+                          ]}
+                        >
+                          {formatAmount(transaction.amount, transaction.type)}
+                        </Text>
+                        <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
+                      </View>
                     </View>
-                    <View style={styles.transactionRight}>
-                      <Text
-                        style={[
-                          styles.transactionAmount,
-                          transaction.type === 'INCOME'
-                            ? styles.incomeAmount
-                            : styles.expenseAmount,
-                        ]}
-                      >
-                        {formatAmount(transaction.amount, transaction.type)}
-                      </Text>
-                      <Ionicons name="chevron-forward" size={16} color="#9CA3AF" />
-                    </View>
-                  </View>
-                </TouchableOpacity>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteButton}
+                    onPress={() => handleDeleteTransaction(transaction)}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                  </TouchableOpacity>
+                </View>
               ))}
             </View>
           ))
@@ -544,6 +592,7 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     marginHorizontal: 20,
+    position: 'relative',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -786,5 +835,22 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  // Estilos para delete functionality
+  transactionContent: {
+    flex: 1,
+  },
+  deleteButton: {
+    position: 'absolute',
+    top: 12,
+    right: 12,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#FEF2F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#FECACA',
   },
 });

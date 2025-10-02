@@ -1,7 +1,8 @@
-import { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import * as Speech from 'expo-speech';
 import { Audio } from 'expo-av';
-import * as FileSystem from 'expo-file-system/legacy';
+import * as FileSystem from 'expo-file-system';
+import { Platform, AppState } from 'react-native';
 import { useAuthStore } from '../stores/auth';
 
 export interface SpeechHookState {
@@ -24,6 +25,22 @@ export const useSpeech = () => {
   const { user, token } = useAuthStore();
   const recordingRef = useRef<Audio.Recording | null>(null);
 
+  // Manejar interrupciones de app state
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // Si la app va a background mientras graba, detener grabación
+        if (state.isListening && recordingRef.current) {
+          console.log('[Speech] App en background, deteniendo grabación...');
+          stopListening().catch(console.error);
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+    return () => subscription?.remove();
+  }, [state.isListening]);
+
   // Iniciar grabación de audio
   const startListening = async () => {
     try {
@@ -35,7 +52,9 @@ export const useSpeech = () => {
         throw new Error('Se requieren permisos de micrófono');
       }
 
-      // Configurar modo de audio
+      // Remover verificación estricta - dejar que iOS maneje naturalmente
+
+      // Configuración de audio simple y confiable
       await Audio.setAudioModeAsync({
         allowsRecordingIOS: true,
         playsInSilentModeIOS: true,
@@ -52,10 +71,24 @@ export const useSpeech = () => {
 
     } catch (error) {
       console.error('❌ Error iniciando grabación:', error);
+
+      let errorMessage = 'Error iniciando grabación de audio';
+
+      // Manejar errores específicos más suavemente
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Se requieren permisos de micrófono para usar esta función.';
+        } else if (error.message.includes('EXModulesErrorDomain')) {
+          errorMessage = 'Intenta nuevamente. Asegúrate de mantener la app abierta.';
+        } else {
+          errorMessage = 'Error con el micrófono. Intenta nuevamente.';
+        }
+      }
+
       setState(prev => ({
         ...prev,
         isLoading: false,
-        error: error instanceof Error ? error.message : 'Error iniciando grabación de audio'
+        error: errorMessage
       }));
     }
   };
@@ -139,53 +172,33 @@ export const useSpeech = () => {
     try {
       setState(prev => ({ ...prev, isSpeaking: true, error: null }));
 
+      // Configuraciones específicas por plataforma
       const speechOptions: Speech.SpeechOptions = {
         language: 'es-ES',
-        pitch: 1.0,
-        rate: 1.2,
+        pitch: Platform.OS === 'ios' ? 1.0 : 1.0, // Pitch natural en ambas plataformas
+        rate: Platform.OS === 'ios' ? 1.1 : 1.4,  // Velocidad aumentada en ambas plataformas
       };
 
       // Obtener voces disponibles
       const availableVoices = await Speech.getAvailableVoicesAsync();
       console.log('🔊 Voces disponibles:', availableVoices.map(v => `${v.name} (${v.language})`));
 
-      // Buscar específicamente voces masculinas comunes en iOS
-      const maleSpanishVoice = availableVoices.find(voice =>
+      // Buscar la mejor voz española disponible (priorizando calidad sobre género)
+      const bestSpanishVoice = availableVoices.find(voice =>
         voice.language.startsWith('es') &&
-        (voice.name.toLowerCase().includes('diego') ||
-         voice.name.toLowerCase().includes('jorge') ||
-         voice.name.toLowerCase().includes('carlos') ||
-         voice.name.toLowerCase().includes('male') ||
-         voice.name.toLowerCase().includes('man') ||
-         voice.name.toLowerCase().includes('masculine') ||
-         voice.name.toLowerCase().includes('hombre'))
+        (voice.quality === 'Enhanced' || voice.quality === 'Premium')
       );
 
-      // Voces iOS conocidas masculinas en español
-      const iosMaleVoices = availableVoices.find(voice =>
-        (voice.identifier === 'com.apple.ttsbundle.Diego-compact' ||
-         voice.identifier === 'com.apple.ttsbundle.Jorge-compact' ||
-         voice.identifier === 'com.apple.voice.compact.es-ES.Diego' ||
-         voice.identifier === 'com.apple.voice.compact.es-MX.Diego')
+      // Si no hay voces mejoradas, buscar cualquier voz española nativa
+      const spanishVoice = bestSpanishVoice || availableVoices.find(voice =>
+        voice.language.startsWith('es')
       );
 
-      // Intentar configurar pitch más bajo para voz más masculina
-      speechOptions.pitch = 0.8; // Más grave
-
-      if (maleSpanishVoice) {
-        speechOptions.voice = maleSpanishVoice.identifier;
-        console.log('🔊 Usando voz masculina encontrada:', maleSpanishVoice.name);
-      } else if (iosMaleVoices) {
-        speechOptions.voice = iosMaleVoices.identifier;
-        console.log('🔊 Usando voz iOS masculina:', iosMaleVoices.name);
+      if (spanishVoice) {
+        speechOptions.voice = spanishVoice.identifier;
+        console.log('🔊 Usando voz española de calidad:', spanishVoice.name, '- Calidad:', spanishVoice.quality);
       } else {
-        // Buscar cualquier voz española y hacerla más grave
-        const spanishVoice = availableVoices.find(voice => voice.language.startsWith('es'));
-        if (spanishVoice) {
-          speechOptions.voice = spanishVoice.identifier;
-          speechOptions.pitch = 0.7; // Aún más grave para simular voz masculina
-          console.log('🔊 Usando voz española con pitch bajo:', spanishVoice.name);
-        }
+        console.log('🔊 Usando voz por defecto del sistema');
       }
 
       console.log('🔊 Zenio hablando:', text);

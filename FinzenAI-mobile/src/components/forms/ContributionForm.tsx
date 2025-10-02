@@ -8,6 +8,9 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -106,113 +109,128 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
           <View style={styles.headerSpacer} />
         </View>
 
-        <View style={styles.content}>
-          {/* Goal Info */}
-          <View style={styles.goalInfo}>
-            <View style={styles.goalHeader}>
-              <Text style={styles.goalIcon}>{goal.category.icon}</Text>
-              <View style={styles.goalDetails}>
-                <Text style={styles.goalName}>{goal.name}</Text>
-                <Text style={styles.goalCategory}>{goal.category.name}</Text>
+        <KeyboardAvoidingView
+          style={styles.keyboardAvoidingView}
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        >
+          <ScrollView
+            style={styles.content}
+            showsVerticalScrollIndicator={false}
+            keyboardShouldPersistTaps="handled"
+          >
+            {/* Goal Info */}
+            <View style={styles.goalInfo}>
+              <View style={styles.goalHeader}>
+                <Text style={styles.goalIcon}>{goal.category.icon}</Text>
+                <View style={styles.goalDetails}>
+                  <Text style={styles.goalName}>{goal.name}</Text>
+                  <Text style={styles.goalCategory}>{goal.category.name}</Text>
+                </View>
               </View>
             </View>
-          </View>
 
-          {/* Progress Current */}
-          <View style={styles.progressSection}>
-            <View style={styles.progressHeader}>
-              <Text style={styles.progressLabel}>Progreso actual</Text>
-              <Text style={styles.progressPercentage}>{progress.toFixed(1)}%</Text>
+            {/* Progress Current */}
+            <View style={styles.progressSection}>
+              <View style={styles.progressHeader}>
+                <Text style={styles.progressLabel}>Progreso actual</Text>
+                <Text style={styles.progressPercentage}>{progress.toFixed(1)}%</Text>
+              </View>
+
+              <View style={styles.progressBarContainer}>
+                <View style={styles.progressBar}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${progress}%`, backgroundColor: progressColor },
+                    ]}
+                  />
+                </View>
+              </View>
+
+              <View style={styles.progressAmounts}>
+                <Text style={styles.progressAmount}>{formatCurrency(goal.currentAmount)} ahorrado</Text>
+                <Text style={styles.progressTarget}>{formatCurrency(goal.targetAmount)} meta</Text>
+              </View>
             </View>
-            
-            <View style={styles.progressBarContainer}>
-              <View style={styles.progressBar}>
-                <View
-                  style={[
-                    styles.progressFill,
-                    { width: `${progress}%`, backgroundColor: progressColor },
-                  ]}
+
+            {/* Contribution Form */}
+            <View style={styles.formSection}>
+              <Text style={styles.label}>Monto de contribución</Text>
+              <View style={styles.amountContainer}>
+                <Text style={styles.currencySymbol}>$</Text>
+                <TextInput
+                  style={styles.amountInput}
+                  value={amount}
+                  onChangeText={(text) => setAmount(formatAmount(text))}
+                  placeholder="0"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="numeric"
+                  returnKeyType="done"
+                  blurOnSubmit={true}
                 />
               </View>
+              <Text style={styles.maxAmount}>
+                Máximo disponible: {formatCurrency(remaining)}
+              </Text>
             </View>
-            
-            <View style={styles.progressAmounts}>
-              <Text style={styles.progressAmount}>{formatCurrency(goal.currentAmount)} ahorrado</Text>
-              <Text style={styles.progressTarget}>{formatCurrency(goal.targetAmount)} meta</Text>
-            </View>
-          </View>
 
-          {/* Contribution Form */}
-          <View style={styles.formSection}>
-            <Text style={styles.label}>Monto de contribución</Text>
-            <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>$</Text>
-              <TextInput
-                style={styles.amountInput}
-                value={amount}
-                onChangeText={(text) => setAmount(formatAmount(text))}
-                placeholder="0"
-                placeholderTextColor="#9ca3af"
-                keyboardType="numeric"
-              />
-            </View>
-            <Text style={styles.maxAmount}>
-              Máximo disponible: {formatCurrency(remaining)}
-            </Text>
-          </View>
-
-          {/* Contribution Preview */}
-          {amount && parseFloat(amount) > 0 && (
-            <View style={styles.previewSection}>
-              <View style={styles.previewCard}>
-                <Text style={styles.previewTitle}>Vista previa</Text>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Nuevo progreso:</Text>
-                  <Text style={styles.previewValue}>
-                    {((goal.currentAmount + parseFloat(amount)) / goal.targetAmount * 100).toFixed(1)}%
-                  </Text>
-                </View>
-                <View style={styles.previewRow}>
-                  <Text style={styles.previewLabel}>Restante después:</Text>
-                  <Text style={styles.previewValue}>
-                    {formatCurrency(remaining - parseFloat(amount))}
-                  </Text>
+            {/* Contribution Preview */}
+            {amount && parseFloat(amount) > 0 && (
+              <View style={styles.previewSection}>
+                <View style={styles.previewCard}>
+                  <Text style={styles.previewTitle}>Vista previa</Text>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Nuevo progreso:</Text>
+                    <Text style={styles.previewValue}>
+                      {((goal.currentAmount + parseFloat(amount)) / goal.targetAmount * 100).toFixed(1)}%
+                    </Text>
+                  </View>
+                  <View style={styles.previewRow}>
+                    <Text style={styles.previewLabel}>Restante después:</Text>
+                    <Text style={styles.previewValue}>
+                      {formatCurrency(remaining - parseFloat(amount))}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
-          )}
-        </View>
+            )}
 
-        {/* Footer */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={onClose}
-            disabled={loading}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
+            {/* Extra padding for scrolling space */}
+            <View style={styles.extraPadding} />
+          </ScrollView>
 
-          <LinearGradient
-            colors={['#2563EB', '#1d4ed8']}
-            style={[styles.saveButton, loading && styles.disabledButton]}
-          >
+          {/* Footer */}
+          <View style={styles.footer}>
             <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={loading || !amount || parseFloat(amount) <= 0}
-              style={styles.saveButtonInner}
+              style={styles.cancelButton}
+              onPress={onClose}
+              disabled={loading}
             >
-              {loading ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark" size={20} color="white" />
-                  <Text style={styles.saveButtonText}>Añadir Contribución</Text>
-                </>
-              )}
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
-          </LinearGradient>
-        </View>
+
+            <LinearGradient
+              colors={['#2563EB', '#1d4ed8']}
+              style={[styles.saveButton, loading && styles.disabledButton]}
+            >
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={loading || !amount || parseFloat(amount) <= 0}
+                style={styles.saveButtonInner}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={20} color="white" />
+                    <Text style={styles.saveButtonText}>Añadir Contribución</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+        </KeyboardAvoidingView>
       </SafeAreaView>
     </Modal>
   );
@@ -244,10 +262,16 @@ const styles = StyleSheet.create({
   headerSpacer: {
     width: 32,
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   content: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
+  },
+  extraPadding: {
+    height: 100,
   },
   goalInfo: {
     backgroundColor: 'white',

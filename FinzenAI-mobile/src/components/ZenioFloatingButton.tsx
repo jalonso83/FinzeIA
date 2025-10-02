@@ -15,6 +15,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from 'react-native';
+import { setStringAsync } from 'expo-clipboard';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
@@ -68,7 +69,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
 
   const { user } = useAuthStore();
-  const { refreshDashboard } = useDashboardStore();
+  const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -258,6 +259,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         }
       }
 
+      // Log para debugging de acciones ejecutadas
+      if (response.data.executedActions) {
+        console.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
+      }
+
       if (response.data.threadId && !threadId) {
         setThreadId(response.data.threadId);
       }
@@ -267,39 +273,39 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         switch (response.data.action) {
           case 'transaction_created':
             onTransactionCreated?.();
-            refreshDashboard(); // Refresh dashboard
+            onTransactionChange(); // Refresh dashboard AND transaction module
             break;
           case 'transaction_updated':
             onTransactionUpdated?.();
-            refreshDashboard(); // Refresh dashboard
+            onTransactionChange(); // Refresh dashboard AND transaction module
             break;
           case 'transaction_deleted':
             onTransactionDeleted?.();
-            refreshDashboard(); // Refresh dashboard
+            onTransactionChange(); // Refresh dashboard AND transaction module
             break;
           case 'budget_created':
             onBudgetCreated?.();
-            refreshDashboard(); // Refresh dashboard
+            onBudgetChange(); // Refresh dashboard AND budget module
             break;
           case 'budget_updated':
             onBudgetUpdated?.();
-            refreshDashboard(); // Refresh dashboard
+            onBudgetChange(); // Refresh dashboard AND budget module
             break;
           case 'budget_deleted':
             onBudgetDeleted?.();
-            refreshDashboard(); // Refresh dashboard
+            onBudgetChange(); // Refresh dashboard AND budget module
             break;
           case 'goal_created':
             onGoalCreated?.();
-            refreshDashboard(); // Refresh dashboard
+            onGoalChange(); // Refresh dashboard AND goal module
             break;
           case 'goal_updated':
             onGoalUpdated?.();
-            refreshDashboard(); // Refresh dashboard
+            onGoalChange(); // Refresh dashboard AND goal module
             break;
           case 'goal_deleted':
             onGoalDeleted?.();
-            refreshDashboard(); // Refresh dashboard
+            onGoalChange(); // Refresh dashboard AND goal module
             break;
         }
       }
@@ -334,6 +340,25 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       }
       setIsRecording(true);
       await speech.startListening();
+    }
+  };
+
+  // Función para copiar mensaje al clipboard
+  const copyMessage = async (message: Message) => {
+    try {
+      // Limpiar markdown del texto para copiar solo texto plano
+      const cleanText = cleanMarkdownForSpeech(message.text);
+      await setStringAsync(cleanText);
+
+      // Mostrar feedback sutil al usuario
+      Alert.alert(
+        '📋 Copiado',
+        'Mensaje copiado al portapapeles',
+        [{ text: 'OK' }]
+      );
+    } catch (error) {
+      console.error('Error copying message:', error);
+      Alert.alert('Error', 'No se pudo copiar el mensaje');
     }
   };
 
@@ -448,6 +473,30 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             </View>
           </View>
 
+          {/* iOS Voice Tip */}
+          {Platform.OS === 'ios' && messages.length === 0 && (
+            <View style={styles.iosTipContainer}>
+              <View style={styles.iosTip}>
+                <Ionicons name="mic" size={16} color="#2563EB" />
+                <Text style={styles.iosTipText}>
+                  💡 En iOS: Usa el 🎤 del teclado para hablar con Zenio
+                </Text>
+              </View>
+            </View>
+          )}
+
+          {/* Copy Tip */}
+          {messages.length > 0 && messages.length < 3 && (
+            <View style={styles.copyTipContainer}>
+              <View style={styles.copyTip}>
+                <Ionicons name="copy-outline" size={14} color="#64748b" />
+                <Text style={styles.copyTipText}>
+                  💡 Mantén presionado cualquier mensaje para copiarlo
+                </Text>
+              </View>
+            </View>
+          )}
+
           {/* Chat Content */}
           <View style={styles.chatContent}>
             <ScrollView
@@ -457,12 +506,15 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               showsVerticalScrollIndicator={false}
             >
               {messages.map((message) => (
-                <View
+                <TouchableOpacity
                   key={message.id}
                   style={[
                     styles.messageContainer,
                     message.isUser ? styles.userMessage : styles.zenioMessage,
                   ]}
+                  onLongPress={() => copyMessage(message)}
+                  activeOpacity={0.8}
+                  delayLongPress={500}
                 >
                   {message.isUser ? (
                     <Text
@@ -513,17 +565,25 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                       {message.text}
                     </Markdown>
                   )}
-                  <Text
-                    style={[
-                      styles.messageTime,
-                      message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
-                    ]}
-                  >
-                    {message.timestamp.toLocaleTimeString('es-DO', {
-                      hour: '2-digit',
-                      minute: '2-digit'
-                    })}
-                  </Text>
+                  <View style={styles.messageFooter}>
+                    <Text
+                      style={[
+                        styles.messageTime,
+                        message.isUser ? styles.userMessageTime : styles.zenioMessageTime,
+                      ]}
+                    >
+                      {message.timestamp.toLocaleTimeString('es-DO', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
+                    </Text>
+                    <Ionicons
+                      name="copy-outline"
+                      size={10}
+                      color={message.isUser ? "#94a3b8" : "#9ca3af"}
+                      style={styles.copyIcon}
+                    />
+                  </View>
 
                   {/* Botón de play para mensajes de Zenio */}
                   {!message.isUser && (
@@ -541,7 +601,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                       />
                     </TouchableOpacity>
                   )}
-                </View>
+                </TouchableOpacity>
               ))}
               {loading && (
                 <View style={styles.typingIndicator}>
@@ -562,7 +622,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                 style={styles.textInput}
                 value={inputText}
                 onChangeText={setInputText}
-                placeholder="Escribe tu mensaje..."
+                placeholder={Platform.OS === 'ios'
+                  ? "Escribe tu mensaje o usa el micrófono del teclado..."
+                  : "Escribe tu mensaje..."
+                }
                 placeholderTextColor="#9ca3af"
                 multiline
                 maxLength={500}
@@ -570,24 +633,26 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                 blurOnSubmit={false}
               />
               <View style={styles.inputActions}>
-                <TouchableOpacity
-                  style={[
-                    styles.voiceButton, 
-                    (speech.isListening || speech.isLoading) && styles.voiceButtonActive
-                  ]}
-                  onPress={startVoiceRecording}
-                  disabled={loading || speech.isLoading}
-                >
-                  {speech.isLoading ? (
-                    <ActivityIndicator size="small" color="white" />
-                  ) : (
-                    <Ionicons 
-                      name={speech.isListening ? "stop" : "mic"} 
-                      size={20} 
-                      color={(speech.isListening || speech.isLoading) ? "white" : "#64748b"} 
-                    />
-                  )}
-                </TouchableOpacity>
+                {Platform.OS === 'android' && (
+                  <TouchableOpacity
+                    style={[
+                      styles.voiceButton,
+                      (speech.isListening || speech.isLoading) && styles.voiceButtonActive
+                    ]}
+                    onPress={startVoiceRecording}
+                    disabled={loading || speech.isLoading}
+                  >
+                    {speech.isLoading ? (
+                      <ActivityIndicator size="small" color="white" />
+                    ) : (
+                      <Ionicons
+                        name={speech.isListening ? "stop" : "mic"}
+                        size={20}
+                        color={(speech.isListening || speech.isLoading) ? "white" : "#64748b"}
+                      />
+                    )}
+                  </TouchableOpacity>
+                )}
                 <TouchableOpacity
                   style={[
                     styles.sendButton,
@@ -739,6 +804,17 @@ const styles = StyleSheet.create({
   zenioMessageTime: {
     color: '#9ca3af',
   },
+  messageFooter: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'flex-end',
+    gap: 4,
+    marginTop: 4,
+  },
+  copyIcon: {
+    marginLeft: 4,
+    opacity: 0.6,
+  },
   typingIndicator: {
     alignSelf: 'flex-start',
     backgroundColor: '#f1f5f9',
@@ -856,6 +932,52 @@ const styles = StyleSheet.create({
   },
   playButtonActive: {
     backgroundColor: '#2563EB',
+  },
+  // iOS Voice Tip styles
+  iosTipContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 8,
+    backgroundColor: '#f8fafc',
+    borderBottomWidth: 1,
+    borderBottomColor: '#e2e8f0',
+  },
+  iosTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#eff6ff',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  iosTipText: {
+    fontSize: 12,
+    color: '#1e40af',
+    marginLeft: 6,
+    flex: 1,
+  },
+  // Copy Tip styles
+  copyTipContainer: {
+    paddingHorizontal: 20,
+    paddingVertical: 6,
+    backgroundColor: '#f8fafc',
+  },
+  copyTip: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff7ed',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#fed7aa',
+  },
+  copyTipText: {
+    fontSize: 11,
+    color: '#ea580c',
+    marginLeft: 6,
+    flex: 1,
   },
 });
 

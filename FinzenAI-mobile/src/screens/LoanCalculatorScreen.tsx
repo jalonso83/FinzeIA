@@ -35,6 +35,8 @@ export default function LoanCalculatorScreen() {
   const [totalInterest, setTotalInterest] = useState<number | null>(null);
   const [amortizationTable, setAmortizationTable] = useState<AmortizationRow[]>([]);
   const [showAmortization, setShowAmortization] = useState(false);
+  const [currentPage, setCurrentPage] = useState(1);
+  const [itemsPerPage] = useState(12);
 
   const loanTypes = [
     { value: 'hipotecario', label: 'Hipotecario' },
@@ -120,6 +122,31 @@ export default function LoanCalculatorScreen() {
     setTotalInterest(null);
     setAmortizationTable([]);
     setShowAmortization(false);
+    setCurrentPage(1);
+  };
+
+  // Calcular datos de paginación
+  const totalPages = Math.ceil(amortizationTable.length / itemsPerPage);
+  const startIndex = (currentPage - 1) * itemsPerPage;
+  const endIndex = startIndex + itemsPerPage;
+  const currentPageData = amortizationTable.slice(startIndex, endIndex);
+
+  const goToNextPage = () => {
+    if (currentPage < totalPages) {
+      setCurrentPage(currentPage + 1);
+    }
+  };
+
+  const goToPrevPage = () => {
+    if (currentPage > 1) {
+      setCurrentPage(currentPage - 1);
+    }
+  };
+
+  const goToPage = (page: number) => {
+    if (page >= 1 && page <= totalPages) {
+      setCurrentPage(page);
+    }
   };
 
   return (
@@ -279,7 +306,10 @@ export default function LoanCalculatorScreen() {
             {amortizationTable.length > 0 && (
               <TouchableOpacity
                 style={styles.amortizationButton}
-                onPress={() => setShowAmortization(!showAmortization)}
+                onPress={() => {
+                  setShowAmortization(!showAmortization);
+                  setCurrentPage(1); // Reset a la primera página
+                }}
               >
                 <Text style={styles.amortizationButtonText}>
                   {showAmortization ? 'Ocultar' : 'Ver'} Tabla de Amortización
@@ -299,9 +329,9 @@ export default function LoanCalculatorScreen() {
           <View style={styles.amortizationCard}>
             <Text style={styles.sectionTitle}>Tabla de Amortización</Text>
             <Text style={styles.amortizationNote}>
-              Mostrando primeros 12 pagos. Desliza para ver más.
+              Mostrando {currentPageData.length} de {amortizationTable.length} pagos totales
             </Text>
-            
+
             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
               <View style={styles.table}>
                 {/* Header */}
@@ -313,9 +343,9 @@ export default function LoanCalculatorScreen() {
                   <Text style={[styles.tableHeaderText, styles.amountColumn]}>Balance</Text>
                 </View>
 
-                {/* Rows - mostrar solo primeros 12 */}
-                {amortizationTable.slice(0, 12).map((row, index) => (
-                  <View key={index} style={styles.tableRow}>
+                {/* Rows - mostrar página actual */}
+                {currentPageData.map((row, index) => (
+                  <View key={startIndex + index} style={styles.tableRow}>
                     <Text style={[styles.tableCellText, styles.paymentColumn]}>{row.payment}</Text>
                     <Text style={[styles.tableCellText, styles.amountColumn]}>
                       {formatCurrency(row.paymentAmount)}
@@ -333,6 +363,39 @@ export default function LoanCalculatorScreen() {
                 ))}
               </View>
             </ScrollView>
+
+            {/* Paginación */}
+            {totalPages > 1 && (
+              <View style={styles.paginationContainer}>
+                <TouchableOpacity
+                  style={[styles.paginationButton, currentPage === 1 && styles.paginationButtonDisabled]}
+                  onPress={goToPrevPage}
+                  disabled={currentPage === 1}
+                >
+                  <Ionicons name="chevron-back" size={16} color={currentPage === 1 ? "#9CA3AF" : "#2563EB"} />
+                  <Text style={[styles.paginationButtonText, currentPage === 1 && styles.paginationButtonTextDisabled]}>
+                    Anterior
+                  </Text>
+                </TouchableOpacity>
+
+                <View style={styles.pageInfo}>
+                  <Text style={styles.pageInfoText}>
+                    Página {currentPage} de {totalPages}
+                  </Text>
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.paginationButton, currentPage === totalPages && styles.paginationButtonDisabled]}
+                  onPress={goToNextPage}
+                  disabled={currentPage === totalPages}
+                >
+                  <Text style={[styles.paginationButtonText, currentPage === totalPages && styles.paginationButtonTextDisabled]}>
+                    Siguiente
+                  </Text>
+                  <Ionicons name="chevron-forward" size={16} color={currentPage === totalPages ? "#9CA3AF" : "#2563EB"} />
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         )}
       </ScrollView>
@@ -609,5 +672,46 @@ const styles = StyleSheet.create({
   },
   amountColumn: {
     width: 115,
+  },
+  // Estilos de paginación
+  paginationContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginTop: 16,
+    paddingTop: 16,
+    borderTopWidth: 1,
+    borderTopColor: '#f1f5f9',
+  },
+  paginationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    backgroundColor: 'white',
+    gap: 4,
+  },
+  paginationButtonDisabled: {
+    backgroundColor: '#f9fafb',
+    borderColor: '#f3f4f6',
+  },
+  paginationButtonText: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#2563EB',
+  },
+  paginationButtonTextDisabled: {
+    color: '#9CA3AF',
+  },
+  pageInfo: {
+    alignItems: 'center',
+  },
+  pageInfoText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
 });
