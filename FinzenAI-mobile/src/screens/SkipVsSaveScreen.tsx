@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -67,6 +67,10 @@ export default function SkipVsSaveScreen() {
   const [commonExpenses, setCommonExpenses] = useState<CommonExpense[]>([]);
   const [loading, setLoading] = useState(false);
   const [animatedValue] = useState(new Animated.Value(0));
+
+  // Refs para auto-focus y scroll
+  const customInputRef = useRef<TextInput>(null);
+  const scrollViewRef = useRef<ScrollView>(null);
 
   // Estados del formulario
   const [customAmount, setCustomAmount] = useState('');
@@ -172,15 +176,31 @@ export default function SkipVsSaveScreen() {
       </View>
 
       {/* Opción personalizada */}
-      <View style={styles.customSection}>
+      <TouchableOpacity
+        style={styles.customSection}
+        activeOpacity={0.7}
+        onPress={() => {
+          customInputRef.current?.focus();
+        }}
+      >
         <Text style={styles.customTitle}>💡 O ingresa tu propio gasto:</Text>
         <View style={styles.customInputContainer}>
           <TextInput
+            ref={customInputRef}
             style={styles.customInput}
             value={customAmount}
             onChangeText={(value) => {
               setCustomAmount(value);
               setSelectedExpense(null);
+            }}
+            onFocus={() => {
+              // Scroll to make the input visible when focused
+              setTimeout(() => {
+                scrollViewRef.current?.scrollTo({
+                  y: 400, // Scroll down to make custom input section visible
+                  animated: true,
+                });
+              }, 200);
             }}
             placeholder="Ejemplo: 250"
             keyboardType="numeric"
@@ -188,7 +208,7 @@ export default function SkipVsSaveScreen() {
           />
           <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()} por día</Text>
         </View>
-      </View>
+      </TouchableOpacity>
 
       {(selectedExpense || (customAmount && parseInt(customAmount) > 0)) && (
         <TouchableOpacity
@@ -430,7 +450,8 @@ export default function SkipVsSaveScreen() {
         </View>
       )}
 
-      <ScrollView 
+      <ScrollView
+        ref={scrollViewRef}
         style={styles.content}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}

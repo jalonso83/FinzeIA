@@ -26,7 +26,7 @@ export default function BudgetsScreen() {
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
   
   // Dashboard store para notificar cambios
-  const { onBudgetChange } = useDashboardStore();
+  const { onBudgetChange, budgetChangeTrigger } = useDashboardStore();
   
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
@@ -128,6 +128,14 @@ export default function BudgetsScreen() {
   useEffect(() => {
     loadBudgets();
   }, []);
+
+  // Listener para cambios de presupuestos desde Zenio
+  useEffect(() => {
+    if (budgetChangeTrigger > 0) {
+      console.log('[BudgetsScreen] Budget change detected, reloading...');
+      loadBudgets();
+    }
+  }, [budgetChangeTrigger]);
 
   const loadBudgets = async () => {
     try {

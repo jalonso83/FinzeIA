@@ -37,7 +37,7 @@ export default function TransactionsScreen() {
   const { formatCurrency, userCountry } = useCurrency();
 
   // Dashboard store para refresh automático
-  const { refreshTrigger } = useDashboardStore();
+  const { refreshTrigger, transactionChangeTrigger, onTransactionChange } = useDashboardStore();
 
   useEffect(() => {
     loadTransactions();
@@ -45,10 +45,11 @@ export default function TransactionsScreen() {
 
   // Refresh cuando Zenio crea/modifica transacciones
   useEffect(() => {
-    if (refreshTrigger > 0) {
+    if (transactionChangeTrigger > 0) {
+      console.log('[TransactionsScreen] Transaction change detected, reloading...');
       loadTransactions();
     }
-  }, [refreshTrigger]);
+  }, [transactionChangeTrigger]);
 
   // Filtrar transacciones cuando cambien los filtros
   useEffect(() => {
@@ -349,7 +350,7 @@ export default function TransactionsScreen() {
                     onPress={() => handleDeleteTransaction(transaction)}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
-                    <Ionicons name="trash-outline" size={20} color="#EF4444" />
+                    <Ionicons name="trash-outline" size={18} color="#EF4444" />
                   </TouchableOpacity>
                 </View>
               ))}
@@ -592,7 +593,8 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 8,
     marginHorizontal: 20,
-    position: 'relative',
+    flexDirection: 'row',
+    alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: {
       width: 0,
@@ -841,16 +843,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   deleteButton: {
-    position: 'absolute',
-    top: 12,
-    right: 12,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#FEF2F2',
     justifyContent: 'center',
     alignItems: 'center',
+    marginLeft: 12,
     borderWidth: 1,
     borderColor: '#FECACA',
+    shadowColor: '#EF4444',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
   },
 });

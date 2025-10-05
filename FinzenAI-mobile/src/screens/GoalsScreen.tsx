@@ -50,11 +50,19 @@ export default function GoalsScreen() {
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
   
   // Dashboard store para notificar cambios
-  const { onGoalChange } = useDashboardStore();
+  const { onGoalChange, goalChangeTrigger } = useDashboardStore();
 
   useEffect(() => {
     loadGoals();
   }, []);
+
+  // Listener para cambios de metas desde Zenio
+  useEffect(() => {
+    if (goalChangeTrigger > 0) {
+      console.log('[GoalsScreen] Goal change detected, reloading...');
+      loadGoals();
+    }
+  }, [goalChangeTrigger]);
 
   const loadGoals = async () => {
     try {

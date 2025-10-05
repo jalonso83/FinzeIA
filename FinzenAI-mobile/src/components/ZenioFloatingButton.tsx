@@ -67,6 +67,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+  const [showTipsModal, setShowTipsModal] = useState(false);
 
   const { user } = useAuthStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
@@ -439,6 +440,14 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             </View>
 
             <View style={styles.headerControls}>
+              {/* Botón de información/tips */}
+              <TouchableOpacity
+                onPress={() => setShowTipsModal(true)}
+                style={styles.infoButton}
+              >
+                <Ionicons name="information-circle-outline" size={18} color="#2563EB" />
+              </TouchableOpacity>
+
               {/* Botón toggle auto-play */}
               <TouchableOpacity
                 onPress={() => setAutoPlay(!autoPlay)}
@@ -473,29 +482,6 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             </View>
           </View>
 
-          {/* iOS Voice Tip */}
-          {Platform.OS === 'ios' && messages.length === 0 && (
-            <View style={styles.iosTipContainer}>
-              <View style={styles.iosTip}>
-                <Ionicons name="mic" size={16} color="#2563EB" />
-                <Text style={styles.iosTipText}>
-                  💡 En iOS: Usa el 🎤 del teclado para hablar con Zenio
-                </Text>
-              </View>
-            </View>
-          )}
-
-          {/* Copy Tip */}
-          {messages.length > 0 && messages.length < 3 && (
-            <View style={styles.copyTipContainer}>
-              <View style={styles.copyTip}>
-                <Ionicons name="copy-outline" size={14} color="#64748b" />
-                <Text style={styles.copyTipText}>
-                  💡 Mantén presionado cualquier mensaje para copiarlo
-                </Text>
-              </View>
-            </View>
-          )}
 
           {/* Chat Content */}
           <View style={styles.chatContent}>
@@ -671,6 +657,86 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             </View>
           </View>
         </KeyboardAvoidingView>
+      </Modal>
+
+      {/* Modal de Tips */}
+      <Modal
+        visible={showTipsModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowTipsModal(false)}
+      >
+        <View style={styles.tipsModalContainer}>
+          <View style={styles.tipsModal}>
+            <View style={styles.tipsModalHeader}>
+              <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
+              <TouchableOpacity
+                onPress={() => setShowTipsModal(false)}
+                style={styles.tipsModalClose}
+              >
+                <Ionicons name="close" size={20} color="#64748b" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.tipsContent}>
+              {/* iOS Voice Tip */}
+              {Platform.OS === 'ios' && (
+                <View style={styles.tipItem}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="mic" size={20} color="#2563EB" />
+                  </View>
+                  <View style={styles.tipText}>
+                    <Text style={styles.tipTitle}>Micrófono en iOS</Text>
+                    <Text style={styles.tipDescription}>
+                      Usa el 🎤 del teclado para hablar con Zenio de forma más confiable
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Android Voice Tip */}
+              {Platform.OS === 'android' && (
+                <View style={styles.tipItem}>
+                  <View style={styles.tipIcon}>
+                    <Ionicons name="mic" size={20} color="#2563EB" />
+                  </View>
+                  <View style={styles.tipText}>
+                    <Text style={styles.tipTitle}>Micrófono en Android</Text>
+                    <Text style={styles.tipDescription}>
+                      Toca el botón de micrófono para hablar directamente con Zenio
+                    </Text>
+                  </View>
+                </View>
+              )}
+
+              {/* Copy Tip */}
+              <View style={styles.tipItem}>
+                <View style={styles.tipIcon}>
+                  <Ionicons name="copy-outline" size={20} color="#2563EB" />
+                </View>
+                <View style={styles.tipText}>
+                  <Text style={styles.tipTitle}>Copiar mensajes</Text>
+                  <Text style={styles.tipDescription}>
+                    Mantén presionado cualquier mensaje para copiarlo al portapapeles
+                  </Text>
+                </View>
+              </View>
+
+              {/* Auto-play Tip */}
+              <View style={styles.tipItem}>
+                <View style={styles.tipIcon}>
+                  <Ionicons name="volume-high" size={20} color="#2563EB" />
+                </View>
+                <View style={styles.tipText}>
+                  <Text style={styles.tipTitle}>Respuestas por voz</Text>
+                  <Text style={styles.tipDescription}>
+                    Activa el botón de volumen para que Zenio responda hablando automáticamente
+                  </Text>
+                </View>
+              </View>
+            </View>
+          </View>
+        </View>
       </Modal>
     </>
   );
@@ -933,51 +999,88 @@ const styles = StyleSheet.create({
   playButtonActive: {
     backgroundColor: '#2563EB',
   },
-  // iOS Voice Tip styles
-  iosTipContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 8,
-    backgroundColor: '#f8fafc',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e2e8f0',
-  },
-  iosTip: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  // Info Button styles
+  infoButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#eff6ff',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#bfdbfe',
-  },
-  iosTipText: {
-    fontSize: 12,
-    color: '#1e40af',
-    marginLeft: 6,
-    flex: 1,
-  },
-  // Copy Tip styles
-  copyTipContainer: {
-    paddingHorizontal: 20,
-    paddingVertical: 6,
-    backgroundColor: '#f8fafc',
-  },
-  copyTip: {
-    flexDirection: 'row',
+    justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: '#fff7ed',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#fed7aa',
   },
-  copyTipText: {
-    fontSize: 11,
-    color: '#ea580c',
-    marginLeft: 6,
+  // Tips Modal styles
+  tipsModalContainer: {
     flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  tipsModal: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 0,
+    width: '100%',
+    maxWidth: 400,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  tipsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  tipsModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  tipsModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tipsContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  tipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  tipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  tipText: {
+    flex: 1,
+  },
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  tipDescription: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 18,
   },
 });
 

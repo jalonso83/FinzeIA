@@ -31,6 +31,7 @@ import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
 import LoginScreen from '../screens/LoginScreen';
 import RegisterScreen from '../screens/RegisterScreen';
+import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
 
@@ -46,6 +47,7 @@ function AuthNavigator() {
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="Register" component={RegisterScreen} />
+      <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
       <Stack.Screen name="OnboardingWelcome" component={OnboardingWelcomeScreen} />
       <Stack.Screen name="Onboarding" component={OnboardingScreen} />
     </Stack.Navigator>
