@@ -442,8 +442,13 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             <View style={styles.headerControls}>
               {/* Botón de información/tips */}
               <TouchableOpacity
-                onPress={() => setShowTipsModal(true)}
+                onPress={() => {
+                  console.log('Info button pressed, showing tips modal');
+                  setShowTipsModal(true);
+                }}
                 style={styles.infoButton}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                activeOpacity={0.7}
               >
                 <Ionicons name="information-circle-outline" size={18} color="#2563EB" />
               </TouchableOpacity>
@@ -664,15 +669,34 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         visible={showTipsModal}
         transparent
         animationType="fade"
-        onRequestClose={() => setShowTipsModal(false)}
+        onRequestClose={() => {
+          console.log('Tips modal onRequestClose triggered');
+          setShowTipsModal(false);
+        }}
+        statusBarTranslucent={Platform.OS === 'android'}
       >
-        <View style={styles.tipsModalContainer}>
-          <View style={styles.tipsModal}>
+        <TouchableOpacity
+          style={styles.tipsModalContainer}
+          activeOpacity={1}
+          onPress={() => {
+            console.log('Tips modal backdrop pressed');
+            setShowTipsModal(false);
+          }}
+        >
+          <TouchableOpacity
+            style={styles.tipsModal}
+            activeOpacity={1}
+            onPress={() => {}}
+          >
             <View style={styles.tipsModalHeader}>
               <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
               <TouchableOpacity
-                onPress={() => setShowTipsModal(false)}
+                onPress={() => {
+                  console.log('Tips modal close button pressed');
+                  setShowTipsModal(false);
+                }}
                 style={styles.tipsModalClose}
+                hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
               >
                 <Ionicons name="close" size={20} color="#64748b" />
               </TouchableOpacity>
@@ -735,8 +759,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                 </View>
               </View>
             </View>
-          </View>
-        </View>
+          </TouchableOpacity>
+        </TouchableOpacity>
       </Modal>
     </>
   );
