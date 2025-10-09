@@ -10,6 +10,8 @@ import {
   Dimensions,
   Animated,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -205,6 +207,7 @@ export default function SkipVsSaveScreen() {
             placeholder="Ejemplo: 250"
             keyboardType="numeric"
             placeholderTextColor="#9CA3AF"
+            autoFocus={true}
           />
           <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()} por día</Text>
         </View>
