@@ -320,7 +320,7 @@ export const LEVEL_THRESHOLDS = [
 export const BADGE_COLORS: CategoryColors = {
   [BadgeCategory.GETTING_STARTED]: '#10B981', // emerald-500
   [BadgeCategory.TRANSACTIONS]: '#3B82F6',     // blue-500
-  [BadgeCategory.BUDGETS]: '#8B5CF6',          // violet-500
+  [BadgeCategory.BUDGETS]: '#2563EB',          // blue-600
   [BadgeCategory.GOALS]: '#F59E0B',            // amber-500
   [BadgeCategory.CONSISTENCY]: '#EF4444',      // red-500
   [BadgeCategory.ACHIEVEMENTS]: '#6366F1'      // indigo-500

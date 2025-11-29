@@ -14,7 +14,10 @@ import GoalForm from '../components/forms/GoalForm';
 import ContributionForm from '../components/forms/ContributionForm';
 import { goalsAPI } from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
+import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
 interface Goal {
   id: string;
@@ -48,12 +51,23 @@ export default function GoalsScreen() {
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [showContributionForm, setShowContributionForm] = useState(false);
   const [selectedGoal, setSelectedGoal] = useState<Goal | null>(null);
-  
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   // Dashboard store para notificar cambios
-  const { onGoalChange, goalChangeTrigger } = useDashboardStore();
+  const { onGoalChange, goalChangeTrigger} = useDashboardStore();
+
+  // Subscription store para validar límites
+  const { canCreateGoal, fetchSubscription } = useSubscriptionStore();
 
   useEffect(() => {
     loadGoals();
+    fetchSubscription(); // Cargar suscripción para validar límites
   }, []);
 
   // Listener para cambios de metas desde Zenio
@@ -63,6 +77,19 @@ export default function GoalsScreen() {
       loadGoals();
     }
   }, [goalChangeTrigger]);
+
+  // Función para validar límites antes de crear meta
+  const handleCreateGoal = () => {
+    // Validar límite de metas
+    if (!canCreateGoal(goals.length)) {
+      // Mostrar modal de upgrade
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    // Si puede crear, mostrar el formulario
+    setShowForm(true);
+  };
 
   const loadGoals = async () => {
     try {
@@ -74,7 +101,8 @@ export default function GoalsScreen() {
       setGoals(goalsData);
     } catch (error) {
       console.error('Error loading goals:', error);
-      Alert.alert('Error', 'No se pudieron cargar las metas');
+      setErrorMessage('No se pudieron cargar las metas');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -95,29 +123,29 @@ export default function GoalsScreen() {
     onGoalChange(); // Notificar al dashboard
   };
 
-  const handleDeleteGoal = async (goal: Goal) => {
-    Alert.alert(
-      'Eliminar Meta',
-      `¿Estás seguro de que quieres eliminar "${goal.name}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await goalsAPI.delete(goal.id);
-              loadGoals();
-              onGoalChange();
-              Alert.alert('Éxito', 'Meta eliminada correctamente');
-            } catch (error) {
-              console.error('Error deleting goal:', error);
-              Alert.alert('Error', 'No se pudo eliminar la meta');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteGoal = (goal: Goal) => {
+    setGoalToDelete(goal);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteGoal = async () => {
+    if (!goalToDelete) return;
+
+    try {
+      await goalsAPI.delete(goalToDelete.id);
+      setShowDeleteConfirmModal(false);
+      setGoalToDelete(null);
+      loadGoals();
+      onGoalChange();
+      setSuccessMessage('Meta eliminada correctamente');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error deleting goal:', error);
+      setShowDeleteConfirmModal(false);
+      setGoalToDelete(null);
+      setErrorMessage('No se pudo eliminar la meta');
+      setShowErrorModal(true);
+    }
   };
 
   // Calcular totales como en la web
@@ -172,11 +200,11 @@ export default function GoalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Metas de Ahorro</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
             setEditingGoal(null);
-            setShowForm(true);
+            handleCreateGoal();
           }}
         >
           <Ionicons name="add" size={24} color="white" />
@@ -400,6 +428,53 @@ export default function GoalsScreen() {
           onSuccess={handleContributionAdded}
         />
       )}
+
+      {/* Modal de confirmación de eliminación */}
+      <CustomModal
+        visible={showDeleteConfirmModal}
+        type="warning"
+        title="Eliminar Meta"
+        message={`¿Estás seguro de que quieres eliminar "${goalToDelete?.name}"?`}
+        buttonText="Eliminar"
+        showSecondaryButton={true}
+        secondaryButtonText="Cancelar"
+        onSecondaryPress={() => {
+          setShowDeleteConfirmModal(false);
+          setGoalToDelete(null);
+        }}
+        onClose={confirmDeleteGoal}
+      />
+
+      {/* Modal de éxito */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message={successMessage}
+        buttonText="Continuar"
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      {/* Modal de error */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          // Refrescar suscripción después de cerrar
+          fetchSubscription();
+        }}
+        limitType="goals"
+      />
     </SafeAreaView>
   );
 }

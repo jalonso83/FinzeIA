@@ -19,46 +19,131 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { authAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
 import { saveToken } from '../utils/api';
+import { useBiometric } from '../hooks/useBiometric';
 
 export default function LoginScreen() {
   const [email, setEmail] = useState('test@finzen.com');
   const [password, setPassword] = useState('123456');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [loadingBiometric, setLoadingBiometric] = useState(false);
   const [errors, setErrors] = useState<any>({});
-  const [rememberCredentials, setRememberCredentials] = useState(false);
-  
-  const navigation = useNavigation<any>();
-  const { login } = useAuthStore();
+  const [rememberEmail, setRememberEmail] = useState(false);
+  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
 
-  // Cargar credenciales recordadas al montar el componente
+  const navigation = useNavigation<any>();
+  const { login, loginWithBiometric, saveBiometricCredentials } = useAuthStore();
+  const { isAvailable, isEnabled, biometricType, authenticate, enable, refresh } = useBiometric();
+
+  // Cargar email recordado al montar el componente
   useEffect(() => {
-    const loadRememberedCredentials = async () => {
+    const loadRememberedEmail = async () => {
       try {
         const rememberedEmail = await AsyncStorage.getItem('rememberedEmail');
-        const rememberedPassword = await AsyncStorage.getItem('rememberedPassword');
-        
+
         if (rememberedEmail) {
           setEmail(rememberedEmail);
-          setRememberCredentials(true);
+          setRememberEmail(true);
+          console.log('📧 Email recordado cargado:', rememberedEmail);
         } else {
-          // Si no hay credenciales recordadas, limpiar los valores de prueba
+          // Si no hay email recordado, limpiar el valor de prueba
           setEmail('');
-        }
-        
-        if (rememberedPassword) {
-          setPassword(rememberedPassword);
-        } else {
-          // Si no hay contraseña recordada, limpiar el valor de prueba
           setPassword('');
         }
+
+        // IMPORTANTE: Eliminar contraseñas guardadas previamente (migración)
+        const oldPassword = await AsyncStorage.getItem('rememberedPassword');
+        if (oldPassword) {
+          console.log('🗑️ Eliminando contraseña guardada previamente por seguridad');
+          await AsyncStorage.removeItem('rememberedPassword');
+        }
       } catch (error) {
-        console.error('Error loading remembered credentials:', error);
+        console.error('Error loading remembered email:', error);
       }
     };
-    
-    loadRememberedCredentials();
+
+    loadRememberedEmail();
   }, []);
+
+  const handleBiometricLogin = async () => {
+    try {
+      setLoadingBiometric(true);
+      console.log('🔐 Iniciando login biométrico...');
+
+      // Autenticar con biometría
+      const authenticated = await authenticate();
+
+      if (authenticated) {
+        console.log('✅ Biometría autenticada, iniciando sesión...');
+        // Login con credenciales guardadas
+        const success = await loginWithBiometric();
+
+        if (!success) {
+          Alert.alert(
+            'Sesión expirada',
+            'Tu sesión ha expirado. Por favor, inicia sesión con tu contraseña.',
+            [{ text: 'OK' }]
+          );
+        }
+      } else {
+        console.log('❌ Autenticación biométrica cancelada o fallida');
+      }
+    } catch (error) {
+      console.error('❌ Error en login biométrico:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo iniciar sesión con biometría. Intenta con tu contraseña.',
+        [{ text: 'OK' }]
+      );
+    } finally {
+      setLoadingBiometric(false);
+    }
+  };
+
+  const promptBiometricSetup = (user: any, token: string) => {
+    Alert.alert(
+      `¿Usar ${biometricType}?`,
+      `¿Quieres usar ${biometricType} para iniciar sesión más rápido en el futuro?`,
+      [
+        {
+          text: 'No, gracias',
+          style: 'cancel',
+        },
+        {
+          text: 'Sí, activar',
+          onPress: async () => {
+            try {
+              console.log('🔐 Usuario aceptó configurar biometría');
+              // IMPORTANTE: Llamar a enable() para guardar el flag
+              await enable();
+              console.log('✅ Biometría habilitada exitosamente');
+
+              // Guardar credenciales AHORA que el usuario habilitó Face ID
+              await saveBiometricCredentials(user, token);
+              console.log('🔐 Credenciales guardadas en SecureStore para biometría');
+
+              // Refrescar estado del hook para que se actualice isEnabled
+              await refresh();
+              console.log('✅ Estado de biometría actualizado');
+
+              Alert.alert(
+                '¡Listo!',
+                `${biometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`,
+                [{ text: 'OK' }]
+              );
+            } catch (error) {
+              console.error('❌ Error configurando biometría:', error);
+              Alert.alert(
+                'Error',
+                'No se pudo configurar la biometría. Intenta desde tu perfil.',
+                [{ text: 'OK' }]
+              );
+            }
+          },
+        },
+      ]
+    );
+  };
 
   const handleLogin = async () => {
     // Validaciones
@@ -66,9 +151,9 @@ export default function LoginScreen() {
     if (!email) newErrors.email = 'El email es obligatorio';
     else if (!isValidEmail(email)) newErrors.email = 'Email inválido';
     if (!password) newErrors.password = 'La contraseña es obligatoria';
-    
+
     setErrors(newErrors);
-    
+
     if (Object.keys(newErrors).length > 0) {
       return;
     }
@@ -76,27 +161,43 @@ export default function LoginScreen() {
     try {
       setLoading(true);
       const response = await authAPI.login(email, password);
-      
-      // Guardar o remover credenciales según la preferencia del usuario
-      if (rememberCredentials) {
+
+      // Guardar o remover SOLO email según la preferencia del usuario
+      if (rememberEmail) {
         await AsyncStorage.setItem('rememberedEmail', email);
-        await AsyncStorage.setItem('rememberedPassword', password);
+        console.log('📧 Email guardado para autocompletar');
       } else {
         await AsyncStorage.removeItem('rememberedEmail');
-        await AsyncStorage.removeItem('rememberedPassword');
+        console.log('📧 Email eliminado de autocompletar');
       }
-      
+
+      // IMPORTANTE: Siempre eliminar contraseña guardada (por seguridad)
+      await AsyncStorage.removeItem('rememberedPassword');
+
       // Guardar token y datos del usuario
       await saveToken(response.data.token);
       await login(response.data.user, response.data.token);
-      
+
+      // Solo guardar credenciales para biometría si YA está habilitada
+      if (isEnabled) {
+        await saveBiometricCredentials(response.data.user, response.data.token);
+        console.log('🔐 Credenciales actualizadas en SecureStore para biometría');
+      }
+
+      // Si tiene biometría disponible pero no habilitada, preguntar
+      if (isAvailable && !isEnabled) {
+        setTimeout(() => {
+          promptBiometricSetup(response.data.user, response.data.token);
+        }, 500);
+      }
+
       // El useAuthStore se encargará de la navegación automática
       // Si no completó onboarding, se manejará en AppNavigator
-      
+
     } catch (error: any) {
       console.error('Login error:', error);
       let errorMessage = 'Error inesperado. Intenta nuevamente.';
-      
+
       if (error.response?.status === 401) {
         errorMessage = 'Email o contraseña incorrectos';
       } else if (error.response?.status === 403) {
@@ -126,8 +227,9 @@ export default function LoginScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
         style={styles.keyboardContainer}
       >
         <ScrollView 
@@ -215,22 +317,22 @@ export default function LoginScreen() {
                 </TouchableOpacity>
               </View>
 
-              {/* Checkbox para recordar credenciales */}
-              <TouchableOpacity 
+              {/* Checkbox para recordar email */}
+              <TouchableOpacity
                 style={styles.rememberContainer}
-                onPress={() => setRememberCredentials(!rememberCredentials)}
+                onPress={() => setRememberEmail(!rememberEmail)}
               >
-                <View style={[styles.checkbox, rememberCredentials && styles.checkboxSelected]}>
-                  {rememberCredentials && (
+                <View style={[styles.checkbox, rememberEmail && styles.checkboxSelected]}>
+                  {rememberEmail && (
                     <Ionicons name="checkmark" size={16} color="white" />
                   )}
                 </View>
-                <Text style={styles.rememberText}>Recordar credenciales</Text>
+                <Text style={styles.rememberText}>Recordar email</Text>
               </TouchableOpacity>
 
               {errors.api && <Text style={styles.apiErrorText}>{errors.api}</Text>}
 
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={[styles.loginButton, loading && styles.disabledButton]}
                 onPress={handleLogin}
                 disabled={loading}
@@ -244,6 +346,38 @@ export default function LoginScreen() {
                   </>
                 )}
               </TouchableOpacity>
+
+              {/* Botón de login biométrico */}
+              {isAvailable && isEnabled && (
+                <>
+                  <View style={styles.divider}>
+                    <View style={styles.dividerLine} />
+                    <Text style={styles.dividerText}>o</Text>
+                    <View style={styles.dividerLine} />
+                  </View>
+
+                  <TouchableOpacity
+                    style={[styles.biometricButton, loadingBiometric && styles.disabledButton]}
+                    onPress={handleBiometricLogin}
+                    disabled={loadingBiometric}
+                  >
+                    {loadingBiometric ? (
+                      <ActivityIndicator color="#2563EB" size="small" />
+                    ) : (
+                      <>
+                        <Ionicons
+                          name={biometricType === 'Face ID' ? 'scan' : 'finger-print'}
+                          size={24}
+                          color="#2563EB"
+                        />
+                        <Text style={styles.biometricButtonText}>
+                          Usar {biometricType}
+                        </Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
 
@@ -270,8 +404,8 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    justifyContent: 'center',
     padding: 20,
+    paddingBottom: 40,
   },
   header: {
     alignItems: 'center',
@@ -437,5 +571,38 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+  },
+  // Estilos para biometría
+  divider: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 20,
+  },
+  dividerLine: {
+    flex: 1,
+    height: 1,
+    backgroundColor: '#e5e7eb',
+  },
+  dividerText: {
+    marginHorizontal: 16,
+    fontSize: 14,
+    color: '#9ca3af',
+    fontWeight: '500',
+  },
+  biometricButton: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#2563EB',
+    paddingVertical: 12,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  biometricButtonText: {
+    color: '#2563EB',
+    fontSize: 16,
+    fontWeight: '600',
+    marginLeft: 8,
   },
 });

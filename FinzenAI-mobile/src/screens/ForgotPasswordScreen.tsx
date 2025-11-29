@@ -15,6 +15,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../utils/api';
+import CustomModal from '../components/modals/CustomModal';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();
@@ -27,6 +28,8 @@ export default function ForgotPasswordScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [errors, setErrors] = useState<{[key: string]: string}>({});
+  const [showCodeSentModal, setShowCodeSentModal] = useState(false);
+  const [showPasswordUpdatedModal, setShowPasswordUpdatedModal] = useState(false);
 
   const isValidEmail = (email: string) => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -50,11 +53,7 @@ export default function ForgotPasswordScreen() {
     try {
       await api.post('/auth/forgot-password', { email: email.toLowerCase().trim() });
 
-      Alert.alert(
-        '📧 Código enviado',
-        'Si existe una cuenta con ese email, recibirás un código de 6 dígitos en unos minutos.',
-        [{ text: 'Continuar', onPress: () => setStep(2) }]
-      );
+      setShowCodeSentModal(true);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Error al enviar código de recuperación';
       setErrors({ api: errorMessage });
@@ -97,11 +96,7 @@ export default function ForgotPasswordScreen() {
         newPassword
       });
 
-      Alert.alert(
-        '✅ ¡Contraseña actualizada!',
-        'Tu contraseña ha sido actualizada exitosamente. Ya puedes iniciar sesión.',
-        [{ text: 'Ir al Login', onPress: () => navigation.goBack() }]
-      );
+      setShowPasswordUpdatedModal(true);
     } catch (error: any) {
       const errorMessage = error.response?.data?.message || 'Error al restablecer la contraseña';
       setErrors({ api: errorMessage });
@@ -285,6 +280,7 @@ export default function ForgotPasswordScreen() {
 
       <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
         style={styles.keyboardContainer}
       >
         <ScrollView
@@ -308,6 +304,31 @@ export default function ForgotPasswordScreen() {
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modales */}
+      <CustomModal
+        visible={showCodeSentModal}
+        type="success"
+        title="📧 Código enviado"
+        message="Si existe una cuenta con ese email, recibirás un código de 6 dígitos en unos minutos."
+        buttonText="Continuar"
+        onClose={() => {
+          setShowCodeSentModal(false);
+          setStep(2);
+        }}
+      />
+
+      <CustomModal
+        visible={showPasswordUpdatedModal}
+        type="success"
+        title="¡Contraseña actualizada!"
+        message="Tu contraseña ha sido actualizada exitosamente. Ya puedes iniciar sesión."
+        buttonText="Ir al Login"
+        onClose={() => {
+          setShowPasswordUpdatedModal(false);
+          navigation.goBack();
+        }}
+      />
     </SafeAreaView>
   );
 }
@@ -346,7 +367,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 200,
   },
   logoContainer: {
     alignItems: 'center',

@@ -8,13 +8,14 @@ import {
   ScrollView,
   ActivityIndicator,
   Alert,
-  KeyboardAvoidingView,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import api from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
+import { useCategoriesStore } from '../stores/categories';
 
 interface ZenioChatProps {
   onClose?: () => void;
@@ -52,6 +53,14 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
   // Speech hook
   const speech = useSpeech();
+
+  // Obtener categorías del store
+  const { categories, fetchCategories } = useCategoriesStore();
+
+  // Cargar categorías al montar el componente
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -102,7 +111,7 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
     try {
       // Preparar payload como en la web de producción
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      
+
       const payload: any = {
         message: userMessage,
         isOnboarding: isOnboarding,
@@ -112,6 +121,13 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
       if (threadId) {
         payload.threadId = threadId;
       }
+
+      // Enviar categorías en el payload (solo id, name, type)
+      payload.categories = categories.map(cat => ({
+        id: cat.id,
+        name: cat.name,
+        type: cat.type
+      }));
 
       // Hacer llamada al API de Zenio con payload completo
       const response = await api.post('/zenio/chat', payload);
@@ -201,11 +217,7 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   };
 
   return (
-    <KeyboardAvoidingView
-      style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
-    >
+    <View style={styles.container}>
       {/* Header del chat */}
       <View style={styles.header}>
         <View style={styles.zenioInfo}>
@@ -255,7 +267,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
       <ScrollView
         ref={scrollViewRef}
         style={styles.messagesContainer}
+        contentContainerStyle={styles.messagesContent}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         {messages.map((message, index) => (
           <View
@@ -375,7 +389,7 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
           />
         </TouchableOpacity>
       </View>
-    </KeyboardAvoidingView>
+    </View>
   );
 };
 
@@ -420,7 +434,10 @@ const styles = StyleSheet.create({
   },
   messagesContainer: {
     flex: 1,
+  },
+  messagesContent: {
     padding: 16,
+    paddingBottom: 32, // Increased for better spacing above input
   },
   messageWrapper: {
     marginBottom: 16,
@@ -493,7 +510,9 @@ const styles = StyleSheet.create({
   inputContainer: {
     flexDirection: 'row',
     alignItems: 'flex-end',
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',

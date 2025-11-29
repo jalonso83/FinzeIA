@@ -9,6 +9,8 @@ import {
   Alert,
   Dimensions,
   Animated,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -162,11 +164,17 @@ export default function InvestmentSimulatorScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView 
-        style={styles.content} 
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
       >
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
         {!result ? (
           // Formulario de configuración
           <View style={styles.form}>
@@ -187,7 +195,7 @@ export default function InvestmentSimulatorScreen() {
                   step={250}
                   value={tempAmount}
                   onValueChange={setTempAmount}
-                  minimumTrackTintColor="#8B5CF6"
+                  minimumTrackTintColor="#2563EB"
                   maximumTrackTintColor="#e2e8f0"
                 />
                 <Text style={styles.sliderValue}>
@@ -260,7 +268,7 @@ export default function InvestmentSimulatorScreen() {
               disabled={loading}
             >
               <LinearGradient
-                colors={['#8B5CF6', '#7C3AED']}
+                colors={['#2563EB', '#1d4ed8']}
                 style={styles.simulateButtonGradient}
               >
                 {loading ? (
@@ -276,7 +284,7 @@ export default function InvestmentSimulatorScreen() {
         ) : (
           // Resultados
           <Animated.View style={[styles.results, { opacity: animatedValue }]}>
-            <Text style={styles.resultTitle}>🎉 ¡Tu Future Self te agradece!</Text>
+            <Text style={styles.resultTitle}>🎉 ¡Tu Yo del Futuro te agradece!</Text>
 
             {/* Números principales */}
             <View style={styles.mainResults}>
@@ -349,7 +357,8 @@ export default function InvestmentSimulatorScreen() {
             </View>
           </Animated.View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -358,6 +367,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -421,14 +433,14 @@ const styles = StyleSheet.create({
     height: 40,
   },
   sliderThumb: {
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#2563EB',
     width: 20,
     height: 20,
   },
   sliderValue: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#2563EB',
     marginTop: 8,
   },
   buttonGroup: {
@@ -445,8 +457,8 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   yearButtonActive: {
-    backgroundColor: '#8B5CF6',
-    borderColor: '#8B5CF6',
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
   },
   yearButtonText: {
     fontSize: 14,
@@ -465,7 +477,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   riskOptionActive: {
-    borderColor: '#8B5CF6',
+    borderColor: '#2563EB',
     backgroundColor: '#f3f4f6',
   },
   riskContent: {
@@ -540,7 +552,7 @@ const styles = StyleSheet.create({
   totalAmount: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#2563EB',
     marginBottom: 16,
   },
   breakdown: {
@@ -621,7 +633,7 @@ const styles = StyleSheet.create({
   },
   milestoneTime: {
     fontSize: 12,
-    color: '#8B5CF6',
+    color: '#2563EB',
     fontWeight: '600',
   },
   actionButtons: {

@@ -62,7 +62,7 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       title: 'Simulador de Inversión',
       description: 'Ve tu futuro financiero 🚀',
       icon: 'trending-up' as const,
-      color: '#8B5CF6',
+      color: '#2563EB',
       disabled: false,
       onPress: () => {
         setIsVisible(false);
@@ -124,10 +124,12 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       </TouchableOpacity>
 
       <Modal
+        key={isVisible ? 'utilities-open' : 'utilities-closed'}
         visible={isVisible}
         transparent
         animationType="fade"
         onRequestClose={closeMenu}
+        pointerEvents={isVisible ? 'auto' : 'none'}
       >
         <TouchableOpacity 
           style={styles.overlay} 

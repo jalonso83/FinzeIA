@@ -7,11 +7,14 @@ import {
   TextInput,
   TouchableOpacity,
   Alert,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCurrency } from '../hooks/useCurrency';
+import CustomModal from '../components/modals/CustomModal';
 
 interface AmortizationRow {
   payment: number;
@@ -24,7 +27,7 @@ interface AmortizationRow {
 export default function LoanCalculatorScreen() {
   const navigation = useNavigation();
   const { formatCurrency } = useCurrency();
-  
+
   const [loanAmount, setLoanAmount] = useState('');
   const [loanType, setLoanType] = useState('hipotecario');
   const [interestRate, setInterestRate] = useState('5.5');
@@ -37,6 +40,8 @@ export default function LoanCalculatorScreen() {
   const [showAmortization, setShowAmortization] = useState(false);
   const [currentPage, setCurrentPage] = useState(1);
   const [itemsPerPage] = useState(12);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const loanTypes = [
     { value: 'hipotecario', label: 'Hipotecario' },
@@ -51,17 +56,20 @@ export default function LoanCalculatorScreen() {
     const numberOfPayments = parseFloat(term) * (termUnit === 'años' ? 12 : 1);
 
     if (isNaN(principal) || principal <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      setErrorMessage('Ingresa un monto válido');
+      setShowErrorModal(true);
       return;
     }
 
     if (isNaN(rate) || rate <= 0) {
-      Alert.alert('Error', 'Ingresa una tasa de interés válida');
+      setErrorMessage('Ingresa una tasa de interés válida');
+      setShowErrorModal(true);
       return;
     }
 
     if (isNaN(numberOfPayments) || numberOfPayments <= 0) {
-      Alert.alert('Error', 'Ingresa un plazo válido');
+      setErrorMessage('Ingresa un plazo válido');
+      setShowErrorModal(true);
       return;
     }
 
@@ -159,7 +167,16 @@ export default function LoanCalculatorScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+      >
+        <ScrollView
+          style={styles.scrollView}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
         {/* Formulario */}
         <View style={styles.formCard}>
           <Text style={styles.sectionTitle}>Información del Préstamo</Text>
@@ -398,7 +415,18 @@ export default function LoanCalculatorScreen() {
             )}
           </View>
         )}
-      </ScrollView>
+        </ScrollView>
+      </KeyboardAvoidingView>
+
+      {/* Modal de error */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
+      />
     </SafeAreaView>
   );
 }
@@ -407,6 +435,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

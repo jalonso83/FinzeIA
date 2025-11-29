@@ -10,6 +10,8 @@ import {
   Dimensions,
   Animated,
   TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -316,26 +318,33 @@ export default function InflationCalculatorScreen() {
       {step < 3 && (
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
+                styles.progressFill,
                 { width: `${(step / 2) * 100}%` }
-              ]} 
+              ]}
             />
           </View>
           <Text style={styles.progressText}>Paso {step} de 2</Text>
         </View>
       )}
 
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
       >
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-      </ScrollView>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 1 && renderStep1()}
+          {step === 2 && renderStep2()}
+          {step === 3 && renderStep3()}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -344,6 +353,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -679,18 +691,17 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   priceComparison: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    gap: 4,
   },
   currentPrice: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#059669',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   futurePrice: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#ef4444',
-    fontWeight: '500',
+    fontWeight: '600',
   },
   ctaCard: {
     backgroundColor: '#fef2f2',

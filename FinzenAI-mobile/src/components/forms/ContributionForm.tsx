@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,11 +12,12 @@ import {
   Platform,
   ScrollView,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { goalsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
+import CustomModal from '../modals/CustomModal';
 
 interface Goal {
   id: string;
@@ -44,7 +45,13 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
+  const scrollViewRef = useRef<ScrollView>(null);
+
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
@@ -59,31 +66,43 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 
   const handleSubmit = async () => {
     const contributionAmount = parseFloat(amount);
-    
+
     if (!contributionAmount || contributionAmount <= 0) {
-      Alert.alert('Error', 'El monto debe ser mayor a 0');
+      setErrorMessage('El monto debe ser mayor a 0');
+      setShowErrorModal(true);
       return;
     }
 
     if (contributionAmount > calculateRemaining()) {
-      Alert.alert('Error', 'La contribución excedería el monto objetivo de la meta');
+      setErrorMessage('La contribución excedería el monto objetivo de la meta');
+      setShowErrorModal(true);
       return;
     }
 
     try {
       setLoading(true);
-      
+
       await goalsAPI.contribute(goal.id, {
         amount: contributionAmount
       });
-      
-      Alert.alert('Éxito', 'Contribución añadida correctamente');
+
+      console.log('✅ Contribución guardada exitosamente');
+
+      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
       onSuccess();
-      onClose();
+
+      const message = 'Contribución añadida correctamente';
+      setSuccessMessage(message);
+      console.log('📝 Mensaje de éxito:', message);
+
+      // Mostrar modal de éxito
+      setShowSuccessModal(true);
+      console.log('🟢 showSuccessModal activado');
     } catch (error: any) {
       console.error('Error al añadir contribución:', error);
-      const errorMessage = error.response?.data?.message || 'Error al añadir la contribución';
-      Alert.alert('Error', errorMessage);
+      const errMsg = error.response?.data?.message || 'Error al añadir la contribución';
+      setErrorMessage(errMsg);
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -94,113 +113,123 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
   const progressColor = progress >= 80 ? '#10B981' : progress >= 50 ? '#F59E0B' : '#3B82F6';
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.title}>Añadir Contribución</Text>
-          <View style={styles.headerSpacer} />
-        </View>
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+            <Text style={styles.title}>Añadir Contribución</Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-        <KeyboardAvoidingView
-          style={styles.keyboardAvoidingView}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-          <ScrollView
-            style={styles.content}
-            showsVerticalScrollIndicator={false}
-            keyboardShouldPersistTaps="handled"
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
           >
-            {/* Goal Info */}
-            <View style={styles.goalInfo}>
-              <View style={styles.goalHeader}>
-                <Text style={styles.goalIcon}>{goal.category.icon}</Text>
-                <View style={styles.goalDetails}>
-                  <Text style={styles.goalName}>{goal.name}</Text>
-                  <Text style={styles.goalCategory}>{goal.category.name}</Text>
+            <ScrollView
+              ref={scrollViewRef}
+              style={styles.content}
+              contentContainerStyle={styles.scrollContentContainer}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Goal Info */}
+              <View style={styles.goalInfo}>
+                <View style={styles.goalHeader}>
+                  <Text style={styles.goalIcon}>{goal.category.icon}</Text>
+                  <View style={styles.goalDetails}>
+                    <Text style={styles.goalName}>{goal.name}</Text>
+                    <Text style={styles.goalCategory}>{goal.category.name}</Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {/* Progress Current */}
-            <View style={styles.progressSection}>
-              <View style={styles.progressHeader}>
-                <Text style={styles.progressLabel}>Progreso actual</Text>
-                <Text style={styles.progressPercentage}>{progress.toFixed(1)}%</Text>
+              {/* Progress Current */}
+              <View style={styles.progressSection}>
+                <View style={styles.progressHeader}>
+                  <Text style={styles.progressLabel}>Progreso actual</Text>
+                  <Text style={styles.progressPercentage}>{progress.toFixed(1)}%</Text>
+                </View>
+
+                <View style={styles.progressBarContainer}>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${progress}%`, backgroundColor: progressColor },
+                      ]}
+                    />
+                  </View>
+                </View>
+
+                <View style={styles.progressAmounts}>
+                  <Text style={styles.progressAmount}>{formatCurrency(goal.currentAmount)} ahorrado</Text>
+                  <Text style={styles.progressTarget}>{formatCurrency(goal.targetAmount)} meta</Text>
+                </View>
               </View>
 
-              <View style={styles.progressBarContainer}>
-                <View style={styles.progressBar}>
-                  <View
-                    style={[
-                      styles.progressFill,
-                      { width: `${progress}%`, backgroundColor: progressColor },
-                    ]}
+              {/* Contribution Form */}
+              <View style={styles.formSection}>
+                <Text style={styles.label}>Monto de contribución</Text>
+                <View style={styles.amountContainer}>
+                  <Text style={styles.currencySymbol}>$</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    value={amount}
+                    onChangeText={(text) => setAmount(formatAmount(text))}
+                    onFocus={() => {
+                      // Scroll para asegurar que el input y los botones sean visibles
+                      setTimeout(() => {
+                        scrollViewRef.current?.scrollToEnd({ animated: true });
+                      }, 300);
+                    }}
+                    placeholder="0"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="numeric"
+                    returnKeyType="done"
+                    blurOnSubmit={true}
                   />
                 </View>
+                <Text style={styles.maxAmount}>
+                  Máximo disponible: {formatCurrency(remaining)}
+                </Text>
               </View>
 
-              <View style={styles.progressAmounts}>
-                <Text style={styles.progressAmount}>{formatCurrency(goal.currentAmount)} ahorrado</Text>
-                <Text style={styles.progressTarget}>{formatCurrency(goal.targetAmount)} meta</Text>
-              </View>
-            </View>
-
-            {/* Contribution Form */}
-            <View style={styles.formSection}>
-              <Text style={styles.label}>Monto de contribución</Text>
-              <View style={styles.amountContainer}>
-                <Text style={styles.currencySymbol}>$</Text>
-                <TextInput
-                  style={styles.amountInput}
-                  value={amount}
-                  onChangeText={(text) => setAmount(formatAmount(text))}
-                  placeholder="0"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="numeric"
-                  returnKeyType="done"
-                  blurOnSubmit={true}
-                />
-              </View>
-              <Text style={styles.maxAmount}>
-                Máximo disponible: {formatCurrency(remaining)}
-              </Text>
-            </View>
-
-            {/* Contribution Preview */}
-            {amount && parseFloat(amount) > 0 && (
-              <View style={styles.previewSection}>
-                <View style={styles.previewCard}>
-                  <Text style={styles.previewTitle}>Vista previa</Text>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Nuevo progreso:</Text>
-                    <Text style={styles.previewValue}>
-                      {((goal.currentAmount + parseFloat(amount)) / goal.targetAmount * 100).toFixed(1)}%
-                    </Text>
-                  </View>
-                  <View style={styles.previewRow}>
-                    <Text style={styles.previewLabel}>Restante después:</Text>
-                    <Text style={styles.previewValue}>
-                      {formatCurrency(remaining - parseFloat(amount))}
-                    </Text>
+              {/* Contribution Preview */}
+              {amount && parseFloat(amount) > 0 && (
+                <View style={styles.previewSection}>
+                  <View style={styles.previewCard}>
+                    <Text style={styles.previewTitle}>Vista previa</Text>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Nuevo progreso:</Text>
+                      <Text style={styles.previewValue}>
+                        {((goal.currentAmount + parseFloat(amount)) / goal.targetAmount * 100).toFixed(1)}%
+                      </Text>
+                    </View>
+                    <View style={styles.previewRow}>
+                      <Text style={styles.previewLabel}>Restante después:</Text>
+                      <Text style={styles.previewValue}>
+                        {formatCurrency(remaining - parseFloat(amount))}
+                      </Text>
+                    </View>
                   </View>
                 </View>
-              </View>
-            )}
+              )}
 
-            {/* Extra padding for scrolling space */}
-            <View style={styles.extraPadding} />
-          </ScrollView>
+              {/* Extra padding for scrolling space - espacio para que el footer no tape el contenido */}
+              <View style={styles.extraPadding} />
+            </ScrollView>
+          </KeyboardAvoidingView>
 
-          {/* Footer */}
+          {/* Footer - FUERA del KeyboardAvoidingView para que siempre esté visible */}
           <View style={styles.footer}>
             <TouchableOpacity
               style={styles.cancelButton}
@@ -230,9 +259,35 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
               </TouchableOpacity>
             </LinearGradient>
           </View>
-        </KeyboardAvoidingView>
-      </SafeAreaView>
-    </Modal>
+
+          {/* Modal de éxito */}
+          <CustomModal
+            visible={showSuccessModal}
+            type="success"
+            title="¡Contribución añadida!"
+            message={successMessage}
+            buttonText="Continuar"
+            onClose={() => {
+              console.log('👆 Usuario presionó Continuar en modal de éxito');
+              setShowSuccessModal(false);
+              // Los callbacks ya se ejecutaron después de guardar
+              // Cerrar el formulario
+              onClose();
+            }}
+          />
+
+          {/* Modal de error */}
+          <CustomModal
+            visible={showErrorModal}
+            type="error"
+            title="Error"
+            message={errorMessage}
+            buttonText="Entendido"
+            onClose={() => setShowErrorModal(false)}
+          />
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 };
 
@@ -267,11 +322,15 @@ const styles = StyleSheet.create({
   },
   content: {
     flex: 1,
+  },
+  scrollContentContainer: {
     paddingHorizontal: 20,
     paddingTop: 20,
+    paddingBottom: 120,
+    flexGrow: 1,
   },
   extraPadding: {
-    height: 100,
+    height: 150,
   },
   goalInfo: {
     backgroundColor: 'white',

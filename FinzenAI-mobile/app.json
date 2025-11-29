@@ -18,7 +18,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSMicrophoneUsageDescription": "Esta app necesita acceso al micrófono para permitirte hablar con Zenio, tu asistente financiero.",
-        "NSSpeechRecognitionUsageDescription": "Esta app necesita acceso al reconocimiento de voz para transcribir tus consultas financieras a Zenio."
+        "NSSpeechRecognitionUsageDescription": "Esta app necesita acceso al reconocimiento de voz para transcribir tus consultas financieras a Zenio.",
+        "NSFaceIDUsageDescription": "Usamos Face ID para que puedas acceder rápida y seguramente a tu cuenta de FinZen AI sin necesidad de escribir tu contraseña cada vez."
       }
     },
     "android": {
@@ -30,7 +31,9 @@
       },
       "permissions": [
         "RECORD_AUDIO",
-        "INTERNET"
+        "INTERNET",
+        "USE_BIOMETRIC",
+        "USE_FINGERPRINT"
       ]
     },
     "web": {

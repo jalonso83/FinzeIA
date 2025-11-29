@@ -17,6 +17,7 @@ import TransactionForm from '../components/forms/TransactionForm';
 import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
 import { useDashboardStore } from '../stores/dashboard';
+import CustomModal from '../components/modals/CustomModal';
 
 type FilterType = 'all' | 'INCOME' | 'EXPENSE';
 
@@ -26,18 +27,48 @@ export default function TransactionsScreen() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
-  
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
-  
+
   // Hook para moneda del usuario
   const { formatCurrency, userCountry } = useCurrency();
 
   // Dashboard store para refresh automático
   const { refreshTrigger, transactionChangeTrigger, onTransactionChange } = useDashboardStore();
+
+  // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
+  const formatDateDisplay = (value: string) => {
+    const cleaned = value.replace(/\D/g, '');
+    if (cleaned.length >= 8) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4, 8)}`;
+    } else if (cleaned.length >= 4) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}`;
+    } else if (cleaned.length >= 2) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2)}`;
+    } else {
+      return cleaned;
+    }
+  };
+
+  // Función para convertir DD-MM-YYYY a YYYY-MM-DD (para filtrado)
+  const convertToBackendFormat = (displayDate: string) => {
+    const cleaned = displayDate.replace(/\D/g, '');
+    if (cleaned.length === 8) {
+      const day = cleaned.substring(0, 2);
+      const month = cleaned.substring(2, 4);
+      const year = cleaned.substring(4, 8);
+      return `${year}-${month}-${day}`;
+    }
+    return displayDate;
+  };
 
   useEffect(() => {
     loadTransactions();
@@ -67,14 +98,15 @@ export default function TransactionsScreen() {
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
     } catch (error: any) {
       console.error('Error loading transactions:', error);
-      
+
       // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
-        Alert.alert('Sesión Expirada', 'Por favor inicia sesión nuevamente');
+        setErrorMessage('Por favor inicia sesión nuevamente');
       } else {
-        Alert.alert('Error', 'No se pudieron cargar las transacciones');
+        setErrorMessage('No se pudieron cargar las transacciones');
       }
-      
+      setShowErrorModal(true);
+
       // Mostrar lista vacía en caso de error
       setTransactions([]);
     } finally {
@@ -92,12 +124,16 @@ export default function TransactionsScreen() {
 
     // Filtrar por rango de fechas
     if (startDate) {
-      const start = new Date(startDate + 'T00:00:00');
+      // Convertir DD-MM-YYYY a YYYY-MM-DD para comparación
+      const backendStartDate = convertToBackendFormat(startDate);
+      const start = new Date(backendStartDate + 'T00:00:00');
       filtered = filtered.filter(transaction => createSafeDate(transaction.date) >= start);
     }
 
     if (endDate) {
-      const end = new Date(endDate + 'T23:59:59');
+      // Convertir DD-MM-YYYY a YYYY-MM-DD para comparación
+      const backendEndDate = convertToBackendFormat(endDate);
+      const end = new Date(backendEndDate + 'T23:59:59');
       filtered = filtered.filter(transaction => createSafeDate(transaction.date) <= end);
     }
 
@@ -149,33 +185,29 @@ export default function TransactionsScreen() {
     return type === 'INCOME' ? `+${formattedAmount}` : `-${formattedAmount}`;
   };
 
-  const handleDeleteTransaction = async (transaction: Transaction) => {
-    Alert.alert(
-      'Eliminar Transacción',
-      `¿Estás seguro de que quieres eliminar esta transacción?\n\n${transaction.description}\n${formatAmount(transaction.amount, transaction.type)}`,
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Eliminar',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await transactionsAPI.delete(transaction.id);
-              // Recargar transacciones después de eliminar
-              await loadTransactions();
-              // Actualizar dashboard
-              onTransactionChange();
-            } catch (error) {
-              console.error('Error eliminando transacción:', error);
-              Alert.alert('Error', 'No se pudo eliminar la transacción');
-            }
-          },
-        },
-      ]
-    );
+  const handleDeleteTransaction = (transaction: Transaction) => {
+    setTransactionToDelete(transaction);
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!transactionToDelete) return;
+
+    try {
+      await transactionsAPI.delete(transactionToDelete.id);
+      setShowDeleteConfirmModal(false);
+      setTransactionToDelete(null);
+      // Recargar transacciones después de eliminar
+      await loadTransactions();
+      // Actualizar dashboard
+      onTransactionChange();
+    } catch (error) {
+      console.error('Error eliminando transacción:', error);
+      setShowDeleteConfirmModal(false);
+      setTransactionToDelete(null);
+      setErrorMessage('No se pudo eliminar la transacción');
+      setShowErrorModal(true);
+    }
   };
 
   // Función para crear fecha sin problemas de zona horaria
@@ -421,9 +453,11 @@ export default function TransactionsScreen() {
                     <TextInput
                       style={styles.dateInputText}
                       value={startDate}
-                      onChangeText={setStartDate}
-                      placeholder="YYYY-MM-DD"
+                      onChangeText={(text) => setStartDate(formatDateDisplay(text))}
+                      placeholder="DD-MM-YYYY"
                       placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      maxLength={10}
                     />
                     <Ionicons name="calendar-outline" size={20} color="#64748b" />
                   </TouchableOpacity>
@@ -434,9 +468,11 @@ export default function TransactionsScreen() {
                     <TextInput
                       style={styles.dateInputText}
                       value={endDate}
-                      onChangeText={setEndDate}
-                      placeholder="YYYY-MM-DD"
+                      onChangeText={(text) => setEndDate(formatDateDisplay(text))}
+                      placeholder="DD-MM-YYYY"
                       placeholderTextColor="#9CA3AF"
+                      keyboardType="numeric"
+                      maxLength={10}
                     />
                     <Ionicons name="calendar-outline" size={20} color="#64748b" />
                   </TouchableOpacity>
@@ -509,6 +545,32 @@ export default function TransactionsScreen() {
           setEditingTransaction(null);
         }}
         editTransaction={editingTransaction}
+      />
+
+      {/* Modal de confirmación de eliminación */}
+      <CustomModal
+        visible={showDeleteConfirmModal}
+        type="warning"
+        title="Eliminar Transacción"
+        message={transactionToDelete ? `¿Estás seguro de que quieres eliminar esta transacción?\n\n${transactionToDelete.description}\n${formatAmount(transactionToDelete.amount, transactionToDelete.type)}` : ''}
+        buttonText="Eliminar"
+        showSecondaryButton={true}
+        secondaryButtonText="Cancelar"
+        onSecondaryPress={() => {
+          setShowDeleteConfirmModal(false);
+          setTransactionToDelete(null);
+        }}
+        onClose={confirmDeleteTransaction}
+      />
+
+      {/* Modal de error */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
       />
     </SafeAreaView>
   );
@@ -626,7 +688,7 @@ const styles = StyleSheet.create({
   },
   transactionCategory: {
     fontSize: 12,
-    color: '#7c3aed',
+    color: '#2563EB',
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 8,
     paddingVertical: 2,

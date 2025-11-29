@@ -11,6 +11,8 @@ import {
   Animated,
   TextInput,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -156,7 +158,7 @@ export default function GoalCalculatorScreen() {
             <Text style={styles.goalTypeIcon}>{goalType.icon}</Text>
             <Text style={styles.goalTypeName}>{goalType.name}</Text>
             {selectedGoalType === key && (
-              <Ionicons name="checkmark-circle" size={24} color="#8B5CF6" style={styles.checkIcon} />
+              <Ionicons name="checkmark-circle" size={24} color="#2563EB" style={styles.checkIcon} />
             )}
           </TouchableOpacity>
         ))}
@@ -307,7 +309,7 @@ export default function GoalCalculatorScreen() {
           disabled={loading}
         >
           <LinearGradient
-            colors={['#8B5CF6', '#7C3AED']}
+            colors={['#2563EB', '#1d4ed8']}
             style={styles.calculateButtonGradient}
           >
             {loading ? (
@@ -412,28 +414,35 @@ export default function GoalCalculatorScreen() {
       {step < 5 && (
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
+                styles.progressFill,
                 { width: `${(step / 4) * 100}%` }
-              ]} 
+              ]}
             />
           </View>
           <Text style={styles.progressText}>Paso {step} de 4</Text>
         </View>
       )}
 
-      <ScrollView 
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        style={styles.keyboardAvoidingView}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
       >
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-        {step === 4 && renderStep4()}
-        {step === 5 && renderStep5()}
-      </ScrollView>
+        <ScrollView
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 1 && renderStep1()}
+          {step === 2 && renderStep2()}
+          {step === 3 && renderStep3()}
+          {step === 4 && renderStep4()}
+          {step === 5 && renderStep5()}
+        </ScrollView>
+      </KeyboardAvoidingView>
 
       {/* Modal de información */}
       <Modal
@@ -484,6 +493,9 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f8fafc',
   },
+  keyboardAvoidingView: {
+    flex: 1,
+  },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -518,7 +530,7 @@ const styles = StyleSheet.create({
   },
   progressFill: {
     height: '100%',
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#2563EB',
     borderRadius: 2,
   },
   progressText: {
@@ -566,7 +578,7 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
   goalTypeCardSelected: {
-    borderColor: '#8B5CF6',
+    borderColor: '#2563EB',
     backgroundColor: '#f3f4f6',
   },
   goalTypeIcon: {
@@ -618,7 +630,7 @@ const styles = StyleSheet.create({
   suggestionAmount: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#2563EB',
     marginBottom: 4,
   },
   suggestionDescription: {
@@ -636,7 +648,7 @@ const styles = StyleSheet.create({
     borderColor: '#e2e8f0',
   },
   percentageOptionSelected: {
-    borderColor: '#8B5CF6',
+    borderColor: '#2563EB',
     backgroundColor: '#f3f4f6',
   },
   percentageLabel: {
@@ -653,7 +665,7 @@ const styles = StyleSheet.create({
   percentageAmount: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#2563EB',
   },
   timeframeOptions: {
     gap: 12,
@@ -669,7 +681,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   timeframeOptionSelected: {
-    borderColor: '#8B5CF6',
+    borderColor: '#2563EB',
     backgroundColor: '#f3f4f6',
   },
   timeframeLabel: {
@@ -706,7 +718,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     paddingHorizontal: 24,
-    backgroundColor: '#8B5CF6',
+    backgroundColor: '#2563EB',
     borderRadius: 12,
     gap: 8,
   },
@@ -760,7 +772,7 @@ const styles = StyleSheet.create({
   goalAmount: {
     fontSize: 32,
     fontWeight: 'bold',
-    color: '#8B5CF6',
+    color: '#2563EB',
     marginBottom: 8,
   },
   goalTimeframe: {
@@ -842,7 +854,7 @@ const styles = StyleSheet.create({
   },
   milestoneMonth: {
     fontSize: 12,
-    color: '#8B5CF6',
+    color: '#2563EB',
     fontWeight: '600',
     marginBottom: 2,
   },

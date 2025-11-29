@@ -263,4 +263,43 @@ export const reportsAPI = {
   }) => api.get(`/reports/dates?${new URLSearchParams(params).toString()}`),
 };
 
+// API de suscripciones (Stripe)
+export const subscriptionsAPI = {
+  // Obtener todos los planes disponibles (público)
+  getPlans: () =>
+    api.get('/subscriptions/plans'),
+
+  // Obtener suscripción actual del usuario (requiere auth)
+  getCurrent: () =>
+    api.get('/subscriptions/current'),
+
+  // Crear sesión de checkout para upgrade (requiere auth)
+  createCheckout: (plan: 'PREMIUM' | 'PRO') =>
+    api.post('/subscriptions/checkout', { plan }),
+
+  // Cancelar suscripción al final del período (requiere auth)
+  cancel: () =>
+    api.post('/subscriptions/cancel'),
+
+  // Reactivar suscripción cancelada (requiere auth)
+  reactivate: () =>
+    api.post('/subscriptions/reactivate'),
+
+  // Crear portal de cliente de Stripe (requiere auth)
+  createCustomerPortal: () =>
+    api.post('/subscriptions/customer-portal'),
+
+  // Cambiar de plan (requiere auth)
+  changePlan: (newPlan: 'PREMIUM' | 'PRO') =>
+    api.post('/subscriptions/change-plan', { newPlan }),
+
+  // Obtener historial de pagos (requiere auth)
+  getPayments: (limit: number = 10) =>
+    api.get(`/subscriptions/payments?limit=${limit}`),
+
+  // Verificar estado de sesión de checkout (requiere auth)
+  checkCheckoutSession: (sessionId: string) =>
+    api.get(`/subscriptions/checkout/${sessionId}`),
+};
+
 export default api;

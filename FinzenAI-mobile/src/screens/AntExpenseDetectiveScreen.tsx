@@ -92,7 +92,7 @@ export default function AntExpenseDetectiveScreen() {
         <Text style={styles.zenioText}>Zenio está analizando tus gastos...</Text>
         <Text style={styles.zenioSubtext}>Revisando últimos 3 meses 🕵️</Text>
       </Animated.View>
-      <ActivityIndicator size="large" color="#7c3aed" style={{ marginTop: 20 }} />
+      <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 20 }} />
     </View>
   );
 
@@ -291,7 +291,7 @@ const styles = StyleSheet.create({
     padding: 24,
     alignItems: 'center',
     borderWidth: 2,
-    borderColor: '#7c3aed',
+    borderColor: '#2563EB',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
   zenioHeaderTitle: {
     fontSize: 18,
     fontWeight: 'bold',
-    color: '#7c3aed',
+    color: '#2563EB',
     marginBottom: 12,
   },
   zenioMessage: {
@@ -466,7 +466,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 2,
   },
   trendBarFill: {
-    backgroundColor: '#7c3aed',
+    backgroundColor: '#2563EB',
     width: '80%',
     borderRadius: 4,
     marginBottom: 8,

@@ -99,11 +99,13 @@ const VoiceZenioFloatingButton: React.FC<VoiceZenioFloatingButtonProps> = () => 
 
       {/* Voice Chat Modal */}
       <Modal
+        key={showChat ? 'voice-chat-open' : 'voice-chat-closed'}
         visible={showChat}
         transparent
         animationType="slide"
         statusBarTranslucent
         onRequestClose={handleCloseChat}
+        pointerEvents={showChat ? 'auto' : 'none'}
       >
         <VoiceZenioChat
           onClose={handleCloseChat}

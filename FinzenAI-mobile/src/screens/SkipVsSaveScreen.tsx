@@ -198,11 +198,8 @@ export default function SkipVsSaveScreen() {
             onFocus={() => {
               // Scroll to make the input visible when focused
               setTimeout(() => {
-                scrollViewRef.current?.scrollTo({
-                  y: 400, // Scroll down to make custom input section visible
-                  animated: true,
-                });
-              }, 200);
+                scrollViewRef.current?.scrollToEnd({ animated: true });
+              }, 300);
             }}
             placeholder="Ejemplo: 250"
             keyboardType="numeric"
@@ -442,28 +439,35 @@ export default function SkipVsSaveScreen() {
       {step < 4 && (
         <View style={styles.progressContainer}>
           <View style={styles.progressBar}>
-            <View 
+            <View
               style={[
-                styles.progressFill, 
+                styles.progressFill,
                 { width: `${(step / 3) * 100}%` }
-              ]} 
+              ]}
             />
           </View>
           <Text style={styles.progressText}>Paso {step} de 3</Text>
         </View>
       )}
 
-      <ScrollView
-        ref={scrollViewRef}
-        style={styles.content}
-        contentContainerStyle={styles.scrollContent}
-        showsVerticalScrollIndicator={false}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingView}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
       >
-        {step === 1 && renderStep1()}
-        {step === 2 && renderStep2()}
-        {step === 3 && renderStep3()}
-        {step === 4 && renderStep4()}
-      </ScrollView>
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.content}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
+          {step === 1 && renderStep1()}
+          {step === 2 && renderStep2()}
+          {step === 3 && renderStep3()}
+          {step === 4 && renderStep4()}
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -472,6 +476,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',
@@ -521,7 +528,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 20,
-    paddingBottom: 40,
+    paddingBottom: 200,
   },
   stepContainer: {
     gap: 24,

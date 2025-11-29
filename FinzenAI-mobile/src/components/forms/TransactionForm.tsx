@@ -10,6 +10,8 @@ import {
   ActivityIndicator,
   Modal,
   Dimensions,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,6 +20,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { categoriesAPI, transactionsAPI, Category, Transaction } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
+import CustomModal from '../modals/CustomModal';
 
 interface TransactionFormProps {
   visible: boolean;
@@ -37,13 +40,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     amount: '',
     type: 'INCOME' as 'INCOME' | 'EXPENSE',
     categoryId: '',
-    date: new Date().toISOString().split('T')[0],
+    date: (() => {
+      const today = new Date();
+      const dd = String(today.getDate()).padStart(2, '0');
+      const mm = String(today.getMonth() + 1).padStart(2, '0');
+      const yyyy = today.getFullYear();
+      return `${dd}-${mm}-${yyyy}`; // Formato DD-MM-YYYY visual
+    })(),
   });
   
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   // Currency converter state (replicando exactamente la web)
   const [showConverter, setShowConverter] = useState(false);
   const [conversionDirection, setConversionDirection] = useState<'foreignToBase' | 'baseToForeign'>('foreignToBase');
@@ -61,6 +74,45 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const { userCurrencyInfo } = useCurrency();
   const currency = userCurrencyInfo;
 
+  // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
+  const formatDateDisplay = (value: string) => {
+    // Remover todos los caracteres que no sean números
+    const cleaned = value.replace(/\D/g, '');
+
+    // Aplicar formato DD-MM-YYYY (visual para el usuario)
+    if (cleaned.length >= 8) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4, 8)}`;
+    } else if (cleaned.length >= 4) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}`;
+    } else if (cleaned.length >= 2) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2)}`;
+    } else {
+      return cleaned;
+    }
+  };
+
+  // Función para convertir DD-MM-YYYY a YYYY-MM-DD (para backend)
+  const convertToBackendFormat = (displayDate: string) => {
+    const cleaned = displayDate.replace(/\D/g, '');
+    if (cleaned.length === 8) {
+      const day = cleaned.substring(0, 2);
+      const month = cleaned.substring(2, 4);
+      const year = cleaned.substring(4, 8);
+      return `${year}-${month}-${day}`;
+    }
+    return displayDate; // Si no tiene el formato correcto, devolver como está
+  };
+
+  // Función para convertir YYYY-MM-DD (backend) a DD-MM-YYYY (display)
+  const convertToDisplayFormat = (backendDate: string) => {
+    if (!backendDate) return '';
+    const parts = backendDate.split('-');
+    if (parts.length === 3) {
+      return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
+    }
+    return backendDate;
+  };
+
   useEffect(() => {
     if (visible) {
       loadCategories();
@@ -69,16 +121,19 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         console.log('Editando transacción:', editTransaction);
         console.log('Category data:', editTransaction.category);
         console.log('Category ID directo:', editTransaction.categoryId);
-        
+
         const categoryId = editTransaction.category?.id || editTransaction.categoryId || '';
         console.log('Category ID final:', categoryId);
-        
+
+        const backendDate = editTransaction.date.split('T')[0]; // YYYY-MM-DD
+        const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
+
         setFormData({
           description: editTransaction.description,
           amount: editTransaction.amount.toString(),
           type: editTransaction.type,
           categoryId: categoryId,
-          date: editTransaction.date.split('T')[0],
+          date: displayDate,
         });
       } else {
         resetForm();
@@ -134,7 +189,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       setCategories(response.data);
     } catch (error) {
       console.error('Error loading categories:', error);
-      Alert.alert('Error', 'No se pudieron cargar las categorías');
+      setErrorMessage('No se pudieron cargar las categorías');
+      setShowErrorModal(true);
     } finally {
       setLoadingCategories(false);
     }
@@ -244,60 +300,79 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const resetForm = () => {
+    const today = new Date();
+    const dd = String(today.getDate()).padStart(2, '0');
+    const mm = String(today.getMonth() + 1).padStart(2, '0');
+    const yyyy = today.getFullYear();
+
     setFormData({
       description: '',
       amount: '',
       type: 'INCOME',
       categoryId: '',
-      date: new Date().toISOString().split('T')[0],
+      date: `${dd}-${mm}-${yyyy}`, // Formato DD-MM-YYYY visual
     });
   };
 
   const handleSubmit = async () => {
     // Validaciones
     if (!formData.description.trim()) {
-      Alert.alert('Error', 'La descripción es requerida');
+      setErrorMessage('La descripción es requerida');
+      setShowErrorModal(true);
       return;
     }
 
     if (!formData.amount || isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      setErrorMessage('Ingresa un monto válido');
+      setShowErrorModal(true);
       return;
     }
 
     if (!formData.categoryId) {
-      Alert.alert('Error', 'Selecciona una categoría');
+      setErrorMessage('Selecciona una categoría');
+      setShowErrorModal(true);
       return;
     }
 
     try {
       setLoading(true);
       
+      // Convertir fecha de DD-MM-YYYY a YYYY-MM-DD para el backend
+      const backendDate = convertToBackendFormat(formData.date);
+
       const transactionData = {
         description: formData.description.trim(),
         amount: Number(formData.amount),
         type: formData.type,
         category_id: formData.categoryId,
-        date: formData.date + 'T12:00:00.000Z', // Enviar como mediodía UTC para evitar problemas de zona horaria
+        date: backendDate + 'T12:00:00.000Z', // Enviar como mediodía UTC para evitar problemas de zona horaria
       };
 
+      let message = '';
       if (editTransaction) {
         await transactionsAPI.update(editTransaction.id, transactionData);
-        Alert.alert('Éxito', 'Transacción actualizada correctamente');
+        message = 'Transacción actualizada correctamente';
       } else {
         await transactionsAPI.create(transactionData);
-        Alert.alert('Éxito', 'Transacción creada correctamente');
+        message = 'Transacción creada correctamente';
       }
 
-      // Notificar al dashboard que hubo cambios
+      console.log('✅ Transacción guardada exitosamente');
+      console.log('📝 Mensaje de éxito:', message);
+
+      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
       onTransactionChange();
-      
       onSuccess();
-      onClose();
+
+      // Configurar mensaje y mostrar modal de éxito
+      setSuccessMessage(message);
+      setShowSuccessModal(true);
+      console.log('🟢 showSuccessModal activado');
     } catch (error: any) {
       console.error('Error saving transaction:', error);
-      const errorMessage = error.response?.data?.message || 'Error al guardar la transacción';
-      Alert.alert('Error', errorMessage);
+      const errMsg = error.response?.data?.message || 'Error al guardar la transacción';
+      setErrorMessage(errMsg);
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -314,24 +389,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.title}>
-            {editTransaction ? 'Editar Transacción' : 'Nueva Transacción'}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+            <Text style={styles.title}>
+              {editTransaction ? 'Editar Transacción' : 'Nueva Transacción'}
+            </Text>
+            <View style={styles.headerSpacer} />
+          </View>
 
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+          >
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={{ paddingBottom: 200 }}
+              keyboardShouldPersistTaps="handled"
+            >
           {/* Tipo de Transacción */}
           <View style={styles.section}>
             <Text style={styles.sectionTitle}>Tipo de Transacción</Text>
@@ -446,9 +531,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               <TextInput
                 style={styles.dateInput}
                 value={formData.date}
-                onChangeText={(text) => setFormData({ ...formData, date: text })}
-                placeholder="YYYY-MM-DD"
+                onChangeText={(text) => setFormData({ ...formData, date: formatDateDisplay(text) })}
+                placeholder="DD-MM-YYYY"
                 placeholderTextColor="#9ca3af"
+                keyboardType="numeric"
+                maxLength={10}
               />
             </View>
           </View>
@@ -486,7 +573,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </ScrollView>
             )}
           </View>
-        </ScrollView>
+          </ScrollView>
+          </KeyboardAvoidingView>
 
         {/* Botones de Acción */}
         <View style={styles.footer}>
@@ -520,8 +608,35 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </TouchableOpacity>
           </LinearGradient>
         </View>
+
+        {/* Modal de éxito */}
+        <CustomModal
+          visible={showSuccessModal}
+          type="success"
+          title="¡Transacción guardada!"
+          message={successMessage}
+          buttonText="Continuar"
+          onClose={() => {
+            console.log('👆 Usuario presionó Continuar en modal de éxito');
+            setShowSuccessModal(false);
+            // Los callbacks ya se ejecutaron después de guardar
+            resetForm();
+            // NO cerrar el formulario principal - debe quedar abierto para la siguiente transacción
+          }}
+        />
+
+        {/* Modal de error */}
+        <CustomModal
+          visible={showErrorModal}
+          type="error"
+          title="Error"
+          message={errorMessage}
+          buttonText="Entendido"
+          onClose={() => setShowErrorModal(false)}
+        />
       </SafeAreaView>
-      
+      </Modal>
+
       {/* Currency Converter Modal (replicando exactamente la web) */}
       {showConverter && (
         <Modal
@@ -648,7 +763,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </View>
         </Modal>
       )}
-    </Modal>
+    </>
   );
 };
 
@@ -656,6 +771,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

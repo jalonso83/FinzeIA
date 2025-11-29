@@ -13,6 +13,7 @@ import {
   Image,
   Modal,
   FlatList,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -86,7 +87,8 @@ export default function RegisterScreen() {
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showOccupationModal, setShowOccupationModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
-  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+
   const navigation = useNavigation<any>();
 
   const validate = () => {
@@ -126,7 +128,7 @@ export default function RegisterScreen() {
         email: form.email,
         password: form.password,
         phone: form.phone,
-        birthDate: form.birthDate,
+        birthDate: convertToBackendFormat(form.birthDate), // Convertir DD-MM-YYYY a YYYY-MM-DD
         country: form.country,
         state: form.state,
         city: form.city,
@@ -137,17 +139,9 @@ export default function RegisterScreen() {
       };
 
       await authAPI.register(registerData);
-      
-      Alert.alert(
-        'Registro Exitoso', 
-        'Usuario registrado exitosamente. Revisa tu email para verificar tu cuenta.',
-        [{
-          text: 'OK',
-          onPress: () => {
-            navigation.navigate('Login');
-          },
-        }]
-      );
+
+      // Mostrar modal de éxito moderno
+      setShowSuccessModal(true);
       
     } catch (error: any) {
       console.error('Error al registrar:', error);
@@ -171,29 +165,42 @@ export default function RegisterScreen() {
     return emailRegex.test(email);
   };
 
-  // Función para formatear fecha automáticamente
-  const formatBirthDate = (value: string) => {
+  // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
+  const formatBirthDateDisplay = (value: string) => {
     // Remover todos los caracteres que no sean números
     const cleaned = value.replace(/\D/g, '');
 
-    // Aplicar formato YYYY-MM-DD
+    // Aplicar formato DD-MM-YYYY (visual para el usuario)
     if (cleaned.length >= 8) {
-      return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6, 8)}`;
-    } else if (cleaned.length >= 6) {
-      return `${cleaned.substring(0, 4)}-${cleaned.substring(4, 6)}-${cleaned.substring(6)}`;
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4, 8)}`;
     } else if (cleaned.length >= 4) {
-      return `${cleaned.substring(0, 4)}-${cleaned.substring(4)}`;
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4)}`;
+    } else if (cleaned.length >= 2) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2)}`;
     } else {
       return cleaned;
     }
   };
 
+  // Función para convertir DD-MM-YYYY a YYYY-MM-DD (para backend)
+  const convertToBackendFormat = (displayDate: string) => {
+    const cleaned = displayDate.replace(/\D/g, '');
+    if (cleaned.length === 8) {
+      // DD MM YYYY -> YYYY-MM-DD
+      const day = cleaned.substring(0, 2);
+      const month = cleaned.substring(2, 4);
+      const year = cleaned.substring(4, 8);
+      return `${year}-${month}-${day}`;
+    }
+    return displayDate; // Si no está completo, devolver como está
+  };
+
   const handleChange = (field: string, value: string) => {
     let finalValue = value;
 
-    // Aplicar formato especial para fecha de nacimiento
+    // Aplicar formato especial para fecha de nacimiento (visual DD-MM-YYYY)
     if (field === 'birthDate') {
-      finalValue = formatBirthDate(value);
+      finalValue = formatBirthDateDisplay(value);
     }
 
     setForm({ ...form, [field]: finalValue });
@@ -206,6 +213,43 @@ export default function RegisterScreen() {
   const navigateToLogin = () => {
     navigation.navigate('Login');
   };
+
+  // Componente de Modal de Éxito
+  const SuccessModal = () => (
+    <Modal visible={showSuccessModal} transparent animationType="fade">
+      <View style={styles.successModalOverlay}>
+        <View style={styles.successModalContainer}>
+          {/* Icono de éxito con círculo verde */}
+          <View style={styles.successIconContainer}>
+            <View style={styles.successIconCircle}>
+              <Ionicons name="checkmark" size={60} color="#FFFFFF" />
+            </View>
+          </View>
+
+          {/* Título */}
+          <Text style={styles.successTitle}>¡Bienvenido/a a FinZen AI!</Text>
+
+          {/* Mensaje */}
+          <Text style={styles.successMessage}>
+            Tu cuenta ha sido creada exitosamente.{'\n'}
+            Te hemos enviado un email de verificación.
+          </Text>
+
+          {/* Botón de continuar */}
+          <TouchableOpacity
+            style={styles.successButton}
+            onPress={() => {
+              setShowSuccessModal(false);
+              navigation.navigate('Login');
+            }}
+          >
+            <Text style={styles.successButtonText}>Continuar</Text>
+            <Ionicons name="arrow-forward" size={20} color="#FFFFFF" style={{ marginLeft: 8 }} />
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
 
   // Componente de Modal Picker
   const ModalPicker = ({ visible, onClose, title, data, onSelect, selectedValue, displayKey }: any) => (
@@ -250,8 +294,9 @@ export default function RegisterScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <KeyboardAvoidingView 
+      <KeyboardAvoidingView
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
         style={styles.keyboardContainer}
       >
         <ScrollView 
@@ -282,30 +327,29 @@ export default function RegisterScreen() {
             {/* Información Personal */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Información Personal</Text>
-              
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Nombre *</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.name && styles.inputError]}
-                    value={form.name}
-                    onChangeText={(value) => handleChange('name', value)}
-                    placeholder="Tu nombre"
-                    placeholderTextColor="#9ca3af"
-                  />
-                  {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
-                </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Apellidos *</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.lastName && styles.inputError]}
-                    value={form.lastName}
-                    onChangeText={(value) => handleChange('lastName', value)}
-                    placeholder="Tus apellidos"
-                    placeholderTextColor="#9ca3af"
-                  />
-                  {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
-                </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Nombre *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.name && styles.inputError]}
+                  value={form.name}
+                  onChangeText={(value) => handleChange('name', value)}
+                  placeholder="Tu nombre"
+                  placeholderTextColor="#9ca3af"
+                />
+                {errors.name && <Text style={styles.errorText}>{errors.name}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Apellidos *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.lastName && styles.inputError]}
+                  value={form.lastName}
+                  onChangeText={(value) => handleChange('lastName', value)}
+                  placeholder="Tus apellidos"
+                  placeholderTextColor="#9ca3af"
+                />
+                {errors.lastName && <Text style={styles.errorText}>{errors.lastName}</Text>}
               </View>
 
               <View style={styles.inputContainer}>
@@ -322,174 +366,169 @@ export default function RegisterScreen() {
                 {errors.email && <Text style={styles.errorText}>{errors.email}</Text>}
               </View>
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Contraseña *</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={[styles.textInput, { flex: 1, height: undefined, paddingVertical: 12 }, errors.password && styles.inputError]}
-                      value={form.password}
-                      onChangeText={(value) => handleChange('password', value)}
-                      placeholder="••••••••"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry={!showPassword}
-                      autoCapitalize="none"
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Contraseña *</Text>
+                <View style={styles.passwordContainer}>
+                  <TextInput
+                    style={[styles.textInput, { flex: 1, height: undefined, paddingVertical: 12 }, errors.password && styles.inputError]}
+                    value={form.password}
+                    onChangeText={(value) => handleChange('password', value)}
+                    placeholder="••••••••"
+                    placeholderTextColor="#9ca3af"
+                    secureTextEntry={!showPassword}
+                    autoCapitalize="none"
+                  />
+                  <TouchableOpacity
+                    onPress={() => setShowPassword(!showPassword)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={showPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#64748b"
                     />
-                    <TouchableOpacity
-                      onPress={() => setShowPassword(!showPassword)}
-                      style={styles.passwordToggle}
-                    >
-                      <Ionicons 
-                        name={showPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={20} 
-                        color="#64748b" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
+                  </TouchableOpacity>
                 </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Confirmar *</Text>
-                  <View style={styles.passwordContainer}>
-                    <TextInput
-                      style={[styles.textInput, { flex: 1, height: undefined, paddingVertical: 12 }, errors.confirmPassword && styles.inputError]}
-                      value={form.confirmPassword}
-                      onChangeText={(value) => handleChange('confirmPassword', value)}
-                      placeholder="••••••••"
-                      placeholderTextColor="#9ca3af"
-                      secureTextEntry={!showConfirmPassword}
-                      autoCapitalize="none"
-                    />
-                    <TouchableOpacity
-                      onPress={() => setShowConfirmPassword(!showConfirmPassword)}
-                      style={styles.passwordToggle}
-                    >
-                      <Ionicons 
-                        name={showConfirmPassword ? "eye-off-outline" : "eye-outline"} 
-                        size={20} 
-                        color="#64748b" 
-                      />
-                    </TouchableOpacity>
-                  </View>
-                  {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
-                </View>
+                {errors.password && <Text style={styles.errorText}>{errors.password}</Text>}
               </View>
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Teléfono *</Text>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Confirmar Contraseña *</Text>
+                <View style={styles.passwordContainer}>
                   <TextInput
-                    style={[styles.textInput, errors.phone && styles.inputError]}
-                    value={form.phone}
-                    onChangeText={(value) => handleChange('phone', value)}
-                    placeholder="+52 123 456 7890"
+                    style={[styles.textInput, { flex: 1, height: undefined, paddingVertical: 12 }, errors.confirmPassword && styles.inputError]}
+                    value={form.confirmPassword}
+                    onChangeText={(value) => handleChange('confirmPassword', value)}
+                    placeholder="••••••••"
                     placeholderTextColor="#9ca3af"
-                    keyboardType="phone-pad"
+                    secureTextEntry={!showConfirmPassword}
+                    autoCapitalize="none"
                   />
-                  {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+                  <TouchableOpacity
+                    onPress={() => setShowConfirmPassword(!showConfirmPassword)}
+                    style={styles.passwordToggle}
+                  >
+                    <Ionicons
+                      name={showConfirmPassword ? "eye-off-outline" : "eye-outline"}
+                      size={20}
+                      color="#64748b"
+                    />
+                  </TouchableOpacity>
                 </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Fecha de Nacimiento *</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.birthDate && styles.inputError]}
-                    value={form.birthDate}
-                    onChangeText={(value) => handleChange('birthDate', value)}
-                    placeholder="YYYY-MM-DD"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
-                  {errors.birthDate && <Text style={styles.errorText}>{errors.birthDate}</Text>}
-                </View>
+                {errors.confirmPassword && <Text style={styles.errorText}>{errors.confirmPassword}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Teléfono *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.phone && styles.inputError]}
+                  value={form.phone}
+                  onChangeText={(value) => handleChange('phone', value)}
+                  placeholder="+52 123 456 7890"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="phone-pad"
+                />
+                {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Fecha de Nacimiento *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.birthDate && styles.inputError]}
+                  value={form.birthDate}
+                  onChangeText={(value) => handleChange('birthDate', value)}
+                  placeholder="DD-MM-YYYY"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+                {errors.birthDate && <Text style={styles.errorText}>{errors.birthDate}</Text>}
               </View>
             </View>
 
             {/* Información Básica */}
             <View style={styles.sectionContainer}>
               <Text style={styles.sectionTitle}>Información Básica</Text>
-              
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>País *</Text>
-                  <TouchableOpacity 
-                    style={[styles.selectorButton, errors.country && styles.inputError]}
-                    onPress={() => setShowCountryModal(true)}
-                  >
-                    <Text style={[styles.selectorText, !form.country && styles.placeholderText]}>
-                      {form.country || 'Selecciona tu país'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                  {errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
-                </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Estado / Provincia *</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.state && styles.inputError]}
-                    value={form.state}
-                    onChangeText={(value) => handleChange('state', value)}
-                    placeholder="Tu estado o provincia"
-                    placeholderTextColor="#9ca3af"
-                  />
-                  {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
-                </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>País *</Text>
+                <TouchableOpacity
+                  style={[styles.selectorButton, errors.country && styles.inputError]}
+                  onPress={() => setShowCountryModal(true)}
+                >
+                  <Text style={[styles.selectorText, !form.country && styles.placeholderText]}>
+                    {form.country || 'Selecciona tu país'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+                {errors.country && <Text style={styles.errorText}>{errors.country}</Text>}
               </View>
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Ciudad *</Text>
-                  <TextInput
-                    style={[styles.textInput, errors.city && styles.inputError]}
-                    value={form.city}
-                    onChangeText={(value) => handleChange('city', value)}
-                    placeholder="Tu ciudad"
-                    placeholderTextColor="#9ca3af"
-                  />
-                  {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
-                </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Moneda</Text>
-                  <TouchableOpacity 
-                    style={styles.selectorButton}
-                    onPress={() => setShowCurrencyModal(true)}
-                  >
-                    <Text style={[styles.selectorText, !form.currency && styles.placeholderText]} numberOfLines={1}>
-                      {form.currency ? 
-                        `${form.currency} - ${currencies.find(c => c.code === form.currency)?.symbol}` : 
-                        'Selecciona tu moneda'
-                      }
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Estado / Provincia *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.state && styles.inputError]}
+                  value={form.state}
+                  onChangeText={(value) => handleChange('state', value)}
+                  placeholder="Tu estado o provincia"
+                  placeholderTextColor="#9ca3af"
+                />
+                {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
               </View>
 
-              <View style={styles.inputRow}>
-                <View style={[styles.inputContainer, { flex: 1, marginRight: 8 }]}>
-                  <Text style={styles.inputLabel}>Idioma Preferido</Text>
-                  <TouchableOpacity 
-                    style={styles.selectorButton}
-                    onPress={() => setShowLanguageModal(true)}
-                  >
-                    <Text style={styles.selectorText}>
-                      {form.preferredLanguage === 'es' ? 'Español' : 'English'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                </View>
-                <View style={[styles.inputContainer, { flex: 1, marginLeft: 8 }]}>
-                  <Text style={styles.inputLabel}>Ocupación *</Text>
-                  <TouchableOpacity 
-                    style={[styles.selectorButton, errors.occupation && styles.inputError]}
-                    onPress={() => setShowOccupationModal(true)}
-                  >
-                    <Text style={[styles.selectorText, !form.occupation && styles.placeholderText]} numberOfLines={1}>
-                      {form.occupation || 'Selecciona tu ocupación'}
-                    </Text>
-                    <Ionicons name="chevron-down" size={20} color="#64748b" />
-                  </TouchableOpacity>
-                  {errors.occupation && <Text style={styles.errorText}>{errors.occupation}</Text>}
-                </View>
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Ciudad *</Text>
+                <TextInput
+                  style={[styles.textInput, errors.city && styles.inputError]}
+                  value={form.city}
+                  onChangeText={(value) => handleChange('city', value)}
+                  placeholder="Tu ciudad"
+                  placeholderTextColor="#9ca3af"
+                />
+                {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Moneda</Text>
+                <TouchableOpacity
+                  style={styles.selectorButton}
+                  onPress={() => setShowCurrencyModal(true)}
+                >
+                  <Text style={[styles.selectorText, !form.currency && styles.placeholderText]} numberOfLines={1}>
+                    {form.currency ?
+                      `${form.currency} - ${currencies.find(c => c.code === form.currency)?.symbol}` :
+                      'Selecciona tu moneda'
+                    }
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Idioma Preferido</Text>
+                <TouchableOpacity
+                  style={styles.selectorButton}
+                  onPress={() => setShowLanguageModal(true)}
+                >
+                  <Text style={styles.selectorText}>
+                    {form.preferredLanguage === 'es' ? 'Español' : 'English'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+              </View>
+
+              <View style={styles.inputContainer}>
+                <Text style={styles.inputLabel}>Ocupación *</Text>
+                <TouchableOpacity
+                  style={[styles.selectorButton, errors.occupation && styles.inputError]}
+                  onPress={() => setShowOccupationModal(true)}
+                >
+                  <Text style={[styles.selectorText, !form.occupation && styles.placeholderText]} numberOfLines={1}>
+                    {form.occupation || 'Selecciona tu ocupación'}
+                  </Text>
+                  <Ionicons name="chevron-down" size={20} color="#64748b" />
+                </TouchableOpacity>
+                {errors.occupation && <Text style={styles.errorText}>{errors.occupation}</Text>}
               </View>
 
               <View style={styles.inputContainer}>
@@ -522,6 +561,9 @@ export default function RegisterScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Modal de éxito */}
+      <SuccessModal />
 
       {/* Modales de selección */}
       <ModalPicker
@@ -582,7 +624,7 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
     padding: 20,
-    paddingBottom: 120,
+    paddingBottom: 300,
   },
   header: {
     alignItems: 'center',
@@ -781,5 +823,85 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1e293b',
     flex: 1,
+  },
+  // Estilos del modal de éxito
+  successModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+  },
+  successModalContainer: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  successIconContainer: {
+    marginBottom: 24,
+  },
+  successIconCircle: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#10b981',
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#10b981',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  successTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  successMessage: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 32,
+  },
+  successButton: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 16,
+    paddingHorizontal: 32,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    width: '100%',
+    shadowColor: '#2563EB',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 6,
+  },
+  successButtonText: {
+    color: 'white',
+    fontSize: 18,
+    fontWeight: '600',
   },
 });

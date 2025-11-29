@@ -12,10 +12,13 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import { budgetsAPI, Budget } from '../utils/api';
+import api, { budgetsAPI, Budget } from '../utils/api';
 import BudgetForm from '../components/forms/BudgetForm';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
+import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
 const { width } = Dimensions.get('window');
 
@@ -24,10 +27,20 @@ export default function BudgetsScreen() {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [editingBudget, setEditingBudget] = useState<Budget | null>(null);
-  
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [budgetToDelete, setBudgetToDelete] = useState<{id: string, name: string} | null>(null);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
+
   // Dashboard store para notificar cambios
-  const { onBudgetChange, budgetChangeTrigger } = useDashboardStore();
-  
+  const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger} = useDashboardStore();
+
+  // Subscription store para validar límites
+  const { canCreateBudget, fetchSubscription } = useSubscriptionStore();
+
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
@@ -127,6 +140,7 @@ export default function BudgetsScreen() {
 
   useEffect(() => {
     loadBudgets();
+    fetchSubscription(); // Cargar suscripción para validar límites
   }, []);
 
   // Listener para cambios de presupuestos desde Zenio
@@ -137,24 +151,61 @@ export default function BudgetsScreen() {
     }
   }, [budgetChangeTrigger]);
 
+  // Listener para cambios de transacciones (actualizar spent en budgets)
+  useEffect(() => {
+    if (transactionChangeTrigger > 0) {
+      console.log('[BudgetsScreen] Transaction change detected, reloading budgets...');
+      loadBudgets();
+    }
+  }, [transactionChangeTrigger]);
+
+  // Función para validar límites antes de crear presupuesto
+  const handleCreateBudget = () => {
+    // Validar límite de presupuestos
+    if (!canCreateBudget(budgets.length)) {
+      // Mostrar modal de upgrade
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    // Si puede crear, mostrar el formulario
+    setShowForm(true);
+  };
+
   const loadBudgets = async () => {
     try {
       setLoading(true);
-      // Solo obtener presupuestos activos
-      const response = await budgetsAPI.getAll({ is_active: true });
-      
+      // Obtener TODOS los presupuestos (activos e inactivos) para debugging
+      // TODO: Cambiar a { is_active: true } cuando se arregle el problema de renovación
+      const response = await budgetsAPI.getAll();
+
+      console.log('🔍 [BudgetsScreen] Raw API Response:', JSON.stringify(response.data, null, 2));
+
+      const budgetsData = response.data.budgets || response.data || [];
+      console.log('🔍 [BudgetsScreen] Budgets data:', budgetsData);
+
+      // Log individual de cada presupuesto
+      budgetsData.forEach((budget: Budget, index: number) => {
+        console.log(`🔍 [Budget ${index}] ID: ${budget.id}`);
+        console.log(`🔍 [Budget ${index}] Name: ${budget.name}`);
+        console.log(`🔍 [Budget ${index}] Amount: ${budget.amount} (type: ${typeof budget.amount})`);
+        console.log(`🔍 [Budget ${index}] Spent: ${budget.spent} (type: ${typeof budget.spent})`);
+        console.log(`🔍 [Budget ${index}] Spent value:`, budget.spent);
+      });
+
       // Usar la estructura correcta de la API
-      setBudgets(response.data.budgets || response.data || []);
+      setBudgets(budgetsData);
     } catch (error: any) {
       console.error('Error loading budgets:', error);
-      
+
       // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
-        Alert.alert('Sesión Expirada', 'Por favor inicia sesión nuevamente');
+        setErrorMessage('Por favor inicia sesión nuevamente');
       } else {
-        Alert.alert('Error', 'No se pudieron cargar los presupuestos');
+        setErrorMessage('No se pudieron cargar los presupuestos');
       }
-      
+      setShowErrorModal(true);
+
       // Mostrar lista vacía en caso de error
       setBudgets([]);
     } finally {
@@ -163,29 +214,29 @@ export default function BudgetsScreen() {
   };
 
   // Función para eliminar presupuesto (replicando la web)
-  const handleDeleteBudget = async (budgetId: string, budgetName: string) => {
-    Alert.alert(
-      'Eliminar Presupuesto',
-      `¿Estás seguro de que quieres eliminar el presupuesto "${budgetName}"?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        { 
-          text: 'Eliminar', 
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              await budgetsAPI.delete(budgetId);
-              loadBudgets();
-              onBudgetChange(); // Notificar al dashboard
-              Alert.alert('Éxito', 'Presupuesto eliminado correctamente');
-            } catch (error) {
-              console.error('Error deleting budget:', error);
-              Alert.alert('Error', 'No se pudo eliminar el presupuesto');
-            }
-          }
-        }
-      ]
-    );
+  const handleDeleteBudget = (budgetId: string, budgetName: string) => {
+    setBudgetToDelete({id: budgetId, name: budgetName});
+    setShowDeleteConfirmModal(true);
+  };
+
+  const confirmDeleteBudget = async () => {
+    if (!budgetToDelete) return;
+
+    try {
+      await budgetsAPI.delete(budgetToDelete.id);
+      setShowDeleteConfirmModal(false);
+      setBudgetToDelete(null);
+      loadBudgets();
+      onBudgetChange(); // Notificar al dashboard
+      setSuccessMessage('Presupuesto eliminado correctamente');
+      setShowSuccessModal(true);
+    } catch (error) {
+      console.error('Error deleting budget:', error);
+      setShowDeleteConfirmModal(false);
+      setBudgetToDelete(null);
+      setErrorMessage('No se pudo eliminar el presupuesto');
+      setShowErrorModal(true);
+    }
   };
 
   // Función para formatear periodo (replicando la web)
@@ -235,9 +286,9 @@ export default function BudgetsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Presupuestos</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowForm(true)}
+          onPress={handleCreateBudget}
         >
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
@@ -396,13 +447,66 @@ export default function BudgetsScreen() {
           setShowForm(false);
           setEditingBudget(null);
         }}
-        onSuccess={() => {
+        onSuccess={(message: string) => {
           loadBudgets();
           // Notificar al dashboard que hubo cambios
           onBudgetChange();
           setEditingBudget(null);
+
+          // Mostrar modal de éxito en el Screen (NO anidado)
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
+
+          // NO cerrar el formulario - se queda abierto y reseteado
         }}
         editBudget={editingBudget}
+      />
+
+      {/* Modal de confirmación de eliminación */}
+      <CustomModal
+        visible={showDeleteConfirmModal}
+        type="warning"
+        title="Eliminar Presupuesto"
+        message={`¿Estás seguro de que quieres eliminar el presupuesto "${budgetToDelete?.name}"?`}
+        buttonText="Eliminar"
+        showSecondaryButton={true}
+        secondaryButtonText="Cancelar"
+        onSecondaryPress={() => {
+          setShowDeleteConfirmModal(false);
+          setBudgetToDelete(null);
+        }}
+        onClose={confirmDeleteBudget}
+      />
+
+      {/* Modal de éxito */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message={successMessage}
+        buttonText="Continuar"
+        onClose={() => setShowSuccessModal(false)}
+      />
+
+      {/* Modal de error */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          // Refrescar suscripción después de cerrar
+          fetchSubscription();
+        }}
+        limitType="budgets"
       />
     </SafeAreaView>
   );
@@ -504,7 +608,7 @@ const styles = StyleSheet.create({
   },
   budgetCategory: {
     fontSize: 12,
-    color: '#7c3aed',
+    color: '#2563EB',
     backgroundColor: '#f3f4f6',
     paddingHorizontal: 8,
     paddingVertical: 2,

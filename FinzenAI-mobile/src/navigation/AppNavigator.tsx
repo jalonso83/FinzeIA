@@ -8,8 +8,10 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
+import CustomModal from '../components/modals/CustomModal';
 import api from '../utils/api';
 
 // Screens (las crearemos después)
@@ -26,6 +28,8 @@ import GoalCalculatorScreen from '../screens/GoalCalculatorScreen';
 import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
 import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
+import HelpCenterScreen from '../screens/HelpCenterScreen';
+import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
@@ -98,6 +102,9 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
               break;
             case 'Goals':
               iconName = focused ? 'trophy' : 'trophy-outline';
+              break;
+            case 'HelpCenter':
+              iconName = focused ? 'help-circle' : 'help-circle-outline';
               break;
             default:
               iconName = 'home-outline';
@@ -213,18 +220,18 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
           tabBarItemStyle: { flex: 2 }
         }}
       />
-      <Tab.Screen 
-        name="Goals" 
+      <Tab.Screen
+        name="Goals"
         component={GoalsScreen}
-        options={{ 
+        options={{
           tabBarLabel: 'Metas',
           tabBarItemStyle: { flex: 1.5 }
         }}
       />
-      <Tab.Screen 
-        name="Tools" 
+      <Tab.Screen
+        name="Tools"
         component={ToolsStackNavigator}
-        options={{ 
+        options={{
           tabBarLabel: 'Más',
           tabBarItemStyle: { flex: 1 }
         }}
@@ -241,20 +248,55 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
 }
 
 // Wrapper del MainTabNavigator en un Stack para permitir navegación desde onboarding
-function MainNavigator() {
+function MainNavigator({ route }: any) {
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showProfileModal, setShowProfileModal] = React.useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
+  const [showHelpCenter, setShowHelpCenter] = React.useState(false);
+  const [showSubscriptions, setShowSubscriptions] = React.useState(false);
+  const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
-  const { updateUser } = useAuthStore();
+  const { updateUser, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
+
+  // Detectar si viene del onboarding y debe abrir HelpCenter
+  React.useEffect(() => {
+    const checkOpenHelpCenter = async () => {
+      try {
+        console.log('🔍 MainNavigator montado, verificando flag de HelpCenter...');
+        const shouldOpen = await AsyncStorage.getItem('openHelpCenterAfterOnboarding');
+        console.log('🔍 Flag de HelpCenter leído:', shouldOpen);
+
+        if (shouldOpen === 'true') {
+          console.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
+
+          // Limpiar el flag PRIMERO
+          await AsyncStorage.removeItem('openHelpCenterAfterOnboarding');
+          console.log('🗑️ Flag limpiado de AsyncStorage');
+
+          // Abrir el HelpCenter INMEDIATAMENTE
+          console.log('🚀 Llamando setShowHelpCenter(true)...');
+          setShowHelpCenter(true);
+          console.log('✅ HelpCenter modal debería estar visible ahora');
+        } else {
+          console.log('ℹ️ Flag no es "true", no se abre HelpCenter');
+        }
+      } catch (error) {
+        console.error('❌ Error checking HelpCenter flag:', error);
+      }
+    };
+
+    checkOpenHelpCenter();
+  }, []);
 
   const UserMenuModal = () => (
     <Modal
+      key={showUserMenu ? 'menu-open' : 'menu-closed'}
       visible={showUserMenu}
       transparent
       animationType="fade"
       onRequestClose={() => setShowUserMenu(false)}
+      pointerEvents={showUserMenu ? 'auto' : 'none'}
     >
       <TouchableOpacity 
         style={{
@@ -338,25 +380,45 @@ function MainNavigator() {
                 alignItems: 'center',
                 paddingHorizontal: 16,
                 paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowSubscriptions(true);
+              }}
+            >
+              <Ionicons name="diamond-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Suscripción</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowHelpCenter(true);
+              }}
+            >
+              <Ionicons name="help-circle-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Centro de Ayuda</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
                 borderTopWidth: 1,
                 borderTopColor: '#f1f5f9',
                 marginTop: 8,
               }}
               onPress={() => {
                 setShowUserMenu(false);
-                const { logout } = useAuthStore.getState();
-                Alert.alert(
-                  'Cerrar Sesión',
-                  '¿Estás seguro que quieres cerrar sesión?',
-                  [
-                    { text: 'Cancelar', style: 'cancel' },
-                    { 
-                      text: 'Cerrar Sesión', 
-                      style: 'destructive',
-                      onPress: logout
-                    }
-                  ]
-                );
+                setShowLogoutModal(true);
               }}
             >
               <Ionicons name="log-out-outline" size={20} color="#dc2626" style={{ marginRight: 12 }} />
@@ -405,7 +467,54 @@ function MainNavigator() {
         visible={showChangePasswordModal}
         onClose={() => setShowChangePasswordModal(false)}
       />
+
+      {/* Subscriptions Modal */}
+      <Modal
+        visible={showSubscriptions}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSubscriptions(false)}
+      >
+        <SubscriptionsScreen />
+      </Modal>
+
+      {/* Help Center Modal */}
+      <Modal
+        visible={showHelpCenter}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowHelpCenter(false)}
+      >
+        <HelpCenterScreen onClose={() => setShowHelpCenter(false)} />
+      </Modal>
+
+      {/* Logout Confirmation Modal */}
+      <CustomModal
+        visible={showLogoutModal}
+        type="warning"
+        title="Cerrar Sesión"
+        message="¿Estás seguro que quieres cerrar sesión?"
+        buttonText="Cerrar"
+        showSecondaryButton={true}
+        secondaryButtonText="Cancelar"
+        onClose={() => {
+          logout();
+          setShowLogoutModal(false);
+        }}
+        onSecondaryPress={() => setShowLogoutModal(false)}
+      />
     </React.Fragment>
+  );
+}
+
+// Stack para el Main (para poder pasar params desde onboarding)
+const MainStack = createNativeStackNavigator();
+
+function MainStackNavigator() {
+  return (
+    <MainStack.Navigator screenOptions={{ headerShown: false }}>
+      <MainStack.Screen name="MainScreen" component={MainNavigator} />
+    </MainStack.Navigator>
   );
 }
 
@@ -417,7 +526,7 @@ export default function AppNavigator() {
     <NavigationContainer>
       {isAuthenticated ? (
         // Si está autenticado pero no completó onboarding, mostrar onboarding
-        user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainNavigator />
+        user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
       ) : (
         <AuthNavigator />
       )}

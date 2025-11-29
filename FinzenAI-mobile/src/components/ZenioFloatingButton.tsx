@@ -414,11 +414,13 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
       {/* Chat Modal */}
       <Modal
+        key={showChat ? 'chat-open' : 'chat-closed'}
         visible={showChat}
         transparent
         animationType="slide"
         statusBarTranslucent
         onRequestClose={handleCloseChat}
+        pointerEvents={showChat ? 'auto' : 'none'}
       >
         <KeyboardAvoidingView
           style={styles.chatModalContainer}
@@ -661,20 +663,9 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               </View>
             </View>
           </View>
-        </KeyboardAvoidingView>
-      </Modal>
 
-      {/* Modal de Tips */}
-      <Modal
-        visible={showTipsModal}
-        transparent
-        animationType="fade"
-        onRequestClose={() => {
-          console.log('Tips modal onRequestClose triggered');
-          setShowTipsModal(false);
-        }}
-        statusBarTranslucent={Platform.OS === 'android'}
-      >
+          {/* Overlay de Tips - DENTRO del Modal de Chat para evitar conflictos en iOS */}
+          {showTipsModal && (
         <TouchableOpacity
           style={styles.tipsModalContainer}
           activeOpacity={1}
@@ -686,7 +677,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           <TouchableOpacity
             style={styles.tipsModal}
             activeOpacity={1}
-            onPress={() => {}}
+            onPress={(e) => {
+              // Prevenir que el click se propague al backdrop
+              e.stopPropagation();
+            }}
           >
             <View style={styles.tipsModalHeader}>
               <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
@@ -702,7 +696,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               </TouchableOpacity>
             </View>
 
-            <View style={styles.tipsContent}>
+            <ScrollView style={styles.tipsContent}>
               {/* iOS Voice Tip */}
               {Platform.OS === 'ios' && (
                 <View style={styles.tipItem}>
@@ -758,9 +752,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
                   </Text>
                 </View>
               </View>
-            </View>
+            </ScrollView>
           </TouchableOpacity>
         </TouchableOpacity>
+          )}
+        </KeyboardAvoidingView>
       </Modal>
     </>
   );
@@ -1034,11 +1030,16 @@ const styles = StyleSheet.create({
   },
   // Tips Modal styles
   tipsModalContainer: {
-    flex: 1,
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
     paddingHorizontal: 20,
+    zIndex: 9999,
   },
   tipsModal: {
     backgroundColor: 'white',
@@ -1046,6 +1047,7 @@ const styles = StyleSheet.create({
     padding: 0,
     width: '100%',
     maxWidth: 400,
+    maxHeight: '80%', // Limitar altura para permitir scroll
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.25,
@@ -1077,6 +1079,7 @@ const styles = StyleSheet.create({
   tipsContent: {
     paddingHorizontal: 20,
     paddingVertical: 16,
+    flexGrow: 0, // Evitar que crezca más allá del maxHeight
   },
   tipItem: {
     flexDirection: 'row',

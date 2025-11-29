@@ -10,6 +10,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -32,9 +33,15 @@ export default function ZenioScreen() {
   const [threadId, setThreadId] = useState<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
-  
+  const [showTips, setShowTips] = useState(false);
+
+  // Debug: monitorear cambios en showTips
+  useEffect(() => {
+    console.log('🔵 showTips cambió a:', showTips);
+  }, [showTips]);
+
   const { user } = useAuthStore();
-  
+
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Cargar categorías al montar el componente
@@ -71,7 +78,8 @@ export default function ZenioScreen() {
               type: cat.type
             })),
             timezone: userTimezone,
-            autoGreeting: true
+            autoGreeting: true,
+            isOnboarding: false // IMPORTANTE: NO es onboarding, es un saludo normal
           };
 
           const response = await api.post('/zenio/chat', payload);
@@ -194,12 +202,13 @@ export default function ZenioScreen() {
 
 
   return (
+    <>
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <View style={styles.headerContent}>
           <View style={styles.avatarContainer}>
-            <Image 
-              source={require('../assets/isotipo.png')} 
+            <Image
+              source={require('../assets/isotipo.png')}
               style={styles.zenioIcon}
               resizeMode="contain"
             />
@@ -209,98 +218,224 @@ export default function ZenioScreen() {
             <Text style={styles.subtitle}>Tu copiloto financiero</Text>
           </View>
         </View>
-        <TouchableOpacity style={styles.settingsButton}>
-          <Ionicons name="settings-outline" size={24} color="#64748b" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          <TouchableOpacity
+            style={styles.iconButton}
+            onPress={() => {
+              console.log('🔵 Tips button pressed!');
+              console.log('🔵 showTips ANTES:', showTips);
+              setShowTips(true);
+              console.log('🔵 setShowTips(true) ejecutado');
+            }}
+            activeOpacity={0.6}
+            hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
+          >
+            <Ionicons name="information-circle-outline" size={28} color="#2563EB" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            activeOpacity={0.6}
+          >
+            <Ionicons name="mic-outline" size={28} color="#64748b" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.iconButton}
+            activeOpacity={0.6}
+          >
+            <Ionicons name="close" size={28} color="#64748b" />
+          </TouchableOpacity>
+        </View>
       </View>
 
-      <ScrollView 
-        ref={scrollViewRef}
-        style={styles.messagesContainer}
-        contentContainerStyle={styles.messagesContent}
+      <KeyboardAvoidingView
+        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={styles.keyboardAvoidingContainer}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
-        {messages.map((message) => (
-          <View
-            key={message.id}
-            style={[
-              styles.messageWrapper,
-              message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
-            ]}
-          >
+        <ScrollView
+          ref={scrollViewRef}
+          style={styles.messagesContainer}
+          contentContainerStyle={styles.messagesContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {messages.map((message) => (
             <View
+              key={message.id}
               style={[
-                styles.messageBubble,
-                message.isUser ? styles.userMessage : styles.botMessage,
+                styles.messageWrapper,
+                message.isUser ? styles.userMessageWrapper : styles.botMessageWrapper,
               ]}
             >
-              <Text
+              <View
                 style={[
-                  styles.messageText,
-                  message.isUser ? styles.userMessageText : styles.botMessageText,
+                  styles.messageBubble,
+                  message.isUser ? styles.userMessage : styles.botMessage,
                 ]}
               >
-                {message.text}
-              </Text>
-              <Text
-                style={[
-                  styles.messageTime,
-                  message.isUser ? styles.userMessageTime : styles.botMessageTime,
-                ]}
+                <Text
+                  style={[
+                    styles.messageText,
+                    message.isUser ? styles.userMessageText : styles.botMessageText,
+                  ]}
+                >
+                  {message.text}
+                </Text>
+                <Text
+                  style={[
+                    styles.messageTime,
+                    message.isUser ? styles.userMessageTime : styles.botMessageTime,
+                  ]}
+                >
+                  {formatTime(message.timestamp)}
+                </Text>
+              </View>
+            </View>
+          ))}
+
+          {loading && (
+            <View style={styles.typingIndicator}>
+              <View style={styles.typingDots}>
+                <View style={[styles.dot, styles.dot1]} />
+                <View style={[styles.dot, styles.dot2]} />
+                <View style={[styles.dot, styles.dot3]} />
+              </View>
+            </View>
+          )}
+        </ScrollView>
+
+        <View style={styles.inputContainer}>
+          <View style={styles.inputWrapper}>
+            <TextInput
+              style={styles.textInput}
+              value={inputText}
+              onChangeText={setInputText}
+              placeholder="Escribe tu pregunta..."
+              placeholderTextColor="#9ca3af"
+              multiline
+              maxLength={500}
+            />
+            <View style={styles.inputActions}>
+              <TouchableOpacity
+                style={[styles.voiceButton, isRecording && styles.voiceButtonActive]}
+                onPress={startVoiceRecording}
               >
-                {formatTime(message.timestamp)}
-              </Text>
+                <Ionicons
+                  name={isRecording ? "mic" : "mic-outline"}
+                  size={20}
+                  color={isRecording ? "white" : "#64748b"}
+                />
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
+                onPress={sendMessage}
+                disabled={!inputText.trim() || loading}
+              >
+                <Ionicons name="send" size={20} color="white" />
+              </TouchableOpacity>
             </View>
-          </View>
-        ))}
-
-        {loading && (
-          <View style={styles.typingIndicator}>
-            <View style={styles.typingDots}>
-              <View style={[styles.dot, styles.dot1]} />
-              <View style={[styles.dot, styles.dot2]} />
-              <View style={[styles.dot, styles.dot3]} />
-            </View>
-          </View>
-        )}
-
-      </ScrollView>
-
-      <KeyboardAvoidingView 
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        style={styles.inputContainer}
-      >
-        <View style={styles.inputWrapper}>
-          <TextInput
-            style={styles.textInput}
-            value={inputText}
-            onChangeText={setInputText}
-            placeholder="Escribe tu pregunta..."
-            placeholderTextColor="#9ca3af"
-            multiline
-            maxLength={500}
-          />
-          <View style={styles.inputActions}>
-            <TouchableOpacity
-              style={[styles.voiceButton, isRecording && styles.voiceButtonActive]}
-              onPress={startVoiceRecording}
-            >
-              <Ionicons 
-                name={isRecording ? "mic" : "mic-outline"} 
-                size={20} 
-                color={isRecording ? "white" : "#64748b"} 
-              />
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[styles.sendButton, !inputText.trim() && styles.sendButtonDisabled]}
-              onPress={sendMessage}
-              disabled={!inputText.trim() || loading}
-            >
-              <Ionicons name="send" size={20} color="white" />
-            </TouchableOpacity>
           </View>
         </View>
       </KeyboardAvoidingView>
     </SafeAreaView>
+
+    {/* Modal de Tips - FUERA del SafeAreaView para que funcione en iOS */}
+    {showTips && (
+      <Modal
+        visible={true}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => {
+          console.log('🔴 Modal Tips cerrado');
+          setShowTips(false);
+        }}
+        statusBarTranslucent={false}
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : 'none'}
+      >
+      <TouchableOpacity
+        style={styles.tipsModalContainer}
+        activeOpacity={1}
+        onPress={() => setShowTips(false)}
+      >
+        <TouchableOpacity
+          style={styles.tipsModal}
+          activeOpacity={1}
+          onPress={(e) => {
+            e.stopPropagation();
+          }}
+        >
+          <View style={styles.tipsModalHeader}>
+            <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
+            <TouchableOpacity
+              onPress={() => setShowTips(false)}
+              style={styles.tipsModalClose}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+            >
+              <Ionicons name="close" size={20} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+
+          <ScrollView style={styles.tipsContent}>
+            {/* iOS Voice Tip */}
+            {Platform.OS === 'ios' && (
+              <View style={styles.tipItem}>
+                <View style={styles.tipIcon}>
+                  <Ionicons name="mic" size={20} color="#2563EB" />
+                </View>
+                <View style={styles.tipText}>
+                  <Text style={styles.tipTitle}>Micrófono en iOS</Text>
+                  <Text style={styles.tipDescription}>
+                    Usa el 🎤 del teclado del teléfono para hablar con Zenio de forma más confiable
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Android Voice Tip */}
+            {Platform.OS === 'android' && (
+              <View style={styles.tipItem}>
+                <View style={styles.tipIcon}>
+                  <Ionicons name="mic" size={20} color="#2563EB" />
+                </View>
+                <View style={styles.tipText}>
+                  <Text style={styles.tipTitle}>Micrófono en Android</Text>
+                  <Text style={styles.tipDescription}>
+                    Toca el botón de micrófono para hablar directamente con Zenio
+                  </Text>
+                </View>
+              </View>
+            )}
+
+            {/* Copy Tip */}
+            <View style={styles.tipItem}>
+              <View style={styles.tipIcon}>
+                <Ionicons name="copy-outline" size={20} color="#2563EB" />
+              </View>
+              <View style={styles.tipText}>
+                <Text style={styles.tipTitle}>Copiar mensajes</Text>
+                <Text style={styles.tipDescription}>
+                  Mantén presionado cualquier mensaje para copiarlo al portapapeles
+                </Text>
+              </View>
+            </View>
+
+            {/* Auto-play Tip */}
+            <View style={styles.tipItem}>
+              <View style={styles.tipIcon}>
+                <Ionicons name="volume-high" size={20} color="#2563EB" />
+              </View>
+              <View style={styles.tipText}>
+                <Text style={styles.tipTitle}>Respuestas por voz</Text>
+                <Text style={styles.tipDescription}>
+                  Activa el botón de volumen para que Zenio responda hablando automáticamente
+                </Text>
+              </View>
+            </View>
+          </ScrollView>
+        </TouchableOpacity>
+      </TouchableOpacity>
+      </Modal>
+    )}
+    </>
   );
 }
 
@@ -313,8 +448,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
@@ -344,18 +479,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  iconButton: {
+    width: 44,
+    height: 44,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 4,
+    borderRadius: 22,
+    backgroundColor: 'rgba(37, 99, 235, 0.1)', // Fondo sutil azul
+  },
   settingsButton: {
     padding: 8,
+  },
+  keyboardAvoidingContainer: {
+    flex: 1,
   },
   messagesContainer: {
     flex: 1,
   },
   messagesContent: {
-    padding: 16,
-    paddingBottom: 80,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 12,
   },
   messageWrapper: {
-    marginBottom: 16,
+    marginBottom: 12,
   },
   userMessageWrapper: {
     alignItems: 'flex-end',
@@ -364,10 +516,10 @@ const styles = StyleSheet.create({
     alignItems: 'flex-start',
   },
   messageBubble: {
-    maxWidth: '80%',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
+    maxWidth: '85%',
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
   },
   userMessage: {
     backgroundColor: '#2563EB',
@@ -399,14 +551,14 @@ const styles = StyleSheet.create({
   },
   typingIndicator: {
     alignItems: 'flex-start',
-    marginBottom: 16,
+    marginBottom: 12,
   },
   typingDots: {
     flexDirection: 'row',
     backgroundColor: 'white',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderRadius: 18,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 16,
     borderWidth: 1,
     borderColor: '#e5e7eb',
   },
@@ -427,25 +579,21 @@ const styles = StyleSheet.create({
     // Animation would be added here in a real implementation
   },
   inputContainer: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
     backgroundColor: 'white',
     borderTopWidth: 1,
     borderTopColor: '#e5e7eb',
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    paddingBottom: Platform.OS === 'ios' ? 34 : 12,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    paddingBottom: Platform.OS === 'ios' ? 16 : 10,
   },
   inputWrapper: {
     flexDirection: 'row',
     alignItems: 'flex-end',
     backgroundColor: '#f1f5f9',
     borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    minHeight: 44,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    minHeight: 40,
   },
   textInput: {
     flex: 1,
@@ -485,5 +633,81 @@ const styles = StyleSheet.create({
   zenioIcon: {
     width: 24,
     height: 24,
+  },
+  tipsModalContainer: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    zIndex: 9999,
+  },
+  tipsModal: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 0,
+    width: '100%',
+    maxWidth: 400,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.25,
+    shadowRadius: 8,
+    elevation: 8,
+  },
+  tipsModalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#e5e7eb',
+  },
+  tipsModalTitle: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  tipsModalClose: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: '#f1f5f9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  tipsContent: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    flexGrow: 0,
+  },
+  tipItem: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    marginBottom: 16,
+  },
+  tipIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  tipText: {
+    flex: 1,
+  },
+  tipTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 4,
+  },
+  tipDescription: {
+    fontSize: 13,
+    color: '#64748b',
+    lineHeight: 18,
   },
 });

@@ -9,6 +9,8 @@ import {
   Alert,
   ActivityIndicator,
   Modal,
+  KeyboardAvoidingView,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { categoriesAPI, goalsAPI, Category } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
+import CustomModal from '../modals/CustomModal';
 
 interface Goal {
   id: string;
@@ -71,7 +74,11 @@ const GoalForm: React.FC<GoalFormProps> = ({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [goalType, setGoalType] = useState<'percentage' | 'amount'>('percentage');
   const [warnings, setWarnings] = useState<string[]>([]);
-  
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const [errorMessage, setErrorMessage] = useState('');
+
   const [formData, setFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -98,14 +105,27 @@ const GoalForm: React.FC<GoalFormProps> = ({
     { value: 'low', label: 'Baja', color: '#059669', bgColor: '#f0fdf4' },
   ];
 
+  // Función para convertir YYYY-MM-DD (backend) a DD-MM-YYYY (display)
+  const convertToDisplayFormat = (backendDate: string) => {
+    if (!backendDate) return '';
+    const parts = backendDate.split('-');
+    if (parts.length === 3) {
+      const [year, month, day] = parts;
+      return `${day}-${month}-${year}`;
+    }
+    return backendDate;
+  };
+
   // Cargar datos de la meta a editar
   useEffect(() => {
     if (editGoal) {
+      const backendDate = editGoal.targetDate ? new Date(editGoal.targetDate).toISOString().split('T')[0] : '';
+
       setFormData({
         name: editGoal.name,
         description: editGoal.description || '',
         targetAmount: editGoal.targetAmount.toString(),
-        targetDate: editGoal.targetDate ? new Date(editGoal.targetDate).toISOString().split('T')[0] : '',
+        targetDate: convertToDisplayFormat(backendDate),
         categoryId: editGoal.category?.id || editGoal.categoryId || '',
         priority: editGoal.priority as 'low' | 'medium' | 'high',
         monthlyTargetPercentage: editGoal.monthlyTargetPercentage?.toString() || '',
@@ -138,7 +158,8 @@ const GoalForm: React.FC<GoalFormProps> = ({
       setCategories(response.data);
     } catch (error) {
       console.error('Error loading categories:', error);
-      Alert.alert('Error', 'No se pudieron cargar las categorías');
+      setErrorMessage('No se pudieron cargar las categorías');
+      setShowErrorModal(true);
     } finally {
       setLoadingCategories(false);
     }
@@ -192,10 +213,47 @@ const GoalForm: React.FC<GoalFormProps> = ({
     validateForm();
   }, [formData.monthlyTargetPercentage, formData.monthlyContributionAmount, goalType]);
 
+  // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
+  const formatDateDisplay = (value: string) => {
+    // Remover todos los caracteres que no sean números
+    const cleaned = value.replace(/\D/g, '');
+
+    // Aplicar formato DD-MM-YYYY (visual para el usuario)
+    if (cleaned.length >= 8) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4, 8)}`;
+    } else if (cleaned.length >= 4) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4)}`;
+    } else if (cleaned.length >= 2) {
+      return `${cleaned.substring(0, 2)}-${cleaned.substring(2)}`;
+    } else {
+      return cleaned;
+    }
+  };
+
+  // Función para convertir DD-MM-YYYY a YYYY-MM-DD (para backend)
+  const convertToBackendFormat = (displayDate: string) => {
+    const cleaned = displayDate.replace(/\D/g, '');
+    if (cleaned.length === 8) {
+      // DD MM YYYY -> YYYY-MM-DD
+      const day = cleaned.substring(0, 2);
+      const month = cleaned.substring(2, 4);
+      const year = cleaned.substring(4, 8);
+      return `${year}-${month}-${day}`;
+    }
+    return displayDate; // Si no está completo, devolver como está
+  };
+
   const handleInputChange = (field: keyof FormData, value: string) => {
+    let finalValue = value;
+
+    // Aplicar formato especial para fecha (visual DD-MM-YYYY)
+    if (field === 'targetDate') {
+      finalValue = formatDateDisplay(value);
+    }
+
     setFormData(prev => ({
       ...prev,
-      [field]: value
+      [field]: finalValue
     }));
   };
 
@@ -203,12 +261,14 @@ const GoalForm: React.FC<GoalFormProps> = ({
     try {
       // Validaciones básicas (replicando la web)
       if (!formData.name || !formData.targetAmount || !formData.categoryId) {
-        Alert.alert('Error', 'Por favor completa todos los campos requeridos');
+        setErrorMessage('Por favor completa todos los campos requeridos');
+        setShowErrorModal(true);
         return;
       }
 
       if (parseFloat(formData.targetAmount) <= 0) {
-        Alert.alert('Error', 'El monto objetivo debe ser mayor a 0');
+        setErrorMessage('El monto objetivo debe ser mayor a 0');
+        setShowErrorModal(true);
         return;
       }
 
@@ -219,33 +279,40 @@ const GoalForm: React.FC<GoalFormProps> = ({
         name: formData.name,
         description: formData.description || undefined,
         targetAmount: parseFloat(formData.targetAmount),
-        targetDate: formData.targetDate || undefined,
+        targetDate: formData.targetDate ? convertToBackendFormat(formData.targetDate) : undefined,
         categoryId: formData.categoryId,
         priority: formData.priority,
         monthlyTargetPercentage: goalType === 'percentage' ? parseFloat(formData.monthlyTargetPercentage) : undefined,
         monthlyContributionAmount: goalType === 'amount' ? parseFloat(formData.monthlyContributionAmount) : undefined
       };
 
+      let message = '';
       if (editGoal) {
         // Actualizar meta existente
         await goalsAPI.update(editGoal.id, goalData);
-        Alert.alert('Éxito', 'Meta actualizada correctamente');
+        message = 'Meta actualizada correctamente';
       } else {
         // Crear nueva meta
         await goalsAPI.create(goalData);
-        Alert.alert('Éxito', 'Meta creada correctamente');
+        message = 'Meta creada correctamente';
       }
-      
-      // Notificar al dashboard que hubo cambios
+
+      console.log('✅ Meta guardada exitosamente');
+      console.log('📝 Mensaje de éxito:', message);
+
+      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
       onGoalChange();
-      
-      // Cerrar modal y actualizar lista
       onSuccess();
-      onClose();
+
+      // Configurar mensaje y mostrar modal de éxito
+      setSuccessMessage(message);
+      setShowSuccessModal(true);
+      console.log('🟢 showSuccessModal activado');
     } catch (error: any) {
       console.error('Error al guardar meta:', error);
-      const errorMessage = error.response?.data?.message || 'Error al guardar la meta';
-      Alert.alert('Error', errorMessage);
+      const errMsg = error.response?.data?.message || 'Error al guardar la meta';
+      setErrorMessage(errMsg);
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -285,263 +352,303 @@ const GoalForm: React.FC<GoalFormProps> = ({
   }, [categories, formData.categoryId]);
 
   return (
-    <Modal
-      visible={visible}
-      animationType="slide"
-      presentationStyle="pageSheet"
-      onRequestClose={onClose}
-    >
-      <SafeAreaView style={styles.container}>
-        <View style={styles.header}>
-          <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-            <Ionicons name="close" size={24} color="#64748b" />
-          </TouchableOpacity>
-          <Text style={styles.title}>
-            {editGoal ? 'Editar Meta de Ahorro' : 'Nueva Meta de Ahorro'}
-          </Text>
-          <View style={styles.headerSpacer} />
-        </View>
-
-        <ScrollView style={styles.content} keyboardShouldPersistTaps="handled">
-          {/* Nombre de la meta */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Nombre de la meta *</Text>
-            <TextInput
-              style={styles.input}
-              value={formData.name}
-              onChangeText={(text) => handleInputChange('name', text)}
-              placeholder="Ej: La casa de mis sueños"
-              placeholderTextColor="#9ca3af"
-              maxLength={100}
-            />
+    <>
+      <Modal
+        visible={visible}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={onClose}
+      >
+        <SafeAreaView style={styles.container}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={onClose} style={styles.closeButton}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+            <Text style={styles.title}>
+              {editGoal ? 'Editar Meta de Ahorro' : 'Nueva Meta de Ahorro'}
+            </Text>
+            <View style={styles.headerSpacer} />
           </View>
 
-          {/* Monto objetivo */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Monto objetivo *</Text>
-            <View style={styles.amountContainer}>
-              <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
+          <KeyboardAvoidingView
+            style={styles.keyboardAvoidingView}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+            keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+          >
+            <ScrollView
+              style={styles.content}
+              contentContainerStyle={{ paddingBottom: 200 }}
+              keyboardShouldPersistTaps="handled"
+            >
+              {/* Nombre de la meta */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Nombre de la meta *</Text>
               <TextInput
-                style={styles.amountInput}
-                value={formData.targetAmount}
-                onChangeText={(text) => handleInputChange('targetAmount', formatAmount(text))}
-                placeholder="0.00"
+                style={styles.input}
+                value={formData.name}
+                onChangeText={(text) => handleInputChange('name', text)}
+                placeholder="Ej: La casa de mis sueños"
                 placeholderTextColor="#9ca3af"
-                keyboardType="numeric"
+                maxLength={100}
               />
             </View>
-          </View>
 
-          {/* Categoría */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Categoría *</Text>
-            {loadingCategories ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#2563EB" />
-                <Text style={styles.loadingText}>Cargando categorías...</Text>
-              </View>
-            ) : (
-              <ScrollView 
-                ref={categoriesScrollRef}
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-              >
-                <View style={styles.categoriesContainer}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryButton,
-                        formData.categoryId === category.id && styles.categoryButtonActive,
-                      ]}
-                      onPress={() => handleInputChange('categoryId', category.id)}
-                    >
-                      <Text style={styles.categoryIcon}>{category.icon}</Text>
-                      <Text style={[
-                        styles.categoryText,
-                        formData.categoryId === category.id && styles.categoryTextActive,
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            )}
-          </View>
-
-          {/* Objetivo mensual */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Objetivo mensual *</Text>
-            <View style={styles.goalTypeContainer}>
-              <TouchableOpacity
-                style={[
-                  styles.goalTypeButton,
-                  goalType === 'percentage' && styles.goalTypeButtonActive,
-                ]}
-                onPress={() => setGoalType('percentage')}
-              >
-                <Text style={[
-                  styles.goalTypeButtonText,
-                  goalType === 'percentage' && styles.goalTypeButtonTextActive,
-                ]}>
-                  Porcentaje de ingresos
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={[
-                  styles.goalTypeButton,
-                  goalType === 'amount' && styles.goalTypeButtonActive,
-                ]}
-                onPress={() => setGoalType('amount')}
-              >
-                <Text style={[
-                  styles.goalTypeButtonText,
-                  goalType === 'amount' && styles.goalTypeButtonTextActive,
-                ]}>
-                  Monto fijo mensual
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          {/* Campo de porcentaje o monto */}
-          {goalType === 'percentage' ? (
+            {/* Monto objetivo */}
             <View style={styles.section}>
-              <Text style={styles.label}>Porcentaje mensual *</Text>
-              <View style={styles.amountContainer}>
-                <TextInput
-                  style={styles.amountInput}
-                  value={formData.monthlyTargetPercentage}
-                  onChangeText={(text) => handleInputChange('monthlyTargetPercentage', formatAmount(text))}
-                  placeholder="15"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="numeric"
-                />
-                <Text style={styles.currencySymbol}>%</Text>
-              </View>
-            </View>
-          ) : (
-            <View style={styles.section}>
-              <Text style={styles.label}>Monto fijo mensual *</Text>
+              <Text style={styles.label}>Monto objetivo *</Text>
               <View style={styles.amountContainer}>
                 <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
                 <TextInput
                   style={styles.amountInput}
-                  value={formData.monthlyContributionAmount}
-                  onChangeText={(text) => handleInputChange('monthlyContributionAmount', formatAmount(text))}
-                  placeholder="50000"
+                  value={formData.targetAmount}
+                  onChangeText={(text) => handleInputChange('targetAmount', formatAmount(text))}
+                  placeholder="0.00"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
                 />
               </View>
             </View>
-          )}
 
-          {/* Fecha objetivo */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Fecha objetivo (opcional)</Text>
-            <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={20} color="#64748b" />
-              <TextInput
-                style={styles.dateInput}
-                value={formData.targetDate}
-                onChangeText={(text) => handleInputChange('targetDate', text)}
-                placeholder="YYYY-MM-DD"
-                placeholderTextColor="#9ca3af"
-              />
+            {/* Categoría */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Categoría *</Text>
+              {loadingCategories ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#2563EB" />
+                  <Text style={styles.loadingText}>Cargando categorías...</Text>
+                </View>
+              ) : (
+                <ScrollView
+                  ref={categoriesScrollRef}
+                  horizontal
+                  showsHorizontalScrollIndicator={false}
+                >
+                  <View style={styles.categoriesContainer}>
+                    {categories.map((category) => (
+                      <TouchableOpacity
+                        key={category.id}
+                        style={[
+                          styles.categoryButton,
+                          formData.categoryId === category.id && styles.categoryButtonActive,
+                        ]}
+                        onPress={() => handleInputChange('categoryId', category.id)}
+                      >
+                        <Text style={styles.categoryIcon}>{category.icon}</Text>
+                        <Text style={[
+                          styles.categoryText,
+                          formData.categoryId === category.id && styles.categoryTextActive,
+                        ]}>
+                          {category.name}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </ScrollView>
+              )}
             </View>
-          </View>
 
-          {/* Prioridad */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Prioridad</Text>
-            <View style={styles.prioritiesContainer}>
-              {priorities.map((priority) => (
+            {/* Objetivo mensual */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Objetivo mensual *</Text>
+              <View style={styles.goalTypeContainer}>
                 <TouchableOpacity
-                  key={priority.value}
                   style={[
-                    styles.priorityButton,
-                    formData.priority === priority.value && {
-                      backgroundColor: priority.bgColor,
-                      borderColor: priority.color,
-                    },
+                    styles.goalTypeButton,
+                    goalType === 'percentage' && styles.goalTypeButtonActive,
                   ]}
-                  onPress={() => handleInputChange('priority', priority.value)}
+                  onPress={() => setGoalType('percentage')}
                 >
                   <Text style={[
-                    styles.priorityButtonText,
-                    formData.priority === priority.value && { color: priority.color },
+                    styles.goalTypeButtonText,
+                    goalType === 'percentage' && styles.goalTypeButtonTextActive,
                   ]}>
-                    {priority.label}
+                    Porcentaje de ingresos
                   </Text>
                 </TouchableOpacity>
-              ))}
-            </View>
-          </View>
-
-          {/* Descripción */}
-          <View style={styles.section}>
-            <Text style={styles.label}>Descripción (opcional)</Text>
-            <TextInput
-              style={[styles.input, styles.textArea]}
-              value={formData.description}
-              onChangeText={(text) => handleInputChange('description', text)}
-              placeholder="Describe tu meta..."
-              placeholderTextColor="#9ca3af"
-              multiline
-              numberOfLines={3}
-              maxLength={200}
-            />
-          </View>
-
-          {/* Advertencias */}
-          {warnings.length > 0 && (
-            <View style={styles.warningsSection}>
-              <Text style={styles.warningsTitle}>Advertencias:</Text>
-              {warnings.map((warning, index) => (
-                <View key={index} style={styles.warningCard}>
-                  <Text style={styles.warningText}>{warning}</Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </ScrollView>
-
-        {/* Botones de Acción */}
-        <View style={styles.footer}>
-          <TouchableOpacity
-            style={styles.cancelButton}
-            onPress={onClose}
-            disabled={loading}
-          >
-            <Text style={styles.cancelButtonText}>Cancelar</Text>
-          </TouchableOpacity>
-
-          <LinearGradient
-            colors={['#2563EB', '#1d4ed8']}
-            style={[styles.saveButton, loading && styles.disabledButton]}
-          >
-            <TouchableOpacity
-              onPress={handleSubmit}
-              disabled={loading}
-              style={styles.saveButtonInner}
-            >
-              {loading ? (
-                <ActivityIndicator color="white" size="small" />
-              ) : (
-                <>
-                  <Ionicons name="checkmark" size={20} color="white" />
-                  <Text style={styles.saveButtonText}>
-                    {editGoal ? 'Actualizar Meta' : 'Crear Meta'}
+                <TouchableOpacity
+                  style={[
+                    styles.goalTypeButton,
+                    goalType === 'amount' && styles.goalTypeButtonActive,
+                  ]}
+                  onPress={() => setGoalType('amount')}
+                >
+                  <Text style={[
+                    styles.goalTypeButtonText,
+                    goalType === 'amount' && styles.goalTypeButtonTextActive,
+                  ]}>
+                    Monto fijo mensual
                   </Text>
-                </>
-              )}
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            {/* Campo de porcentaje o monto */}
+            {goalType === 'percentage' ? (
+              <View style={styles.section}>
+                <Text style={styles.label}>Porcentaje mensual *</Text>
+                <View style={styles.amountContainer}>
+                  <TextInput
+                    style={styles.amountInput}
+                    value={formData.monthlyTargetPercentage}
+                    onChangeText={(text) => handleInputChange('monthlyTargetPercentage', formatAmount(text))}
+                    placeholder="15"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="numeric"
+                  />
+                  <Text style={styles.currencySymbol}>%</Text>
+                </View>
+              </View>
+            ) : (
+              <View style={styles.section}>
+                <Text style={styles.label}>Monto fijo mensual *</Text>
+                <View style={styles.amountContainer}>
+                  <Text style={styles.currencySymbol}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
+                  <TextInput
+                    style={styles.amountInput}
+                    value={formData.monthlyContributionAmount}
+                    onChangeText={(text) => handleInputChange('monthlyContributionAmount', formatAmount(text))}
+                    placeholder="50000"
+                    placeholderTextColor="#9ca3af"
+                    keyboardType="numeric"
+                  />
+                </View>
+              </View>
+            )}
+
+            {/* Fecha objetivo */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Fecha objetivo (opcional)</Text>
+              <View style={styles.dateContainer}>
+                <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                <TextInput
+                  style={styles.dateInput}
+                  value={formData.targetDate}
+                  onChangeText={(text) => handleInputChange('targetDate', text)}
+                  placeholder="DD-MM-YYYY"
+                  placeholderTextColor="#9ca3af"
+                  keyboardType="numeric"
+                  maxLength={10}
+                />
+              </View>
+            </View>
+
+            {/* Prioridad */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Prioridad</Text>
+              <View style={styles.prioritiesContainer}>
+                {priorities.map((priority) => (
+                  <TouchableOpacity
+                    key={priority.value}
+                    style={[
+                      styles.priorityButton,
+                      formData.priority === priority.value && {
+                        backgroundColor: priority.bgColor,
+                        borderColor: priority.color,
+                      },
+                    ]}
+                    onPress={() => handleInputChange('priority', priority.value)}
+                  >
+                    <Text style={[
+                      styles.priorityButtonText,
+                      formData.priority === priority.value && { color: priority.color },
+                    ]}>
+                      {priority.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+
+            {/* Descripción */}
+            <View style={styles.section}>
+              <Text style={styles.label}>Descripción (opcional)</Text>
+              <TextInput
+                style={[styles.input, styles.textArea]}
+                value={formData.description}
+                onChangeText={(text) => handleInputChange('description', text)}
+                placeholder="Describe tu meta..."
+                placeholderTextColor="#9ca3af"
+                multiline
+                numberOfLines={3}
+                maxLength={200}
+              />
+            </View>
+
+            {/* Advertencias */}
+            {warnings.length > 0 && (
+              <View style={styles.warningsSection}>
+                <Text style={styles.warningsTitle}>Advertencias:</Text>
+                {warnings.map((warning, index) => (
+                  <View key={index} style={styles.warningCard}>
+                    <Text style={styles.warningText}>{warning}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            </ScrollView>
+          </KeyboardAvoidingView>
+
+          {/* Botones de Acción */}
+          <View style={styles.footer}>
+            <TouchableOpacity
+              style={styles.cancelButton}
+              onPress={onClose}
+              disabled={loading}
+            >
+              <Text style={styles.cancelButtonText}>Cancelar</Text>
             </TouchableOpacity>
-          </LinearGradient>
-        </View>
-      </SafeAreaView>
-    </Modal>
+
+            <LinearGradient
+              colors={['#2563EB', '#1d4ed8']}
+              style={[styles.saveButton, loading && styles.disabledButton]}
+            >
+              <TouchableOpacity
+                onPress={handleSubmit}
+                disabled={loading}
+                style={styles.saveButtonInner}
+              >
+                {loading ? (
+                  <ActivityIndicator color="white" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark" size={20} color="white" />
+                    <Text style={styles.saveButtonText}>
+                      {editGoal ? 'Actualizar Meta' : 'Crear Meta'}
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </LinearGradient>
+          </View>
+
+          {/* Modal de éxito */}
+          <CustomModal
+            visible={showSuccessModal}
+            type="success"
+            title="¡Meta guardada!"
+            message={successMessage}
+            buttonText="Continuar"
+            onClose={() => {
+              console.log('👆 Usuario presionó Continuar en modal de éxito');
+              setShowSuccessModal(false);
+              // Los callbacks ya se ejecutaron después de guardar
+              // Solo cerrar el formulario
+              onClose();
+            }}
+          />
+
+          {/* Modal de error */}
+          <CustomModal
+            visible={showErrorModal}
+            type="error"
+            title="Error"
+            message={errorMessage}
+            buttonText="Entendido"
+            onClose={() => setShowErrorModal(false)}
+          />
+        </SafeAreaView>
+      </Modal>
+    </>
   );
 };
 
@@ -549,6 +656,9 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#f8fafc',
+  },
+  keyboardAvoidingView: {
+    flex: 1,
   },
   header: {
     flexDirection: 'row',

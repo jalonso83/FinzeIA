@@ -566,7 +566,7 @@ export default function DashboardScreen() {
             onPress={() => navigation.navigate('Transactions')}
             activeOpacity={0.7}
           >
-            <Ionicons name="bar-chart-outline" size={24} color="#7c3aed" />
+            <Ionicons name="bar-chart-outline" size={24} color="#2563EB" />
             <Text style={styles.statNumber}>{dashboardData.monthlyTransactions}</Text>
             <Text style={styles.statLabel}>Transacciones del Mes</Text>
           </TouchableOpacity>
