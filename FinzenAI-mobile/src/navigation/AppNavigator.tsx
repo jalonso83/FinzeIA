@@ -41,6 +41,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 
 // Stores
 import { useAuthStore } from '../stores/auth';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useBiometric } from '../hooks/useBiometric';
 import { useState, useEffect } from 'react';
 
@@ -261,6 +262,7 @@ function MainNavigator({ route }: any) {
   const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
   const { updateUser, logout } = useAuthStore();
+  const { fetchSubscription } = useSubscriptionStore();
   const insets = useSafeAreaInsets();
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
@@ -494,9 +496,17 @@ function MainNavigator({ route }: any) {
         visible={showSubscriptions}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowSubscriptions(false)}
+        onRequestClose={async () => {
+          setShowSubscriptions(false);
+          await fetchSubscription();
+        }}
       >
-        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
+        <SubscriptionsScreen
+          onClose={async () => {
+            setShowSubscriptions(false);
+            await fetchSubscription();
+          }}
+        />
       </Modal>
 
       {/* Help Center Modal */}
@@ -546,9 +556,17 @@ function MainNavigator({ route }: any) {
         visible={showSubscriptions}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowSubscriptions(false)}
+        onRequestClose={async () => {
+          setShowSubscriptions(false);
+          await fetchSubscription();
+        }}
       >
-        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
+        <SubscriptionsScreen
+          onClose={async () => {
+            setShowSubscriptions(false);
+            await fetchSubscription();
+          }}
+        />
       </Modal>
     </React.Fragment>
   );

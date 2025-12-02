@@ -76,9 +76,14 @@ export default function DashboardScreen() {
     fetchSubscription(); // Cargar suscripción
   }, []);
 
-  // Log cuando subscription cambia
+  // Log cuando subscription cambia y refrescar dashboard
   useEffect(() => {
     console.log('Dashboard - Subscription state changed:', subscription);
+    // La UI se actualiza automáticamente por los componentes reactivos
+    // Pero vamos a refrescar los datos para asegurar consistencia
+    if (subscription) {
+      loadDashboardData();
+    }
   }, [subscription]);
 
   // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
@@ -1145,9 +1150,19 @@ export default function DashboardScreen() {
         visible={showSubscriptions}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowSubscriptions(false)}
+        onRequestClose={async () => {
+          setShowSubscriptions(false);
+          // Refrescar suscripción cuando se cierra el modal
+          await fetchSubscription();
+        }}
       >
-        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
+        <SubscriptionsScreen
+          onClose={async () => {
+            setShowSubscriptions(false);
+            // Refrescar suscripción cuando se cierra desde el botón
+            await fetchSubscription();
+          }}
+        />
       </Modal>
     </SafeAreaView>
   );
