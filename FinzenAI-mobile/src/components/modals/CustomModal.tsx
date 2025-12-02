@@ -219,8 +219,8 @@ const styles = StyleSheet.create({
   },
   button: {
     borderRadius: 12,
-    paddingVertical: 16,
-    paddingHorizontal: 32,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -248,13 +248,15 @@ const styles = StyleSheet.create({
   },
   primaryButtonText: {
     color: 'white',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
   },
   secondaryButtonText: {
     color: '#64748b',
-    fontSize: 18,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
   },
 });
 

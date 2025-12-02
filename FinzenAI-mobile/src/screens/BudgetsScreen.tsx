@@ -334,16 +334,18 @@ export default function BudgetsScreen() {
           </Text>
         </View>
 
-        {budgets.length === 0 ? (
+        {budgets.filter(b => b.is_active).length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No hay presupuestos</Text>
+            <Text style={styles.emptyTitle}>No hay presupuestos activos</Text>
             <Text style={styles.emptySubtitle}>
               Crea tu primer presupuesto para controlar tus gastos
             </Text>
           </View>
         ) : (
-          budgets.map((budget) => {
+          budgets
+            .filter(budget => budget.is_active)
+            .map((budget) => {
             const progress = calculateProgress(budget.spent, budget.amount);
             const progressColor = getProgressColor(progress);
             const remaining = budget.amount - budget.spent;

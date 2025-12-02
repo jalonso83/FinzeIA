@@ -20,16 +20,37 @@ import { authAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
 import { saveToken } from '../utils/api';
 import { useBiometric } from '../hooks/useBiometric';
+import CustomModal from '../components/modals/CustomModal';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('test@finzen.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingBiometric, setLoadingBiometric] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [rememberEmail, setRememberEmail] = useState(false);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
+
+  // Estados para modales
+  const [biometricModalConfig, setBiometricModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttonText?: string;
+    showSecondaryButton?: boolean;
+    secondaryButtonText?: string;
+    onClose?: () => void;
+    onSecondaryPress?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
+
+  const [pendingBiometricSetup, setPendingBiometricSetup] = useState<{user: any, token: string} | null>(null);
 
   const navigation = useNavigation<any>();
   const { login, loginWithBiometric, saveBiometricCredentials } = useAuthStore();
@@ -79,70 +100,95 @@ export default function LoginScreen() {
         const success = await loginWithBiometric();
 
         if (!success) {
-          Alert.alert(
-            'Sesión expirada',
-            'Tu sesión ha expirado. Por favor, inicia sesión con tu contraseña.',
-            [{ text: 'OK' }]
-          );
+          setBiometricModalConfig({
+            visible: true,
+            type: 'warning',
+            title: 'Sesión expirada',
+            message: 'Tu sesión ha expirado. Por favor, inicia sesión con tu contraseña.',
+            buttonText: 'Entendido',
+            onClose: () => setBiometricModalConfig(prev => ({ ...prev, visible: false })),
+          });
         }
       } else {
         console.log('❌ Autenticación biométrica cancelada o fallida');
       }
     } catch (error) {
       console.error('❌ Error en login biométrico:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo iniciar sesión con biometría. Intenta con tu contraseña.',
-        [{ text: 'OK' }]
-      );
+      setBiometricModalConfig({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: 'No se pudo iniciar sesión con biometría. Intenta con tu contraseña.',
+        buttonText: 'Entendido',
+        onClose: () => setBiometricModalConfig(prev => ({ ...prev, visible: false })),
+      });
     } finally {
       setLoadingBiometric(false);
     }
   };
 
   const promptBiometricSetup = (user: any, token: string) => {
-    Alert.alert(
-      `¿Usar ${biometricType}?`,
-      `¿Quieres usar ${biometricType} para iniciar sesión más rápido en el futuro?`,
-      [
-        {
-          text: 'No, gracias',
-          style: 'cancel',
-        },
-        {
-          text: 'Sí, activar',
-          onPress: async () => {
-            try {
-              console.log('🔐 Usuario aceptó configurar biometría');
-              // IMPORTANTE: Llamar a enable() para guardar el flag
-              await enable();
-              console.log('✅ Biometría habilitada exitosamente');
+    console.log('📱 Mostrando modal de configuración biométrica');
+    const setupData = {user, token};
+    setPendingBiometricSetup(setupData);
 
-              // Guardar credenciales AHORA que el usuario habilitó Face ID
-              await saveBiometricCredentials(user, token);
-              console.log('🔐 Credenciales guardadas en SecureStore para biometría');
+    setBiometricModalConfig({
+      visible: true,
+      type: 'info',
+      title: `¿Usar ${biometricType}?`,
+      message: `¿Quieres usar ${biometricType} para iniciar sesión más rápido en el futuro?`,
+      buttonText: 'Sí, activar',
+      showSecondaryButton: true,
+      secondaryButtonText: 'No, gracias',
+      onSecondaryPress: () => {
+        console.log('❌ Usuario rechazó configurar biometría');
+        setBiometricModalConfig(prev => ({ ...prev, visible: false }));
+        setPendingBiometricSetup(null);
+      },
+      onClose: async () => {
+        console.log('✅ Usuario aceptó configurar biometría');
+        setBiometricModalConfig(prev => ({ ...prev, visible: false }));
 
-              // Refrescar estado del hook para que se actualice isEnabled
-              await refresh();
-              console.log('✅ Estado de biometría actualizado');
+        try {
+          await enable();
+          console.log('✅ Biometría habilitada exitosamente');
 
-              Alert.alert(
-                '¡Listo!',
-                `${biometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`,
-                [{ text: 'OK' }]
-              );
-            } catch (error) {
-              console.error('❌ Error configurando biometría:', error);
-              Alert.alert(
-                'Error',
-                'No se pudo configurar la biometría. Intenta desde tu perfil.',
-                [{ text: 'OK' }]
-              );
-            }
-          },
-        },
-      ]
-    );
+          await saveBiometricCredentials(setupData.user, setupData.token);
+          console.log('🔐 Credenciales guardadas en SecureStore para biometría');
+
+          await refresh();
+          console.log('✅ Estado de biometría actualizado');
+
+          setPendingBiometricSetup(null);
+
+          // Mostrar modal de éxito
+          setTimeout(() => {
+            setBiometricModalConfig({
+              visible: true,
+              type: 'success',
+              title: '¡Listo!',
+              message: `${biometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`,
+              buttonText: 'Entendido',
+              onClose: () => setBiometricModalConfig(prev => ({ ...prev, visible: false })),
+            });
+          }, 300);
+        } catch (error) {
+          console.error('❌ Error configurando biometría:', error);
+          setPendingBiometricSetup(null);
+
+          setTimeout(() => {
+            setBiometricModalConfig({
+              visible: true,
+              type: 'error',
+              title: 'Error',
+              message: 'No se pudo configurar la biometría. Intenta desde tu perfil.',
+              buttonText: 'Entendido',
+              onClose: () => setBiometricModalConfig(prev => ({ ...prev, visible: false })),
+            });
+          }, 300);
+        }
+      },
+    });
   };
 
   const handleLogin = async () => {
@@ -185,10 +231,14 @@ export default function LoginScreen() {
       }
 
       // Si tiene biometría disponible pero no habilitada, preguntar
+      console.log('🔍 Verificando biometría - isAvailable:', isAvailable, 'isEnabled:', isEnabled);
       if (isAvailable && !isEnabled) {
-        setTimeout(() => {
-          promptBiometricSetup(response.data.user, response.data.token);
-        }, 500);
+        console.log('✅ Condición cumplida, guardando flag para prompt biométrico');
+        // Guardar flag para que AppNavigator muestre el modal después de la navegación
+        await AsyncStorage.setItem('pendingBiometricSetup', 'true');
+        await AsyncStorage.setItem('biometricType', biometricType);
+      } else {
+        console.log('❌ No se mostrará prompt - Razón:', !isAvailable ? 'No disponible' : 'Ya habilitado');
       }
 
       // El useAuthStore se encargará de la navegación automática
@@ -387,6 +437,19 @@ export default function LoginScreen() {
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      {/* Custom Modal para biometría */}
+      <CustomModal
+        visible={biometricModalConfig.visible}
+        type={biometricModalConfig.type}
+        title={biometricModalConfig.title}
+        message={biometricModalConfig.message}
+        buttonText={biometricModalConfig.buttonText}
+        showSecondaryButton={biometricModalConfig.showSecondaryButton}
+        secondaryButtonText={biometricModalConfig.secondaryButtonText}
+        onSecondaryPress={biometricModalConfig.onSecondaryPress}
+        onClose={biometricModalConfig.onClose || (() => setBiometricModalConfig({ ...biometricModalConfig, visible: false }))}
+      />
     </SafeAreaView>
   );
 }

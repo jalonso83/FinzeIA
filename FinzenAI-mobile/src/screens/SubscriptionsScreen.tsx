@@ -5,20 +5,26 @@ import {
   StyleSheet,
   ScrollView,
   ActivityIndicator,
-  Alert,
   RefreshControl,
   Modal,
+  TouchableOpacity,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import PlanCard from '../components/subscriptions/PlanCard';
 import CurrentPlanCard from '../components/subscriptions/CurrentPlanCard';
 import StripeWebView from '../components/subscriptions/StripeWebView';
 import ManageSubscriptionModal from '../components/subscriptions/ManageSubscriptionModal';
 import PaymentHistoryScreen from './PaymentHistoryScreen';
+import CustomModal from '../components/modals/CustomModal';
 import { SubscriptionPlan } from '../types/subscription';
 
-const SubscriptionsScreen = () => {
+interface SubscriptionsScreenProps {
+  onClose?: () => void;
+}
+
+const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose }) => {
   const {
     subscription,
     plans,
@@ -35,6 +41,24 @@ const SubscriptionsScreen = () => {
   const [showPaymentHistory, setShowPaymentHistory] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<SubscriptionPlan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+
+  // Estados para CustomModal
+  const [modalConfig, setModalConfig] = useState<{
+    visible: boolean;
+    type: 'success' | 'error' | 'warning' | 'info';
+    title: string;
+    message: string;
+    buttonText?: string;
+    showSecondaryButton?: boolean;
+    secondaryButtonText?: string;
+    onSecondaryPress?: () => void;
+    onClose?: () => void;
+  }>({
+    visible: false,
+    type: 'info',
+    title: '',
+    message: '',
+  });
 
   useEffect(() => {
     loadData();
@@ -55,13 +79,27 @@ const SubscriptionsScreen = () => {
 
   const handleSelectPlan = async (planId: SubscriptionPlan) => {
     if (planId === 'FREE') {
-      Alert.alert('Info', 'You are already on the Free plan');
+      setModalConfig({
+        visible: true,
+        type: 'info',
+        title: 'Información',
+        message: 'Ya estás en el plan Gratis',
+        buttonText: 'Entendido',
+        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
+      });
       return;
     }
 
     // Si ya tiene este plan, no hacer nada
     if (subscription && subscription.plan === planId) {
-      Alert.alert('Info', `You already have the ${planId} plan`);
+      setModalConfig({
+        visible: true,
+        type: 'info',
+        title: 'Información',
+        message: `Ya tienes el plan ${planId}`,
+        buttonText: 'Entendido',
+        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
+      });
       return;
     }
 
@@ -69,18 +107,21 @@ const SubscriptionsScreen = () => {
     const selectedPlan = plans.find(p => p.id === planId);
     if (!selectedPlan) return;
 
-    // Confirmación de pago real
-    Alert.alert(
-      'Confirm Subscription',
-      `You are about to subscribe to ${selectedPlan.name} for $${selectedPlan.price.toFixed(2)}/month.\n\n• 7 days free trial\n• Real credit card required\n• Charges apply after trial period\n• Cancel anytime\n\nDo you want to continue?`,
-      [
-        { text: 'Cancel', style: 'cancel' },
-        {
-          text: 'Continue to Payment',
-          onPress: () => processCheckout(planId),
-        },
-      ]
-    );
+    // Confirmación de pago real con CustomModal
+    setModalConfig({
+      visible: true,
+      type: 'warning',
+      title: 'Confirmar Suscripción',
+      message: `Estás a punto de suscribirte a ${selectedPlan.name} por $${selectedPlan.price.toFixed(2)}/mes.\n\n• 7 días de prueba gratis\n• Tarjeta de crédito real requerida\n• Los cargos aplican después del periodo de prueba\n• Cancela en cualquier momento\n\n¿Deseas continuar?`,
+      buttonText: 'Continuar',
+      showSecondaryButton: true,
+      secondaryButtonText: 'Cancelar',
+      onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),
+      onClose: () => {
+        setModalConfig({ ...modalConfig, visible: false });
+        processCheckout(planId);
+      },
+    });
   };
 
   const processCheckout = async (planId: SubscriptionPlan) => {
@@ -92,11 +133,15 @@ const SubscriptionsScreen = () => {
       setCheckoutUrl(url);
       setShowWebView(true);
     } catch (error: any) {
-      Alert.alert(
-        'Error',
-        error.message || 'Could not create payment session'
-      );
-    } finally {
+      setModalConfig({
+        visible: true,
+        type: 'error',
+        title: 'Error',
+        message: error.message || 'No se pudo crear la sesión de pago',
+        buttonText: 'Entendido',
+        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
+      });
+    } finally{
       setProcessingPlan(null);
     }
   };
@@ -105,46 +150,48 @@ const SubscriptionsScreen = () => {
     setShowWebView(false);
     setCheckoutUrl(null);
 
-    Alert.alert(
-      'Success!',
-      'Your subscription has been activated. Thank you!',
-      [
-        {
-          text: 'OK',
-          onPress: async () => {
-            // Refrescar suscripción para ver el nuevo plan
-            await fetchSubscription();
-          },
-        },
-      ]
-    );
+    setModalConfig({
+      visible: true,
+      type: 'success',
+      title: '¡Éxito!',
+      message: 'Tu suscripción ha sido activada. ¡Gracias!',
+      buttonText: 'Continuar',
+      onClose: async () => {
+        setModalConfig({ ...modalConfig, visible: false });
+        await fetchSubscription();
+      },
+    });
   };
 
   const handlePaymentCancel = () => {
     setShowWebView(false);
     setCheckoutUrl(null);
-    Alert.alert(
-      'Payment Canceled',
-      'You can upgrade anytime from your profile.'
-    );
+    setModalConfig({
+      visible: true,
+      type: 'info',
+      title: 'Pago Cancelado',
+      message: 'Puedes mejorar tu plan en cualquier momento desde tu perfil.',
+      buttonText: 'Entendido',
+      onClose: () => setModalConfig({ ...modalConfig, visible: false }),
+    });
   };
 
   const handleCloseWebView = () => {
-    Alert.alert(
-      'Close Payment',
-      'Are you sure you want to cancel this payment?',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        {
-          text: 'Cancel Payment',
-          style: 'destructive',
-          onPress: () => {
-            setShowWebView(false);
-            setCheckoutUrl(null);
-          },
-        },
-      ]
-    );
+    setModalConfig({
+      visible: true,
+      type: 'warning',
+      title: 'Cerrar Pago',
+      message: '¿Estás seguro que deseas cancelar este pago?',
+      buttonText: 'Cancelar',
+      showSecondaryButton: true,
+      secondaryButtonText: 'Continuar',
+      onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),
+      onClose: () => {
+        setModalConfig({ ...modalConfig, visible: false });
+        setShowWebView(false);
+        setCheckoutUrl(null);
+      },
+    });
   };
 
   const handleManageClose = async () => {
@@ -158,7 +205,7 @@ const SubscriptionsScreen = () => {
       <SafeAreaView style={styles.container}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6C47FF" />
-          <Text style={styles.loadingText}>Loading plans...</Text>
+          <Text style={styles.loadingText}>Cargando planes...</Text>
         </View>
       </SafeAreaView>
     );
@@ -176,15 +223,22 @@ const SubscriptionsScreen = () => {
           <RefreshControl refreshing={refreshing} onRefresh={handleRefresh} />
         }
       >
+        {/* Close Button */}
+        {onClose && (
+          <TouchableOpacity style={styles.closeButton} onPress={onClose}>
+            <Ionicons name="close" size={28} color="#1F2937" />
+          </TouchableOpacity>
+        )}
+
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>
-            {isFree ? 'Choose Your Plan' : 'Your Subscription'}
+            {isFree ? 'Elige tu Plan' : 'Tu Suscripción'}
           </Text>
           <Text style={styles.subtitle}>
             {isFree
-              ? 'Unlock premium features and unlimited access'
-              : 'Manage your subscription and billing'}
+              ? 'Desbloquea funciones premium y acceso ilimitado'
+              : 'Administra tu suscripción y facturación'}
           </Text>
         </View>
 
@@ -207,11 +261,11 @@ const SubscriptionsScreen = () => {
         {/* Section Title */}
         <View style={styles.sectionHeader}>
           <Text style={styles.sectionTitle}>
-            {isFree ? 'Available Plans' : 'Other Plans'}
+            {isFree ? 'Planes Disponibles' : 'Otros Planes'}
           </Text>
           {!isFree && (
             <Text style={styles.sectionSubtitle}>
-              Switch plans anytime
+              Cambia de plan en cualquier momento
             </Text>
           )}
         </View>
@@ -232,10 +286,10 @@ const SubscriptionsScreen = () => {
         {/* Footer Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            • All plans include 7-day free trial{'\n'}
-            • Cancel anytime, no questions asked{'\n'}
-            • Secure payment powered by Stripe{'\n'}
-            • Instant access after subscription
+            • Todos los planes incluyen 7 días de prueba gratis{'\n'}
+            • Cancela en cualquier momento, sin preguntas{'\n'}
+            • Pago seguro con Stripe{'\n'}
+            • Acceso instantáneo después de suscribirte
           </Text>
         </View>
       </ScrollView>
@@ -269,6 +323,19 @@ const SubscriptionsScreen = () => {
       >
         <PaymentHistoryScreen onClose={() => setShowPaymentHistory(false)} />
       </Modal>
+
+      {/* Custom Modal */}
+      <CustomModal
+        visible={modalConfig.visible}
+        type={modalConfig.type}
+        title={modalConfig.title}
+        message={modalConfig.message}
+        buttonText={modalConfig.buttonText}
+        showSecondaryButton={modalConfig.showSecondaryButton}
+        secondaryButtonText={modalConfig.secondaryButtonText}
+        onSecondaryPress={modalConfig.onSecondaryPress}
+        onClose={modalConfig.onClose || (() => setModalConfig({ ...modalConfig, visible: false }))}
+      />
     </SafeAreaView>
   );
 };
@@ -277,6 +344,26 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F9FAFB',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 20,
+    right: 20,
+    zIndex: 10,
+    backgroundColor: '#fff',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    elevation: 4,
   },
   loadingContainer: {
     flex: 1,
@@ -336,9 +423,17 @@ const styles = StyleSheet.create({
   },
   footer: {
     backgroundColor: '#fff',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 20,
     marginBottom: 20,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 3,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 4,
   },
   footerText: {
     fontSize: 13,

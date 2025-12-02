@@ -61,7 +61,7 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={28} color="#333" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Secure Payment</Text>
+          <Text style={styles.headerTitle}>Pago Seguro</Text>
           <View style={styles.placeholder} />
         </View>
 
@@ -69,7 +69,7 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
         {loading && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#6C47FF" />
-            <Text style={styles.loadingText}>Loading secure payment...</Text>
+            <Text style={styles.loadingText}>Cargando pago seguro...</Text>
           </View>
         )}
 
@@ -89,7 +89,7 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
         {/* Powered by Stripe */}
         <View style={styles.footer}>
           <Ionicons name="lock-closed" size={16} color="#10B981" />
-          <Text style={styles.footerText}>Secure Payment • Real charges apply</Text>
+          <Text style={styles.footerText}>Pago Seguro • Se aplicarán cargos reales</Text>
         </View>
       </SafeAreaView>
     </Modal>

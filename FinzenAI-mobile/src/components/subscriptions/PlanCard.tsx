@@ -65,7 +65,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
       {/* Badge de plan actual */}
       {isCurrentPlan && (
         <View style={[styles.currentBadge, { backgroundColor: colors.primary }]}>
-          <Text style={styles.currentBadgeText}>Current Plan</Text>
+          <Text style={styles.currentBadgeText}>Plan Actual</Text>
         </View>
       )}
 
@@ -79,7 +79,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
       <View style={styles.priceContainer}>
         <Text style={styles.currency}>$</Text>
         <Text style={styles.price}>{plan.price.toFixed(2)}</Text>
-        {!isFree && <Text style={styles.period}>/month</Text>}
+        {!isFree && <Text style={styles.period}>/mes</Text>}
       </View>
 
       {/* Trial (solo para planes de pago) */}
@@ -88,13 +88,13 @@ const PlanCard: React.FC<PlanCardProps> = ({
           <View style={styles.trialContainer}>
             <Ionicons name="gift-outline" size={14} color={colors.primary} />
             <Text style={[styles.trialText, { color: colors.primary }]}>
-              7 days free trial
+              7 días de prueba gratis
             </Text>
           </View>
           <View style={styles.realPaymentNotice}>
             <Ionicons name="card-outline" size={12} color="#6B7280" />
             <Text style={styles.realPaymentText}>
-              Real card required • Charges apply after trial
+              Tarjeta real requerida • Cargos aplican después del periodo de prueba
             </Text>
           </View>
         </>
@@ -126,7 +126,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
           disabled={disabled}
         >
           <Text style={styles.buttonText}>
-            {disabled ? 'Processing...' : 'Select Plan'}
+            {disabled ? 'Procesando...' : 'Seleccionar Plan'}
           </Text>
         </TouchableOpacity>
       )}
@@ -135,14 +135,14 @@ const PlanCard: React.FC<PlanCardProps> = ({
         <View style={[styles.button, styles.currentButton]}>
           <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
           <Text style={[styles.currentButtonText, { color: colors.primary }]}>
-            Active
+            Activo
           </Text>
         </View>
       )}
 
       {isFree && !isCurrentPlan && (
         <View style={styles.freeInfo}>
-          <Text style={styles.freeInfoText}>Your current plan</Text>
+          <Text style={styles.freeInfoText}>Tu plan actual</Text>
         </View>
       )}
     </View>
@@ -151,18 +151,34 @@ const PlanCard: React.FC<PlanCardProps> = ({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 16,
+    borderRadius: 20,
+    padding: 24,
+    marginBottom: 20,
     position: 'relative',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 6,
   },
   currentBadge: {
     position: 'absolute',
-    top: 12,
-    right: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
+    top: 16,
+    right: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 6,
+    borderRadius: 16,
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 4,
+    elevation: 4,
   },
   currentBadgeText: {
     color: '#fff',
@@ -241,10 +257,18 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   button: {
-    paddingVertical: 14,
-    borderRadius: 12,
+    paddingVertical: 16,
+    borderRadius: 14,
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.2,
+    shadowRadius: 8,
+    elevation: 5,
   },
   buttonDisabled: {
     opacity: 0.6,

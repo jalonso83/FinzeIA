@@ -41,6 +41,8 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 
 // Stores
 import { useAuthStore } from '../stores/auth';
+import { useBiometric } from '../hooks/useBiometric';
+import { useState, useEffect } from 'react';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -255,6 +257,8 @@ function MainNavigator({ route }: any) {
   const [showHelpCenter, setShowHelpCenter] = React.useState(false);
   const [showSubscriptions, setShowSubscriptions] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [showPlansModal, setShowPlansModal] = React.useState(false);
+  const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
   const { updateUser, logout } = useAuthStore();
   const insets = useSafeAreaInsets();
@@ -269,6 +273,9 @@ function MainNavigator({ route }: any) {
 
         if (shouldOpen === 'true') {
           console.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
+
+          // Marcar que viene del tutorial para mostrar planes después
+          setCameFromTutorial(true);
 
           // Limpiar el flag PRIMERO
           await AsyncStorage.removeItem('openHelpCenterAfterOnboarding');
@@ -288,6 +295,20 @@ function MainNavigator({ route }: any) {
 
     checkOpenHelpCenter();
   }, []);
+
+  const handleCloseHelpCenter = () => {
+    console.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
+    setShowHelpCenter(false);
+
+    // Si viene del tutorial, mostrar modal de planes
+    if (cameFromTutorial) {
+      console.log('🎁 Mostrando modal de planes después del tutorial');
+      setTimeout(() => {
+        setShowPlansModal(true);
+      }, 500); // Pequeño delay para mejor UX
+      setCameFromTutorial(false); // Reset flag
+    }
+  };
 
   const UserMenuModal = () => (
     <Modal
@@ -475,7 +496,7 @@ function MainNavigator({ route }: any) {
         presentationStyle="pageSheet"
         onRequestClose={() => setShowSubscriptions(false)}
       >
-        <SubscriptionsScreen />
+        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
       </Modal>
 
       {/* Help Center Modal */}
@@ -483,9 +504,9 @@ function MainNavigator({ route }: any) {
         visible={showHelpCenter}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowHelpCenter(false)}
+        onRequestClose={handleCloseHelpCenter}
       >
-        <HelpCenterScreen onClose={() => setShowHelpCenter(false)} />
+        <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
 
       {/* Logout Confirmation Modal */}
@@ -503,6 +524,32 @@ function MainNavigator({ route }: any) {
         }}
         onSecondaryPress={() => setShowLogoutModal(false)}
       />
+
+      {/* Plans Modal after Tutorial */}
+      <CustomModal
+        visible={showPlansModal}
+        type="success"
+        title="🎉 ¡Ahora que conoces FinZen AI!"
+        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Reportes avanzados con IA\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
+        buttonText="Ver Planes Premium 👑"
+        showSecondaryButton={true}
+        secondaryButtonText="Empezar con Gratis"
+        onClose={() => {
+          setShowPlansModal(false);
+          setShowSubscriptions(true);
+        }}
+        onSecondaryPress={() => setShowPlansModal(false)}
+      />
+
+      {/* Subscriptions Modal */}
+      <Modal
+        visible={showSubscriptions}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSubscriptions(false)}
+      >
+        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
+      </Modal>
     </React.Fragment>
   );
 }
@@ -520,7 +567,65 @@ function MainStackNavigator() {
 
 // Navegador principal de la app
 export default function AppNavigator() {
-  const { isAuthenticated, user } = useAuthStore();
+  const { isAuthenticated, user, saveBiometricCredentials } = useAuthStore();
+  const { enable, refresh, biometricType } = useBiometric();
+  const [showBiometricModal, setShowBiometricModal] = useState(false);
+  const [storedBiometricType, setStoredBiometricType] = useState('');
+
+  // Verificar si hay un setup pendiente de biometría
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      checkPendingBiometricSetup();
+    }
+  }, [isAuthenticated, user]);
+
+  const checkPendingBiometricSetup = async () => {
+    try {
+      const pending = await AsyncStorage.getItem('pendingBiometricSetup');
+      const bioType = await AsyncStorage.getItem('biometricType');
+
+      if (pending === 'true') {
+        console.log('🔔 Detectado setup pendiente de biometría');
+        setStoredBiometricType(bioType || biometricType);
+        setShowBiometricModal(true);
+        // Limpiar el flag
+        await AsyncStorage.removeItem('pendingBiometricSetup');
+      }
+    } catch (error) {
+      console.error('Error verificando pending biometric setup:', error);
+    }
+  };
+
+  const handleEnableBiometric = async () => {
+    try {
+      console.log('🔐 Usuario aceptó configurar biometría desde AppNavigator');
+      await enable();
+      console.log('✅ Biometría habilitada exitosamente');
+
+      if (user) {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          await saveBiometricCredentials(user, token);
+          console.log('🔐 Credenciales guardadas en SecureStore');
+        }
+      }
+
+      await refresh();
+      setShowBiometricModal(false);
+
+      // Mostrar modal de éxito
+      Alert.alert(
+        '¡Listo!',
+        `${storedBiometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`
+      );
+    } catch (error) {
+      console.error('❌ Error configurando biometría:', error);
+      Alert.alert(
+        'Error',
+        'No se pudo configurar la biometría. Intenta desde tu perfil.'
+      );
+    }
+  };
 
   return (
     <NavigationContainer>
@@ -530,6 +635,19 @@ export default function AppNavigator() {
       ) : (
         <AuthNavigator />
       )}
+
+      {/* Modal de configuración biométrica */}
+      <CustomModal
+        visible={showBiometricModal}
+        type="info"
+        title={`¿Usar ${storedBiometricType}?`}
+        message={`¿Quieres usar ${storedBiometricType} para iniciar sesión más rápido en el futuro?`}
+        buttonText="Sí, activar"
+        showSecondaryButton={true}
+        secondaryButtonText="No, gracias"
+        onSecondaryPress={() => setShowBiometricModal(false)}
+        onClose={handleEnableBiometric}
+      />
     </NavigationContainer>
   );
 }

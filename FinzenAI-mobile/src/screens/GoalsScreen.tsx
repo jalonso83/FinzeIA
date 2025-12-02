@@ -284,17 +284,19 @@ export default function GoalsScreen() {
           </View>
         )}
 
-        {goals.length === 0 ? (
+        {goals.filter(g => !g.isCompleted).length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="trophy-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No hay metas</Text>
+            <Text style={styles.emptyTitle}>No hay metas activas</Text>
             <Text style={styles.emptySubtitle}>
               Establece metas de ahorro y realiza un seguimiento de tu progreso
             </Text>
           </View>
         ) : (
           <View style={styles.goalsList}>
-            {goals.map((goal) => {
+            {goals
+              .filter(goal => !goal.isCompleted)
+              .map((goal) => {
               const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
               const progressColor = getProgressColor(progress);
               const remaining = goal.targetAmount - goal.currentAmount;

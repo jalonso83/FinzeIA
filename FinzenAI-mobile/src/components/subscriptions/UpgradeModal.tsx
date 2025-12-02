@@ -6,12 +6,12 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
-  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import StripeWebView from './StripeWebView';
+import CustomModal from '../modals/CustomModal';
 
 interface UpgradeModalProps {
   visible: boolean;
@@ -28,40 +28,43 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
   const [showWebView, setShowWebView] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const getLimitInfo = () => {
     switch (limitType) {
       case 'budgets':
         return {
           icon: 'wallet',
-          title: 'Budget Limit Reached',
-          description: 'You have reached the maximum of 3 budgets on the Free plan.',
+          title: 'Límite de Presupuestos Alcanzado',
+          description: 'Has alcanzado el máximo de 3 presupuestos en el plan Gratis.',
           freeCurrent: '3/3',
-          premiumLimit: 'Unlimited',
+          premiumLimit: 'Ilimitado',
         };
       case 'goals':
         return {
           icon: 'trophy',
-          title: 'Goal Limit Reached',
-          description: 'You have reached the maximum of 2 goals on the Free plan.',
+          title: 'Límite de Metas Alcanzado',
+          description: 'Has alcanzado el máximo de 2 metas en el plan Gratis.',
           freeCurrent: '2/2',
-          premiumLimit: 'Unlimited',
+          premiumLimit: 'Ilimitado',
         };
       case 'zenio':
         return {
           icon: 'chatbubble-ellipses',
-          title: 'Zenio Queries Limit Reached',
-          description: 'You have used all 10 Zenio AI queries for this month.',
+          title: 'Límite de Consultas a Zenio Alcanzado',
+          description: 'Has usado las 10 consultas a Zenio AI de este mes.',
           freeCurrent: '10/10',
-          premiumLimit: 'Unlimited',
+          premiumLimit: 'Ilimitado',
         };
       default:
         return {
           icon: 'lock-closed',
-          title: 'Limit Reached',
-          description: 'You have reached your plan limit.',
-          freeCurrent: 'Max',
-          premiumLimit: 'Unlimited',
+          title: 'Límite Alcanzado',
+          description: 'Has alcanzado el límite de tu plan.',
+          freeCurrent: 'Máx',
+          premiumLimit: 'Ilimitado',
         };
     }
   };
@@ -75,7 +78,8 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
       setCheckoutUrl(url);
       setShowWebView(true);
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not create payment session');
+      setErrorMessage(error.message || 'No se pudo crear la sesión de pago');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -84,13 +88,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
   const handlePaymentSuccess = () => {
     setShowWebView(false);
     setCheckoutUrl(null);
-    onClose();
-
-    Alert.alert(
-      'Success!',
-      'You are now a Premium member! Enjoy unlimited access.',
-      [{ text: 'OK' }]
-    );
+    setShowSuccessModal(true);
   };
 
   const handlePaymentCancel = () => {
@@ -99,21 +97,9 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
   };
 
   const handleCloseWebView = () => {
-    Alert.alert(
-      'Close Payment',
-      'Are you sure you want to cancel this payment?',
-      [
-        { text: 'Continue Payment', style: 'cancel' },
-        {
-          text: 'Cancel Payment',
-          style: 'destructive',
-          onPress: () => {
-            setShowWebView(false);
-            setCheckoutUrl(null);
-          },
-        },
-      ]
-    );
+    // Simplemente cerrar el WebView, no necesitamos confirmación
+    setShowWebView(false);
+    setCheckoutUrl(null);
   };
 
   return (
@@ -155,7 +141,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
               {/* Comparison */}
               <View style={styles.comparisonContainer}>
                 <View style={styles.comparisonCard}>
-                  <Text style={styles.comparisonLabel}>Current (Free)</Text>
+                  <Text style={styles.comparisonLabel}>Actual (Gratis)</Text>
                   <Text style={styles.comparisonValue}>{limitInfo.freeCurrent}</Text>
                 </View>
                 <Ionicons name="arrow-forward" size={24} color="#9CA3AF" />
@@ -171,37 +157,37 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
 
               {/* Features */}
               <View style={styles.featuresContainer}>
-                <Text style={styles.featuresTitle}>Premium Features:</Text>
+                <Text style={styles.featuresTitle}>Características Premium:</Text>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Unlimited budgets</Text>
+                  <Text style={styles.featureText}>Presupuestos ilimitados</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Unlimited goals</Text>
+                  <Text style={styles.featureText}>Metas ilimitadas</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Unlimited Zenio AI queries</Text>
+                  <Text style={styles.featureText}>Consultas ilimitadas a Zenio AI</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Advanced reports with AI</Text>
+                  <Text style={styles.featureText}>Reportes avanzados con IA</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Export to PDF/Excel</Text>
+                  <Text style={styles.featureText}>Exportar a PDF/Excel</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Ad-free experience</Text>
+                  <Text style={styles.featureText}>Experiencia sin anuncios</Text>
                 </View>
               </View>
 
               {/* Trial Badge */}
               <View style={styles.trialBadge}>
                 <Ionicons name="gift" size={16} color="#059669" />
-                <Text style={styles.trialText}>7 days free trial</Text>
+                <Text style={styles.trialText}>7 días de prueba gratis</Text>
               </View>
 
               {/* Buttons */}
@@ -212,7 +198,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
               >
                 <Ionicons name="diamond" size={20} color="#fff" />
                 <Text style={styles.upgradeButtonText}>
-                  {loading ? 'Processing...' : 'Upgrade to Premium'}
+                  {loading ? 'Procesando...' : 'Mejorar a Premium'}
                 </Text>
               </TouchableOpacity>
 
@@ -221,13 +207,13 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 onPress={onClose}
               >
                 <Text style={styles.continueButtonText}>
-                  Continue with Free
+                  Continuar con Gratis
                 </Text>
               </TouchableOpacity>
 
               {/* Footer */}
               <Text style={styles.footerText}>
-                Cancel anytime • No questions asked
+                Cancela en cualquier momento • Sin preguntas
               </Text>
             </ScrollView>
           </View>
@@ -244,6 +230,29 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
           onClose={handleCloseWebView}
         />
       )}
+
+      {/* Success Modal */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message="¡Ahora eres miembro Premium! Disfruta del acceso ilimitado."
+        buttonText="Continuar"
+        onClose={() => {
+          setShowSuccessModal(false);
+          onClose();
+        }}
+      />
+
+      {/* Error Modal */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
+      />
     </>
   );
 };
@@ -258,11 +267,19 @@ const styles = StyleSheet.create({
   },
   container: {
     backgroundColor: '#fff',
-    borderRadius: 20,
-    padding: 24,
+    borderRadius: 24,
+    padding: 28,
     width: '100%',
     maxWidth: 400,
     maxHeight: '90%',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 10,
+    },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
   },
   closeButton: {
     position: 'absolute',
@@ -276,12 +293,20 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   iconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
+    width: 100,
+    height: 100,
+    borderRadius: 50,
     backgroundColor: '#FEF3C7',
     justifyContent: 'center',
     alignItems: 'center',
+    shadowColor: '#F59E0B',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.3,
+    shadowRadius: 12,
+    elevation: 8,
   },
   title: {
     fontSize: 24,
@@ -306,14 +331,24 @@ const styles = StyleSheet.create({
   comparisonCard: {
     flex: 1,
     backgroundColor: '#F3F4F6',
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    padding: 18,
     alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 6,
+    elevation: 3,
   },
   premiumCard: {
     backgroundColor: '#FEF3C7',
     borderWidth: 2,
     borderColor: '#F59E0B',
+    shadowColor: '#F59E0B',
+    shadowOpacity: 0.2,
   },
   comparisonLabel: {
     fontSize: 12,
@@ -373,13 +408,21 @@ const styles = StyleSheet.create({
   },
   upgradeButton: {
     backgroundColor: '#F59E0B',
-    borderRadius: 12,
-    paddingVertical: 16,
+    borderRadius: 14,
+    paddingVertical: 18,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
     marginBottom: 12,
+    shadowColor: '#F59E0B',
+    shadowOffset: {
+      width: 0,
+      height: 4,
+    },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
+    elevation: 8,
   },
   buttonDisabled: {
     opacity: 0.6,

@@ -2,7 +2,7 @@
 // Reutilizará la lógica del Dashboard web adaptada para móvil
 
 import React, { useState, useEffect, useRef } from 'react';
-import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, AppState } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, AppState, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -15,6 +15,8 @@ import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI }
 import api from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
 import { useCurrency } from '../hooks/useCurrency';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+import SubscriptionsScreen from './SubscriptionsScreen';
 
 interface DashboardData {
   totalBalance: number;
@@ -58,16 +60,26 @@ export default function DashboardScreen() {
   const [dashboardData, setDashboardData] = useState<DashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const lastDateRef = useRef<string>(new Date().toDateString());
-  
+  const [showSubscriptions, setShowSubscriptions] = useState(false);
+
   // Suscribirse a cambios del dashboard
   const { refreshTrigger } = useDashboardStore();
-  
+
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
+  // Hook para suscripción
+  const { subscription, fetchSubscription } = useSubscriptionStore();
+
   useEffect(() => {
     loadDashboardData();
+    fetchSubscription(); // Cargar suscripción
   }, []);
+
+  // Log cuando subscription cambia
+  useEffect(() => {
+    console.log('Dashboard - Subscription state changed:', subscription);
+  }, [subscription]);
 
   // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
   useEffect(() => {
@@ -478,7 +490,60 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header - removido porque ya está en la navegación */}
+        {/* Plan Badge - Siempre visible */}
+        <TouchableOpacity
+          style={styles.planBadge}
+          onPress={() => setShowSubscriptions(true)}
+          activeOpacity={0.7}
+        >
+          <Text style={styles.planBadgeIcon}>
+            {!subscription || subscription.plan === 'FREE' ? '🆓' : subscription.plan === 'PREMIUM' ? '👑' : '💎'}
+          </Text>
+          <Text style={styles.planBadgeText}>
+            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan}
+          </Text>
+          <Ionicons name="chevron-forward" size={16} color="#6B7280" />
+        </TouchableOpacity>
+
+        {/* Limits Card - Solo para usuarios FREE - Versión Compacta */}
+        {(!subscription || subscription.plan === 'FREE') && dashboardData && (
+          <View style={styles.limitsCard}>
+            <View style={styles.limitsHeader}>
+              <Text style={styles.limitsTitle}>🆓 Plan Gratis - Límites</Text>
+              <TouchableOpacity
+                style={styles.upgradeButtonSmall}
+                onPress={() => setShowSubscriptions(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="diamond" size={14} color="#fff" />
+                <Text style={styles.upgradeButtonSmallText}>Mejorar</Text>
+              </TouchableOpacity>
+            </View>
+
+            {/* Límites en horizontal */}
+            <View style={styles.limitsCompactRow}>
+              {/* Budgets */}
+              <View style={styles.limitCompactItem}>
+                <Ionicons name="wallet" size={18} color="#6B7280" />
+                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/3</Text>
+                <Text style={styles.limitCompactPercentage}>
+                  {Math.round((dashboardData.activeBudgets / 3) * 100)}%
+                </Text>
+              </View>
+
+              <View style={styles.limitDivider} />
+
+              {/* Goals */}
+              <View style={styles.limitCompactItem}>
+                <Ionicons name="trophy" size={18} color="#6B7280" />
+                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/2</Text>
+                <Text style={styles.limitCompactPercentage}>
+                  {Math.round((dashboardData.activeGoals / 2) * 100)}%
+                </Text>
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Balance Card */}
         <View style={styles.balanceCard}>
@@ -1074,6 +1139,16 @@ export default function DashboardScreen() {
           </View>
         )}
       </ScrollView>
+
+      {/* Subscriptions Modal */}
+      <Modal
+        visible={showSubscriptions}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSubscriptions(false)}
+      >
+        <SubscriptionsScreen onClose={() => setShowSubscriptions(false)} />
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -1810,5 +1885,104 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#d97706',
     fontWeight: '500',
+  },
+  // Estilos para Plan Badge
+  planBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    gap: 8,
+  },
+  planBadgeIcon: {
+    fontSize: 20,
+  },
+  planBadgeText: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#1F2937',
+  },
+  // Estilos para Limits Card - Versión Compacta
+  limitsCard: {
+    backgroundColor: 'white',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+    borderWidth: 1.5,
+    borderColor: '#FEF3C7',
+  },
+  limitsHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  limitsTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  upgradeButtonSmall: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F59E0B',
+    borderRadius: 8,
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    gap: 4,
+    shadowColor: '#F59E0B',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  upgradeButtonSmallText: {
+    color: '#fff',
+    fontSize: 12,
+    fontWeight: '600',
+  },
+  limitsCompactRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+  },
+  limitCompactItem: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  limitCompactText: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  limitCompactPercentage: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#6B7280',
+    backgroundColor: '#F3F4F6',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  limitDivider: {
+    width: 1,
+    height: 30,
+    backgroundColor: '#E5E7EB',
   },
 });
