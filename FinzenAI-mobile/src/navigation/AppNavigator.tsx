@@ -320,15 +320,16 @@ function MainNavigator({ route }: any) {
       animationType="fade"
       onRequestClose={() => setShowUserMenu(false)}
       pointerEvents={showUserMenu ? 'auto' : 'none'}
+      statusBarTranslucent={false}
     >
-      <TouchableOpacity 
+      <TouchableOpacity
         style={{
           flex: 1,
           backgroundColor: 'rgba(0,0,0,0.5)',
           justifyContent: 'flex-start',
           alignItems: 'flex-end',
-          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top + 80, 120) : 90,
-          paddingRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
+          paddingTop: 60,
+          paddingRight: 16,
         }}
         activeOpacity={1}
         onPress={() => setShowUserMenu(false)}
@@ -342,6 +343,7 @@ function MainNavigator({ route }: any) {
           shadowOpacity: 0.25,
           shadowRadius: 8,
           elevation: 8,
+          overflow: 'hidden',
         }}>
           {/* Header del menú */}
           <View style={{
@@ -593,7 +595,12 @@ export default function AppNavigator() {
   // Verificar si hay un setup pendiente de biometría
   useEffect(() => {
     if (isAuthenticated && user) {
-      checkPendingBiometricSetup();
+      // Pequeño delay para asegurar que la navegación se complete primero
+      const timer = setTimeout(() => {
+        checkPendingBiometricSetup();
+      }, 500);
+
+      return () => clearTimeout(timer);
     }
   }, [isAuthenticated, user]);
 

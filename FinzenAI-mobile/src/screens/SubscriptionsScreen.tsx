@@ -19,6 +19,7 @@ import ManageSubscriptionModal from '../components/subscriptions/ManageSubscript
 import PaymentHistoryScreen from './PaymentHistoryScreen';
 import CustomModal from '../components/modals/CustomModal';
 import { SubscriptionPlan } from '../types/subscription';
+import { subscriptionsAPI } from '../utils/api';
 
 interface SubscriptionsScreenProps {
   onClose?: () => void;
@@ -146,9 +147,27 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose }) =>
     }
   };
 
-  const handlePaymentSuccess = async () => {
+  const handlePaymentSuccess = async (sessionId?: string) => {
     setShowWebView(false);
     setCheckoutUrl(null);
+
+    console.log('💳 Pago exitoso detectado, sessionId:', sessionId);
+
+    // Si tenemos sessionId, sincronizar inmediatamente
+    if (sessionId) {
+      try {
+        console.log('🔄 Sincronizando suscripción con sessionId:', sessionId);
+        const response = await subscriptionsAPI.checkCheckoutSession(sessionId);
+        console.log('✅ Respuesta de sincronización:', response.data);
+
+        // CRÍTICO: Refrescar suscripción INMEDIATAMENTE después de sincronizar
+        await fetchSubscription();
+        console.log('✅ Suscripción refrescada después de sincronización');
+      } catch (syncError: any) {
+        console.error('❌ Error sincronizando:', syncError);
+        console.error('❌ Detalles del error:', syncError.response?.data);
+      }
+    }
 
     setModalConfig({
       visible: true,
@@ -156,9 +175,9 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose }) =>
       title: '¡Éxito!',
       message: 'Tu suscripción ha sido activada. ¡Gracias!',
       buttonText: 'Continuar',
-      onClose: async () => {
+      onClose: () => {
         setModalConfig({ ...modalConfig, visible: false });
-        await fetchSubscription();
+        // Ya no es necesario refrescar aquí porque ya se hizo arriba
       },
     });
   };

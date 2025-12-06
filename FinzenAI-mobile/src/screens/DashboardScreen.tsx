@@ -76,14 +76,11 @@ export default function DashboardScreen() {
     fetchSubscription(); // Cargar suscripción
   }, []);
 
-  // Log cuando subscription cambia y refrescar dashboard
+  // Log cuando subscription cambia (NO refrescar aquí para evitar loop)
   useEffect(() => {
     console.log('Dashboard - Subscription state changed:', subscription);
-    // La UI se actualiza automáticamente por los componentes reactivos
-    // Pero vamos a refrescar los datos para asegurar consistencia
-    if (subscription) {
-      loadDashboardData();
-    }
+    // La UI se actualiza automáticamente con los componentes reactivos
+    // NO llamamos loadDashboardData aquí porque causa loop infinito
   }, [subscription]);
 
   // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas

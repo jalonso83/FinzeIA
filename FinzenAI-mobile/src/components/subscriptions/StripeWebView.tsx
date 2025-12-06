@@ -14,7 +14,7 @@ import { Ionicons } from '@expo/vector-icons';
 interface StripeWebViewProps {
   visible: boolean;
   checkoutUrl: string;
-  onSuccess: () => void;
+  onSuccess: (sessionId?: string) => void;
   onCancel: () => void;
   onClose: () => void;
 }
@@ -31,11 +31,24 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
   const handleNavigationStateChange = (navState: any) => {
     const { url } = navState;
 
-    // Detectar redirección a success
-    if (url.includes('/subscription/success') || url.includes('session_id')) {
-      console.log('✅ Payment successful, closing WebView');
-      setLoading(false);
-      onSuccess();
+    console.log('🔍 Navigation state changed:', url);
+
+    // Detectar redirección a success Y extraer sessionId
+    if (url.includes('/subscription/success')) {
+      console.log('✅ Payment successful detected');
+
+      // Extraer sessionId de la URL
+      const sessionIdMatch = url.match(/session_id=([^&]+)/);
+      if (sessionIdMatch && sessionIdMatch[1]) {
+        const sessionId = sessionIdMatch[1];
+        console.log('📝 SessionId extraído:', sessionId);
+        setLoading(false);
+        onSuccess(sessionId); // Pasar sessionId al callback
+      } else {
+        console.log('⚠️ No se pudo extraer sessionId de la URL');
+        setLoading(false);
+        onSuccess(); // Llamar sin sessionId como fallback
+      }
       return;
     }
 
