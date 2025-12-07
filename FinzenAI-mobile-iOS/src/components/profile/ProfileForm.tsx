@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import api from '../../utils/api';
@@ -11,7 +11,7 @@ interface ProfileFormProps {
   visible: boolean;
   user: any;
   onClose: () => void;
-  onProfileUpdated: () => void;
+  onProfileUpdated: (message: string) => void;
 }
 
 const occupationOptions = [
@@ -72,10 +72,25 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   });
   const [errors, setErrors] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [showBiometricInfoModal, setShowBiometricInfoModal] = useState(false);
+  const [showBiometricConfirmModal, setShowBiometricConfirmModal] = useState(false);
+  const [biometricMessage, setBiometricMessage] = useState('');
+  const [originalForm, setOriginalForm] = useState({
+    name: '',
+    lastName: '',
+    email: '',
+    phone: '',
+    birthDate: '',
+    country: '',
+    state: '',
+    city: '',
+    currency: '',
+    preferredLanguage: 'es',
+    occupation: '',
+    company: ''
+  });
 
   // Hook de biometría
   const { isAvailable, isEnabled, biometricType, enable, disable } = useBiometric();
@@ -124,7 +139,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
       const backendDate = user?.birthDate ? user.birthDate.slice(0, 10) : ''; // YYYY-MM-DD
       const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
 
-      setForm({
+      const initialData = {
         name: user?.name || '',
         lastName: user?.lastName || '',
         email: user?.email || '',
@@ -137,7 +152,10 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
         preferredLanguage: user?.preferredLanguage || 'es',
         occupation: user?.occupation || '',
         company: user?.company || ''
-      });
+      };
+
+      setForm(initialData);
+      setOriginalForm(initialData); // Guardar datos originales
     }
   }, [user]);
   
@@ -146,6 +164,24 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
   const [showOccupationModal, setShowOccupationModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
+
+  // Función para verificar si hay cambios
+  const hasChanges = () => {
+    return (
+      form.name !== originalForm.name ||
+      form.lastName !== originalForm.lastName ||
+      form.email !== originalForm.email ||
+      form.phone !== originalForm.phone ||
+      form.birthDate !== originalForm.birthDate ||
+      form.country !== originalForm.country ||
+      form.state !== originalForm.state ||
+      form.city !== originalForm.city ||
+      form.currency !== originalForm.currency ||
+      form.preferredLanguage !== originalForm.preferredLanguage ||
+      form.occupation !== originalForm.occupation ||
+      form.company !== originalForm.company
+    );
+  };
 
   const validate = () => {
     const newErrors: any = {};
@@ -181,41 +217,31 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
       if (value) {
         // Activar biometría
         await enable();
-        Alert.alert(
-          '¡Listo!',
-          `${biometricType} activado exitosamente. Ahora podrás iniciar sesión más rápido.`,
-          [{ text: 'OK' }]
-        );
+        setBiometricMessage(`${biometricType} activado exitosamente. Ahora podrás iniciar sesión más rápido.`);
+        setShowBiometricInfoModal(true);
       } else {
-        // Desactivar biometría
-        Alert.alert(
-          'Desactivar biometría',
-          `¿Estás seguro que quieres desactivar ${biometricType}?`,
-          [
-            { text: 'Cancelar', style: 'cancel' },
-            {
-              text: 'Desactivar',
-              style: 'destructive',
-              onPress: async () => {
-                await disable();
-                await clearBiometricCredentials();
-                Alert.alert(
-                  'Desactivado',
-                  `${biometricType} ha sido desactivado.`,
-                  [{ text: 'OK' }]
-                );
-              },
-            },
-          ]
-        );
+        // Mostrar confirmación para desactivar
+        setBiometricMessage(`¿Estás seguro que quieres desactivar ${biometricType}?`);
+        setShowBiometricConfirmModal(true);
       }
     } catch (error) {
       console.error('Error manejando biometría:', error);
-      Alert.alert(
-        'Error',
-        'No se pudo cambiar la configuración de biometría. Intenta nuevamente.',
-        [{ text: 'OK' }]
-      );
+      setErrorMessage('No se pudo cambiar la configuración de biometría. Intenta nuevamente.');
+      setShowErrorModal(true);
+    }
+  };
+
+  const confirmDisableBiometric = async () => {
+    try {
+      setShowBiometricConfirmModal(false);
+      await disable();
+      await clearBiometricCredentials();
+      setBiometricMessage(`${biometricType} ha sido desactivado.`);
+      setShowBiometricInfoModal(true);
+    } catch (error) {
+      console.error('Error desactivando biometría:', error);
+      setErrorMessage('No se pudo desactivar la biometría.');
+      setShowErrorModal(true);
     }
   };
 
@@ -241,16 +267,11 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
 
       console.log('✅ Perfil actualizado exitosamente');
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
-      onProfileUpdated();
-
       const message = 'Perfil actualizado correctamente';
-      setSuccessMessage(message);
-      console.log('📝 Mensaje de éxito:', message);
 
-      // Mostrar modal de éxito
-      setShowSuccessModal(true);
-      console.log('🟢 showSuccessModal activado');
+      // Llamar callback con mensaje (el Screen cerrará el formulario y mostrará modal)
+      onProfileUpdated(message);
+      console.log('🟢 onProfileUpdated llamado con mensaje:', message);
     } catch (error: any) {
       console.error('Error al actualizar perfil:', error);
       const errMsg = error?.response?.data?.message || 'Error al actualizar perfil';
@@ -546,9 +567,9 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                 <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
               <TouchableOpacity
-                style={[styles.saveButton, submitting && styles.disabledButton]}
+                style={[styles.saveButton, (submitting || !hasChanges()) && styles.disabledButton]}
                 onPress={handleSubmit}
-                disabled={submitting}
+                disabled={submitting || !hasChanges()}
               >
                 <Text style={styles.saveButtonText}>
                   {submitting ? 'Guardando...' : 'Guardar Cambios'}
@@ -601,20 +622,27 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
             currentValue={form.preferredLanguage}
           />
 
-          {/* Modal de éxito */}
+          {/* Modal de información de biometría */}
           <CustomModal
-            visible={showSuccessModal}
+            visible={showBiometricInfoModal}
             type="success"
-            title="¡Perfil actualizado!"
-            message={successMessage}
-            buttonText="Continuar"
-            onClose={() => {
-              console.log('👆 Usuario presionó Continuar en modal de éxito');
-              setShowSuccessModal(false);
-              // Los callbacks ya se ejecutaron después de guardar
-              // Cerrar el formulario
-              onClose();
-            }}
+            title="Biometría"
+            message={biometricMessage}
+            buttonText="Entendido"
+            onClose={() => setShowBiometricInfoModal(false)}
+          />
+
+          {/* Modal de confirmación de desactivar biometría */}
+          <CustomModal
+            visible={showBiometricConfirmModal}
+            type="warning"
+            title="Desactivar Biometría"
+            message={biometricMessage}
+            buttonText="Desactivar"
+            showSecondaryButton={true}
+            secondaryButtonText="Cancelar"
+            onSecondaryPress={() => setShowBiometricConfirmModal(false)}
+            onClose={confirmDisableBiometric}
           />
 
           {/* Modal de error */}

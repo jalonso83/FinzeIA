@@ -25,7 +25,7 @@ import CustomModal from '../modals/CustomModal';
 interface TransactionFormProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
   editTransaction?: Transaction | null;
 }
 
@@ -52,10 +52,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [originalFormData, setOriginalFormData] = useState({
+    description: '',
+    amount: '',
+    type: 'INCOME' as 'INCOME' | 'EXPENSE',
+    categoryId: '',
+    date: '',
+  });
 
   // Currency converter state (replicando exactamente la web)
   const [showConverter, setShowConverter] = useState(false);
@@ -128,15 +133,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         const backendDate = editTransaction.date.split('T')[0]; // YYYY-MM-DD
         const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
 
-        setFormData({
+        const initialData = {
           description: editTransaction.description,
           amount: editTransaction.amount.toString(),
           type: editTransaction.type,
           categoryId: categoryId,
           date: displayDate,
-        });
+        };
+
+        setFormData(initialData);
+        setOriginalFormData(initialData); // Guardar valores originales
       } else {
         resetForm();
+        const today = new Date();
+        const dd = String(today.getDate()).padStart(2, '0');
+        const mm = String(today.getMonth() + 1).padStart(2, '0');
+        const yyyy = today.getFullYear();
+        setOriginalFormData({
+          description: '',
+          amount: '',
+          type: 'INCOME',
+          categoryId: '',
+          date: `${dd}-${mm}-${yyyy}`,
+        });
       }
     }
   }, [visible, editTransaction]);
@@ -314,6 +333,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     });
   };
 
+  // Verificar si hay cambios (solo para edición)
+  const hasChanges = () => {
+    if (!editTransaction) return true; // Si es nueva transacción, siempre habilitar
+    return (
+      formData.description !== originalFormData.description ||
+      formData.amount !== originalFormData.amount ||
+      formData.type !== originalFormData.type ||
+      formData.categoryId !== originalFormData.categoryId ||
+      formData.date !== originalFormData.date
+    );
+  };
+
   const handleSubmit = async () => {
     // Validaciones
     if (!formData.description.trim()) {
@@ -358,16 +389,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
 
       console.log('✅ Transacción guardada exitosamente');
-      console.log('📝 Mensaje de éxito:', message);
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
+      // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
       onTransactionChange();
-      onSuccess();
-
-      // Configurar mensaje y mostrar modal de éxito
-      setSuccessMessage(message);
-      setShowSuccessModal(true);
-      console.log('🟢 showSuccessModal activado');
+      onSuccess(message);
     } catch (error: any) {
       console.error('Error saving transaction:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la transacción';
@@ -588,11 +613,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
           <LinearGradient
             colors={['#2563EB', '#1d4ed8']}
-            style={[styles.saveButton, loading && styles.disabledButton]}
+            style={[styles.saveButton, (loading || !hasChanges()) && styles.disabledButton]}
           >
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || !hasChanges()}
               style={styles.saveButtonInner}
             >
               {loading ? (
@@ -608,22 +633,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </TouchableOpacity>
           </LinearGradient>
         </View>
-
-        {/* Modal de éxito */}
-        <CustomModal
-          visible={showSuccessModal}
-          type="success"
-          title="¡Transacción guardada!"
-          message={successMessage}
-          buttonText="Continuar"
-          onClose={() => {
-            console.log('👆 Usuario presionó Continuar en modal de éxito');
-            setShowSuccessModal(false);
-            // Los callbacks ya se ejecutaron después de guardar
-            resetForm();
-            // NO cerrar el formulario principal - debe quedar abierto para la siguiente transacción
-          }}
-        />
 
         {/* Modal de error */}
         <CustomModal

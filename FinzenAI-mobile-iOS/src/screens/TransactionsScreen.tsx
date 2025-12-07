@@ -28,9 +28,11 @@ export default function TransactionsScreen() {
   const [showForm, setShowForm] = useState(false);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false);
@@ -195,18 +197,31 @@ export default function TransactionsScreen() {
 
     try {
       await transactionsAPI.delete(transactionToDelete.id);
+
+      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setTransactionToDelete(null);
+
       // Recargar transacciones después de eliminar
       await loadTransactions();
+
       // Actualizar dashboard
       onTransactionChange();
+
+      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
+      setTimeout(() => {
+        setSuccessMessage('Transacción eliminada correctamente');
+        setShowSuccessModal(true);
+      }, 300);
     } catch (error) {
       console.error('Error eliminando transacción:', error);
       setShowDeleteConfirmModal(false);
       setTransactionToDelete(null);
-      setErrorMessage('No se pudo eliminar la transacción');
-      setShowErrorModal(true);
+
+      setTimeout(() => {
+        setErrorMessage('No se pudo eliminar la transacción');
+        setShowErrorModal(true);
+      }, 300);
     }
   };
 
@@ -540,9 +555,17 @@ export default function TransactionsScreen() {
           setShowForm(false);
           setEditingTransaction(null);
         }}
-        onSuccess={() => {
-          loadTransactions();
+        onSuccess={(message: string) => {
+          // CERRAR FORMULARIO
+          setShowForm(false);
           setEditingTransaction(null);
+
+          // Recargar datos
+          loadTransactions();
+
+          // Mostrar modal de éxito
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
       />
@@ -561,6 +584,16 @@ export default function TransactionsScreen() {
           setTransactionToDelete(null);
         }}
         onClose={confirmDeleteTransaction}
+      />
+
+      {/* Modal de éxito */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message={successMessage}
+        buttonText="Continuar"
+        onClose={() => setShowSuccessModal(false)}
       />
 
       {/* Modal de error */}

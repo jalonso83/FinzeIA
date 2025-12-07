@@ -15,8 +15,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api, { budgetsAPI, Budget } from '../utils/api';
 import BudgetForm from '../components/forms/BudgetForm';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
 const { width } = Dimensions.get('window');
 
@@ -28,12 +30,16 @@ export default function BudgetsScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [budgetToDelete, setBudgetToDelete] = useState<{id: string, name: string} | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   // Dashboard store para notificar cambios
   const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger } = useDashboardStore();
+
+  // Subscription store para validar límites
+  const { canCreateBudget, fetchSubscription } = useSubscriptionStore();
 
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
@@ -204,18 +210,29 @@ export default function BudgetsScreen() {
 
     try {
       await budgetsAPI.delete(budgetToDelete.id);
+
+      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setBudgetToDelete(null);
+
+      // Recargar datos
       loadBudgets();
       onBudgetChange(); // Notificar al dashboard
-      setSuccessMessage('Presupuesto eliminado correctamente');
-      setShowSuccessModal(true);
+
+      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
+      setTimeout(() => {
+        setSuccessMessage('Presupuesto eliminado correctamente');
+        setShowSuccessModal(true);
+      }, 300);
     } catch (error) {
       console.error('Error deleting budget:', error);
       setShowDeleteConfirmModal(false);
       setBudgetToDelete(null);
-      setErrorMessage('No se pudo eliminar el presupuesto');
-      setShowErrorModal(true);
+
+      setTimeout(() => {
+        setErrorMessage('No se pudo eliminar el presupuesto');
+        setShowErrorModal(true);
+      }, 300);
     }
   };
 
@@ -268,7 +285,15 @@ export default function BudgetsScreen() {
         <Text style={styles.title}>Presupuestos</Text>
         <TouchableOpacity
           style={styles.addButton}
-          onPress={() => setShowForm(true)}
+          onPress={() => {
+            // Validar límite de presupuestos
+            if (!canCreateBudget(budgets.length)) {
+              // Mostrar modal de upgrade
+              setShowUpgradeModal(true);
+              return;
+            }
+            setShowForm(true);
+          }}
         >
           <Ionicons name="add" size={24} color="white" />
         </TouchableOpacity>
@@ -428,16 +453,17 @@ export default function BudgetsScreen() {
           setEditingBudget(null);
         }}
         onSuccess={(message: string) => {
-          loadBudgets();
-          // Notificar al dashboard que hubo cambios
-          onBudgetChange();
+          // CERRAR FORMULARIO
+          setShowForm(false);
           setEditingBudget(null);
 
-          // Mostrar modal de éxito en el Screen (NO anidado)
+          // Recargar datos
+          loadBudgets();
+          onBudgetChange();
+
+          // Mostrar modal de éxito
           setSuccessMessage(message);
           setShowSuccessModal(true);
-
-          // NO cerrar el formulario - se queda abierto y reseteado
         }}
         editBudget={editingBudget}
       />
@@ -476,6 +502,16 @@ export default function BudgetsScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          // Refrescar suscripción después de cerrar
+          fetchSubscription();
+        }}
       />
     </SafeAreaView>
   );

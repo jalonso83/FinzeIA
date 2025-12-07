@@ -6,7 +6,6 @@ import {
   TextInput,
   TouchableOpacity,
   ScrollView,
-  Alert,
   ActivityIndicator,
   Modal,
   KeyboardAvoidingView,
@@ -44,6 +43,13 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<any>(null);
+  const [showErrorModal, setShowErrorModal] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+  const [originalFormData, setOriginalFormData] = useState({
+    amount: '',
+    categoryId: '',
+    period: 'monthly',
+  });
 
   // Ref para el ScrollView de categorías
   const categoriesScrollRef = useRef<ScrollView>(null);
@@ -64,13 +70,20 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     if (visible) {
       loadCategories();
       if (editBudget) {
-        setFormData({
+        const initialData = {
           amount: editBudget.amount.toString(),
           categoryId: editBudget.category?.id || editBudget.category_id || '',
           period: editBudget.period,
-        });
+        };
+        setFormData(initialData);
+        setOriginalFormData(initialData); // Guardar valores originales
       } else {
         resetForm();
+        setOriginalFormData({
+          amount: '',
+          categoryId: '',
+          period: 'monthly',
+        });
       }
     }
   }, [visible, editBudget]);
@@ -86,7 +99,8 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       setCategories(expenseCategories);
     } catch (error) {
       console.error('Error loading categories:', error);
-      Alert.alert('Error', 'No se pudieron cargar las categorías');
+      setErrorMessage('No se pudieron cargar las categorías');
+      setShowErrorModal(true);
     } finally {
       setLoadingCategories(false);
     }
@@ -100,15 +114,27 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     });
   };
 
+  // Verificar si hay cambios (solo para edición)
+  const hasChanges = () => {
+    if (!editBudget) return true; // Si es nuevo presupuesto, siempre habilitar
+    return (
+      formData.amount !== originalFormData.amount ||
+      formData.categoryId !== originalFormData.categoryId ||
+      formData.period !== originalFormData.period
+    );
+  };
+
   const handleSubmit = async () => {
     // Validaciones (replicando la web)
     if (!formData.categoryId) {
-      Alert.alert('Error', 'Selecciona una categoría');
+      setErrorMessage('Selecciona una categoría');
+      setShowErrorModal(true);
       return;
     }
 
     if (!formData.amount || isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
-      Alert.alert('Error', 'Ingresa un monto válido');
+      setErrorMessage('Ingresa un monto válido');
+      setShowErrorModal(true);
       return;
     }
 
@@ -142,17 +168,10 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       }
 
       console.log('✅ Presupuesto guardado exitosamente');
-      console.log('📝 Mensaje de éxito:', message);
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE
+      // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
       onBudgetChange();
-
-      // Resetear formulario para el siguiente presupuesto
-      resetForm();
-
-      // Pasar mensaje al Screen (que mostrará el modal sin anidar)
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
     } catch (error: any) {
       console.error('Error saving budget:', error);
 
@@ -164,8 +183,9 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         return;
       }
 
-      const errorMessage = error.response?.data?.message || 'Error al guardar el presupuesto';
-      Alert.alert('Error', errorMessage);
+      const errMsg = error.response?.data?.message || 'Error al guardar el presupuesto';
+      setErrorMessage(errMsg);
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -186,22 +206,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
       console.log('✅ Presupuesto duplicado actualizado exitosamente');
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE
-      onBudgetChange();
-
-      // Resetear formulario para el siguiente presupuesto
-      resetForm();
-
       const message = `Presupuesto de "${duplicateInfo.existingBudget.category.name}" actualizado a ${formatCurrency(newAmount)}`;
 
-      // Pasar mensaje al Screen
+      // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
+      onBudgetChange();
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
-
       setDuplicateInfo(null);
     } catch (error: any) {
       console.error('Error updating budget:', error);
-      Alert.alert('Error', 'No se pudo actualizar el presupuesto');
+      setErrorMessage('No se pudo actualizar el presupuesto');
+      setShowErrorModal(true);
     } finally {
       setLoading(false);
     }
@@ -411,11 +425,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
           <LinearGradient
             colors={['#2563EB', '#1d4ed8']}
-            style={[styles.saveButton, loading && styles.disabledButton]}
+            style={[styles.saveButton, (loading || !hasChanges()) && styles.disabledButton]}
           >
             <TouchableOpacity
               onPress={handleSubmit}
-              disabled={loading}
+              disabled={loading || !hasChanges()}
               style={styles.saveButtonInner}
             >
               {loading ? (
@@ -432,26 +446,36 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           </LinearGradient>
         </View>
 
-        {/* Modal de presupuesto duplicado */}
-        {duplicateInfo && (
-          <CustomModal
-            visible={showDuplicateModal}
-            type="warning"
-            title="Presupuesto ya existe"
-            message={`Ya existe un presupuesto activo para "${duplicateInfo.existingBudget?.category?.name}" (${duplicateInfo.existingBudget?.period}).\n\nPresupuesto actual: ${formatCurrency(duplicateInfo.existingBudget?.amount || 0)}\nGastado: ${formatCurrency(duplicateInfo.existingBudget?.spent || 0)}\n\n¿Deseas actualizar el monto del presupuesto existente?`}
-            buttonText="Actualizar monto"
-            showSecondaryButton={true}
-            secondaryButtonText="Cancelar"
-            onSecondaryPress={() => {
-              setShowDuplicateModal(false);
-              setDuplicateInfo(null);
-            }}
-            onClose={handleUpdateExisting}
-          />
-        )}
+        {/* Modal de error */}
+        <CustomModal
+          visible={showErrorModal}
+          type="error"
+          title="Error"
+          message={errorMessage}
+          buttonText="Entendido"
+          onClose={() => setShowErrorModal(false)}
+        />
 
       </SafeAreaView>
       </Modal>
+
+      {/* Modal de presupuesto duplicado - FUERA del Modal pageSheet */}
+      {duplicateInfo && (
+        <CustomModal
+          visible={showDuplicateModal}
+          type="warning"
+          title="Presupuesto ya existe"
+          message={`Ya existe un presupuesto activo para "${duplicateInfo.existingBudget?.category?.name}" (${duplicateInfo.existingBudget?.period}).\n\nPresupuesto actual: ${formatCurrency(duplicateInfo.existingBudget?.amount || 0)}\nGastado: ${formatCurrency(duplicateInfo.existingBudget?.spent || 0)}\n\n¿Deseas actualizar el monto del presupuesto existente?`}
+          buttonText="Actualizar monto"
+          showSecondaryButton={true}
+          secondaryButtonText="Cancelar"
+          onSecondaryPress={() => {
+            setShowDuplicateModal(false);
+            setDuplicateInfo(null);
+          }}
+          onClose={handleUpdateExisting}
+        />
+      )}
     </>
   );
 };

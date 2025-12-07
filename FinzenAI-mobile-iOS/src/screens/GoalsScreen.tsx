@@ -14,8 +14,10 @@ import GoalForm from '../components/forms/GoalForm';
 import ContributionForm from '../components/forms/ContributionForm';
 import { goalsAPI } from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
 interface Goal {
   id: string;
@@ -52,12 +54,16 @@ export default function GoalsScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [goalToDelete, setGoalToDelete] = useState<Goal | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
   // Dashboard store para notificar cambios
   const { onGoalChange, goalChangeTrigger} = useDashboardStore();
+
+  // Subscription store para validar límites
+  const { canCreateGoal, fetchSubscription } = useSubscriptionStore();
 
   useEffect(() => {
     loadGoals();
@@ -98,9 +104,18 @@ export default function GoalsScreen() {
     setShowContributionForm(true);
   };
 
-  const handleContributionAdded = () => {
-    loadGoals(); // Recargar metas después de añadir contribución
-    onGoalChange(); // Notificar al dashboard
+  const handleContributionAdded = (message: string) => {
+    // 1. CERRAR FORMULARIO PRIMERO
+    setShowContributionForm(false);
+    setSelectedGoal(null);
+
+    // 2. Recargar datos
+    loadGoals();
+    onGoalChange();
+
+    // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
   };
 
   const handleDeleteGoal = (goal: Goal) => {
@@ -113,18 +128,29 @@ export default function GoalsScreen() {
 
     try {
       await goalsAPI.delete(goalToDelete.id);
+
+      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
+
+      // Recargar datos
       loadGoals();
       onGoalChange();
-      setSuccessMessage('Meta eliminada correctamente');
-      setShowSuccessModal(true);
+
+      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
+      setTimeout(() => {
+        setSuccessMessage('Meta eliminada correctamente');
+        setShowSuccessModal(true);
+      }, 300);
     } catch (error) {
       console.error('Error deleting goal:', error);
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
-      setErrorMessage('No se pudo eliminar la meta');
-      setShowErrorModal(true);
+
+      setTimeout(() => {
+        setErrorMessage('No se pudo eliminar la meta');
+        setShowErrorModal(true);
+      }, 300);
     }
   };
 
@@ -180,9 +206,15 @@ export default function GoalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Metas de Ahorro</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addButton}
           onPress={() => {
+            // Validar límite de metas
+            if (!canCreateGoal(goals.length)) {
+              // Mostrar modal de upgrade
+              setShowUpgradeModal(true);
+              return;
+            }
             setEditingGoal(null);
             setShowForm(true);
           }}
@@ -388,10 +420,18 @@ export default function GoalsScreen() {
           setShowForm(false);
           setEditingGoal(null);
         }}
-        onSuccess={() => {
+        onSuccess={(message: string) => {
+          // 1. CERRAR FORMULARIO PRIMERO
+          setShowForm(false);
+          setEditingGoal(null);
+
+          // 2. Recargar datos
           loadGoals();
           onGoalChange();
-          setEditingGoal(null);
+
+          // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editGoal={editingGoal}
       />
@@ -443,6 +483,16 @@ export default function GoalsScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Upgrade Modal */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => {
+          setShowUpgradeModal(false);
+          // Refrescar suscripción después de cerrar
+          fetchSubscription();
+        }}
       />
     </SafeAreaView>
   );

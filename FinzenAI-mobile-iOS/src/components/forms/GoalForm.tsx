@@ -48,7 +48,7 @@ interface Goal {
 interface GoalFormProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
   editGoal?: Goal | null;
 }
 
@@ -74,10 +74,18 @@ const GoalForm: React.FC<GoalFormProps> = ({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [goalType, setGoalType] = useState<'percentage' | 'amount'>('percentage');
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  const [originalFormData, setOriginalFormData] = useState<FormData>({
+    name: '',
+    description: '',
+    targetAmount: '',
+    targetDate: '',
+    categoryId: '',
+    priority: 'medium',
+    monthlyTargetPercentage: '',
+    monthlyContributionAmount: ''
+  });
 
   const [formData, setFormData] = useState<FormData>({
     name: '',
@@ -121,7 +129,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
     if (editGoal) {
       const backendDate = editGoal.targetDate ? new Date(editGoal.targetDate).toISOString().split('T')[0] : '';
 
-      setFormData({
+      const initialData = {
         name: editGoal.name,
         description: editGoal.description || '',
         targetAmount: editGoal.targetAmount.toString(),
@@ -130,7 +138,10 @@ const GoalForm: React.FC<GoalFormProps> = ({
         priority: editGoal.priority as 'low' | 'medium' | 'high',
         monthlyTargetPercentage: editGoal.monthlyTargetPercentage?.toString() || '',
         monthlyContributionAmount: editGoal.monthlyContributionAmount?.toString() || ''
-      });
+      };
+
+      setFormData(initialData);
+      setOriginalFormData(initialData); // Guardar valores originales
 
       // Determinar el tipo de meta
       if (editGoal.monthlyTargetPercentage) {
@@ -166,16 +177,33 @@ const GoalForm: React.FC<GoalFormProps> = ({
   };
 
   const resetForm = () => {
-    setFormData({
+    const emptyData = {
       name: '',
       description: '',
       targetAmount: '',
       targetDate: '',
       categoryId: '',
-      priority: 'medium',
+      priority: 'medium' as 'low' | 'medium' | 'high',
       monthlyTargetPercentage: '',
       monthlyContributionAmount: ''
-    });
+    };
+    setFormData(emptyData);
+    setOriginalFormData(emptyData);
+  };
+
+  // Verificar si hay cambios (solo para edición)
+  const hasChanges = () => {
+    if (!editGoal) return true; // Si es nueva meta, siempre habilitar
+    return (
+      formData.name !== originalFormData.name ||
+      formData.description !== originalFormData.description ||
+      formData.targetAmount !== originalFormData.targetAmount ||
+      formData.targetDate !== originalFormData.targetDate ||
+      formData.categoryId !== originalFormData.categoryId ||
+      formData.priority !== originalFormData.priority ||
+      formData.monthlyTargetPercentage !== originalFormData.monthlyTargetPercentage ||
+      formData.monthlyContributionAmount !== originalFormData.monthlyContributionAmount
+    );
   };
 
   // Validar y mostrar advertencias (replicando la web)
@@ -300,14 +328,15 @@ const GoalForm: React.FC<GoalFormProps> = ({
       console.log('✅ Meta guardada exitosamente');
       console.log('📝 Mensaje de éxito:', message);
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
+      // EJECUTAR CALLBACKS INMEDIATAMENTE
       onGoalChange();
-      onSuccess();
 
-      // Configurar mensaje y mostrar modal de éxito
-      setSuccessMessage(message);
-      setShowSuccessModal(true);
-      console.log('🟢 showSuccessModal activado');
+      // Resetear formulario
+      resetForm();
+
+      // Pasar mensaje al Screen (que cerrará formulario y mostrará modal)
+      onSuccess(message);
+      console.log('🟢 onSuccess llamado con mensaje:', message);
     } catch (error: any) {
       console.error('Error al guardar meta:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la meta';
@@ -600,11 +629,11 @@ const GoalForm: React.FC<GoalFormProps> = ({
 
             <LinearGradient
               colors={['#2563EB', '#1d4ed8']}
-              style={[styles.saveButton, loading && styles.disabledButton]}
+              style={[styles.saveButton, (loading || !hasChanges()) && styles.disabledButton]}
             >
               <TouchableOpacity
                 onPress={handleSubmit}
-                disabled={loading}
+                disabled={loading || !hasChanges()}
                 style={styles.saveButtonInner}
               >
                 {loading ? (
@@ -620,22 +649,6 @@ const GoalForm: React.FC<GoalFormProps> = ({
               </TouchableOpacity>
             </LinearGradient>
           </View>
-
-          {/* Modal de éxito */}
-          <CustomModal
-            visible={showSuccessModal}
-            type="success"
-            title="¡Meta guardada!"
-            message={successMessage}
-            buttonText="Continuar"
-            onClose={() => {
-              console.log('👆 Usuario presionó Continuar en modal de éxito');
-              setShowSuccessModal(false);
-              // Los callbacks ya se ejecutaron después de guardar
-              // Solo cerrar el formulario
-              onClose();
-            }}
-          />
 
           {/* Modal de error */}
           <CustomModal

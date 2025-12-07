@@ -29,6 +29,8 @@ import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
 import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
+import SubscriptionsScreen from '../screens/SubscriptionsScreen';
+import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
@@ -40,6 +42,7 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 
 // Stores
 import { useAuthStore } from '../stores/auth';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -251,10 +254,17 @@ function MainNavigator({ route }: any) {
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showProfileModal, setShowProfileModal] = React.useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
+  const [showSubscriptionsModal, setShowSubscriptionsModal] = React.useState(false);
+  const [showPaymentHistory, setShowPaymentHistory] = React.useState(false);
   const [showHelpCenter, setShowHelpCenter] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
+  const [showPlansModal, setShowPlansModal] = React.useState(false);
+  const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
+  const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
+  const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
   const { updateUser, logout } = useAuthStore();
+  const { fetchSubscription } = useSubscriptionStore();
   const insets = useSafeAreaInsets();
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
@@ -267,6 +277,9 @@ function MainNavigator({ route }: any) {
 
         if (shouldOpen === 'true') {
           console.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
+
+          // Marcar que viene del tutorial para mostrar planes después
+          setCameFromTutorial(true);
 
           // Limpiar el flag PRIMERO
           await AsyncStorage.removeItem('openHelpCenterAfterOnboarding');
@@ -286,6 +299,20 @@ function MainNavigator({ route }: any) {
 
     checkOpenHelpCenter();
   }, []);
+
+  const handleCloseHelpCenter = () => {
+    console.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
+    setShowHelpCenter(false);
+
+    // Si viene del tutorial, mostrar modal de planes
+    if (cameFromTutorial) {
+      console.log('🎁 Mostrando modal de planes después del tutorial');
+      setTimeout(() => {
+        setShowPlansModal(true);
+      }, 500); // Pequeño delay para mejor UX
+      setCameFromTutorial(false); // Reset flag
+    }
+  };
 
   const UserMenuModal = () => (
     <Modal
@@ -381,6 +408,22 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setShowSubscriptionsModal(true);
+              }}
+            >
+              <Ionicons name="card-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Suscripciones</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
                 setShowHelpCenter(true);
               }}
             >
@@ -431,15 +474,21 @@ function MainNavigator({ route }: any) {
           visible={showProfileModal}
           user={profileData}
           onClose={() => setShowProfileModal(false)}
-          onProfileUpdated={async () => {
+          onProfileUpdated={async (message: string) => {
+            // 1. CERRAR FORMULARIO PRIMERO
             setShowProfileModal(false);
-            // Recargar usuario global
+
+            // 2. Recargar usuario global
             try {
               const res = await api.get('/auth/profile');
               updateUser(res.data);
             } catch (e) {
               console.error('Error updating user profile:', e);
             }
+
+            // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
+            setProfileSuccessMessage(message);
+            setShowProfileSuccessModal(true);
           }}
         />
       )}
@@ -450,15 +499,67 @@ function MainNavigator({ route }: any) {
         onClose={() => setShowChangePasswordModal(false)}
       />
 
+      {/* Subscriptions Modal */}
+      <Modal
+        visible={showSubscriptionsModal}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowSubscriptionsModal(false)}
+      >
+        <SubscriptionsScreen
+          onClose={() => setShowSubscriptionsModal(false)}
+          onViewPayments={() => {
+            setShowSubscriptionsModal(false);
+            setTimeout(() => setShowPaymentHistory(true), 300);
+          }}
+        />
+      </Modal>
+
+      {/* Payment History Modal */}
+      <Modal
+        visible={showPaymentHistory}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowPaymentHistory(false)}
+      >
+        <PaymentHistoryScreen onClose={() => setShowPaymentHistory(false)} />
+      </Modal>
+
       {/* Help Center Modal */}
       <Modal
         visible={showHelpCenter}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowHelpCenter(false)}
+        onRequestClose={handleCloseHelpCenter}
       >
-        <HelpCenterScreen onClose={() => setShowHelpCenter(false)} />
+        <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
+
+      {/* Plans Modal after Tutorial */}
+      <CustomModal
+        visible={showPlansModal}
+        type="success"
+        title="🎉 ¡Ahora que conoces FinZen AI!"
+        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Reportes avanzados con IA\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
+        buttonText="Ver Planes Premium 👑"
+        showSecondaryButton={true}
+        secondaryButtonText="Empezar con Gratis"
+        onClose={() => {
+          setShowPlansModal(false);
+          setShowSubscriptionsModal(true);
+        }}
+        onSecondaryPress={() => setShowPlansModal(false)}
+      />
+
+      {/* Profile Success Modal */}
+      <CustomModal
+        visible={showProfileSuccessModal}
+        type="success"
+        title="¡Perfil actualizado!"
+        message={profileSuccessMessage}
+        buttonText="Continuar"
+        onClose={() => setShowProfileSuccessModal(false)}
+      />
 
       {/* Logout Confirmation Modal */}
       <CustomModal
