@@ -10,6 +10,7 @@ import {
   SubscriptionPlan,
   CheckoutSessionResponse,
   CancelSubscriptionResponse,
+  ZenioUsage,
 } from '../types/subscription';
 
 interface SubscriptionState {
@@ -42,6 +43,8 @@ interface SubscriptionState {
   isPremiumPlan: () => boolean;
   isProPlan: () => boolean;
   getPlanLimits: () => Subscription['limits'] | null;
+  getZenioUsage: () => ZenioUsage;
+  updateZenioUsage: (usage: ZenioUsage) => void;
 
   // Reset
   reset: () => void;
@@ -256,6 +259,25 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   getPlanLimits: () => {
     const subscription = get().subscription;
     return subscription?.limits || null;
+  },
+
+  // Obtener uso actual de Zenio
+  getZenioUsage: (): ZenioUsage => {
+    const subscription = get().subscription;
+    return subscription?.zenioUsage || { used: 0, limit: 10, remaining: 10 };
+  },
+
+  // Actualizar uso de Zenio (después de cada consulta)
+  updateZenioUsage: (usage: ZenioUsage) => {
+    const subscription = get().subscription;
+    if (subscription) {
+      set({
+        subscription: {
+          ...subscription,
+          zenioUsage: usage,
+        },
+      });
+    }
   },
 
   // Reset del store

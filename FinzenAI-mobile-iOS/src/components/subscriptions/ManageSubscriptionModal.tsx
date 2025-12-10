@@ -34,24 +34,24 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
 
   const handleCancelSubscription = () => {
     Alert.alert(
-      'Cancel Subscription',
-      `Are you sure you want to cancel your ${subscription.plan} subscription?\n\nYou'll continue to have access until ${new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}.`,
+      'Cancelar Suscripción',
+      `¿Estás seguro que deseas cancelar tu suscripción ${subscription.plan}?\n\nTendrás acceso hasta ${new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}.`,
       [
-        { text: 'Keep Subscription', style: 'cancel' },
+        { text: 'Mantener', style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: 'Sí, Cancelar',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
             try {
               await cancelSubscription();
               Alert.alert(
-                'Subscription Canceled',
-                'Your subscription has been canceled. You will have access until the end of the billing period.'
+                'Suscripción Cancelada',
+                'Tu suscripción ha sido cancelada. Tendrás acceso hasta el final del período de facturación.'
               );
               onClose();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Could not cancel subscription');
+              Alert.alert('Error', error.message || 'No se pudo cancelar la suscripción');
             } finally {
               setLoading(false);
             }
@@ -66,12 +66,12 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
     try {
       await reactivateSubscription();
       Alert.alert(
-        'Subscription Reactivated',
-        'Your subscription has been reactivated successfully!'
+        'Suscripción Reactivada',
+        '¡Tu suscripción ha sido reactivada exitosamente!'
       );
       onClose();
     } catch (error: any) {
-      Alert.alert('Error', error.message || 'Could not reactivate subscription');
+      Alert.alert('Error', error.message || 'No se pudo reactivar la suscripción');
     } finally {
       setLoading(false);
     }
@@ -82,23 +82,23 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
     const targetPrice = isPremium ? '$19.99' : '$9.99';
 
     Alert.alert(
-      'Change Plan',
-      `Do you want to ${isPremium ? 'upgrade' : 'downgrade'} to ${targetPlan}?\n\nNew price: ${targetPrice}/month\n\nThe change will be prorated and applied immediately.`,
+      'Cambiar Plan',
+      `¿Deseas ${isPremium ? 'mejorar' : 'cambiar'} a ${targetPlan}?\n\nNuevo precio: ${targetPrice}/mes\n\nEl cambio se aplicará de inmediato con prorrateo.`,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Yes, Change Plan',
+          text: 'Sí, Cambiar',
           onPress: async () => {
             setLoading(true);
             try {
               await changePlan(targetPlan);
               Alert.alert(
-                'Plan Changed',
-                `Your plan has been changed to ${targetPlan} successfully!`
+                'Plan Cambiado',
+                `¡Tu plan ha sido cambiado a ${targetPlan} exitosamente!`
               );
               onClose();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Could not change plan');
+              Alert.alert('Error', error.message || 'No se pudo cambiar el plan');
             } finally {
               setLoading(false);
             }
@@ -121,31 +121,31 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={28} color="#1F2937" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Manage Subscription</Text>
+          <Text style={styles.headerTitle}>Gestionar Suscripción</Text>
           <View style={styles.placeholder} />
         </View>
 
         <ScrollView style={styles.content}>
           {/* Current Plan Info */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Current Plan</Text>
+            <Text style={styles.sectionTitle}>Plan Actual</Text>
             <View style={styles.planBox}>
               <View style={styles.planHeader}>
                 <Text style={styles.planName}>{subscription.plan}</Text>
                 <Text style={styles.planPrice}>
-                  ${subscription.planDetails.price.toFixed(2)}/month
+                  ${subscription.planDetails.price.toFixed(2)}/mes
                 </Text>
               </View>
               <Text style={styles.planStatus}>
-                Status: {subscription.status}
-                {isCanceled && ' (Canceling at period end)'}
+                Estado: {subscription.status}
+                {isCanceled && ' (Se cancelará al final del período)'}
               </Text>
             </View>
           </View>
 
           {/* Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Actions</Text>
+            <Text style={styles.sectionTitle}>Acciones</Text>
 
             {/* Change Plan */}
             <TouchableOpacity
@@ -157,10 +157,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                 <Ionicons name="swap-horizontal" size={24} color="#6C47FF" />
                 <View>
                   <Text style={styles.actionTitle}>
-                    {isPremium ? 'Upgrade to Pro' : 'Downgrade to Premium'}
+                    {isPremium ? 'Mejorar a Pro' : 'Cambiar a Premium'}
                   </Text>
                   <Text style={styles.actionSubtitle}>
-                    {isPremium ? '$19.99/month' : '$9.99/month'} • Prorated billing
+                    {isPremium ? '$19.99/mes' : '$9.99/mes'} • Prorrateo
                   </Text>
                 </View>
               </View>
@@ -178,10 +178,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                   <Ionicons name="refresh" size={24} color="#10B981" />
                   <View>
                     <Text style={[styles.actionTitle, { color: '#10B981' }]}>
-                      Reactivate Subscription
+                      Reactivar Suscripción
                     </Text>
                     <Text style={styles.actionSubtitle}>
-                      Resume your subscription now
+                      Reanuda tu suscripción ahora
                     </Text>
                   </View>
                 </View>
@@ -197,10 +197,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                   <Ionicons name="close-circle" size={24} color="#EF4444" />
                   <View>
                     <Text style={[styles.actionTitle, { color: '#EF4444' }]}>
-                      Cancel Subscription
+                      Cancelar Suscripción
                     </Text>
                     <Text style={styles.actionSubtitle}>
-                      Access until {new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}
+                      Acceso hasta {new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}
                     </Text>
                   </View>
                 </View>
@@ -213,8 +213,8 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={20} color="#6C47FF" />
             <Text style={styles.infoText}>
-              Changes to your subscription take effect immediately. You can cancel
-              at any time and will have access until the end of your billing period.
+              Los cambios en tu suscripción se aplican de inmediato. Puedes cancelar
+              en cualquier momento y tendrás acceso hasta el final de tu período de facturación.
             </Text>
           </View>
         </ScrollView>
@@ -224,7 +224,7 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#6C47FF" />
-              <Text style={styles.loadingText}>Processing...</Text>
+              <Text style={styles.loadingText}>Procesando...</Text>
             </View>
           </View>
         )}

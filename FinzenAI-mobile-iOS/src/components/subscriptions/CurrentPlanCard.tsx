@@ -48,7 +48,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
         <View style={styles.headerLeft}>
           <Text style={styles.icon}>{colors.icon}</Text>
           <View>
-            <Text style={styles.label}>Current Plan</Text>
+            <Text style={styles.label}>Plan Actual</Text>
             <Text style={[styles.planName, { color: colors.primary }]}>
               {subscription.planDetails.name}
             </Text>
@@ -67,7 +67,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
           <Text style={styles.price}>
             ${subscription.planDetails.price.toFixed(2)}
           </Text>
-          <Text style={styles.period}>/month</Text>
+          <Text style={styles.period}>/mes</Text>
         </View>
       )}
 
@@ -76,7 +76,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
         <View style={styles.infoContainer}>
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-            <Text style={styles.infoLabel}>Next billing date:</Text>
+            <Text style={styles.infoLabel}>Próxima facturación:</Text>
             <Text style={styles.infoValue}>
               {formatDate(subscription.currentPeriodEnd)}
             </Text>
@@ -86,7 +86,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             <View style={styles.warningBox}>
               <Ionicons name="warning-outline" size={18} color="#F59E0B" />
               <Text style={styles.warningText}>
-                Your subscription will end on {formatDate(subscription.currentPeriodEnd)}
+                Tu suscripción terminará el {formatDate(subscription.currentPeriodEnd)}
               </Text>
             </View>
           )}
@@ -95,18 +95,18 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
       {/* Limits Summary */}
       <View style={styles.limitsContainer}>
-        <Text style={styles.limitsTitle}>Your Limits:</Text>
+        <Text style={styles.limitsTitle}>Tus Límites:</Text>
         <View style={styles.limitsGrid}>
           <View style={styles.limitItem}>
             <Ionicons name="wallet" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.budgets === -1 ? '∞' : subscription.limits.budgets} Budgets
+              {subscription.limits.budgets === -1 ? '∞' : subscription.limits.budgets} Presupuestos
             </Text>
           </View>
           <View style={styles.limitItem}>
             <Ionicons name="trophy" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.goals === -1 ? '∞' : subscription.limits.goals} Goals
+              {subscription.limits.goals === -1 ? '∞' : subscription.limits.goals} Metas
             </Text>
           </View>
           <View style={styles.limitItem}>
@@ -128,7 +128,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             >
               <Ionicons name="settings-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-                Manage Subscription
+                Gestionar
               </Text>
             </TouchableOpacity>
 
@@ -138,7 +138,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             >
               <Ionicons name="receipt-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-                Payment History
+                Historial
               </Text>
             </TouchableOpacity>
           </>
@@ -146,7 +146,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
         {isFree && (
           <Text style={styles.freeMessage}>
-            Upgrade to unlock unlimited access and premium features
+            Mejora tu plan para desbloquear acceso ilimitado y funciones premium
           </Text>
         )}
       </View>

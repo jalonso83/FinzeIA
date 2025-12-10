@@ -200,7 +200,7 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
       type: 'warning',
       title: 'Cerrar Pago',
       message: '¿Estás seguro que deseas cancelar este pago?',
-      buttonText: 'Cancelar',
+      buttonText: 'Sí, Salir',
       showSecondaryButton: true,
       secondaryButtonText: 'Continuar',
       onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),

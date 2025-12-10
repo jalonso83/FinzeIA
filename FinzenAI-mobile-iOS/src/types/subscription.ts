@@ -42,6 +42,12 @@ export interface PlanDetails {
   features: string[];
 }
 
+export interface ZenioUsage {
+  used: number;
+  limit: number; // -1 = unlimited
+  remaining: number; // -1 = unlimited
+}
+
 export interface Subscription {
   id: string;
   userId: string;
@@ -59,6 +65,7 @@ export interface Subscription {
   limits: PlanLimits;
   features: string[];
   planDetails: PlanDetails;
+  zenioUsage: ZenioUsage;
 }
 
 export interface Payment {

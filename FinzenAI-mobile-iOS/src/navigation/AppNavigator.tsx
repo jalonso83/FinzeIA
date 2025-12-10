@@ -529,7 +529,8 @@ function MainNavigator({ route }: any) {
       <Modal
         visible={showHelpCenter}
         animationType="slide"
-        presentationStyle="pageSheet"
+        presentationStyle="fullScreen"
+        statusBarTranslucent={false}
         onRequestClose={handleCloseHelpCenter}
       >
         <HelpCenterScreen onClose={handleCloseHelpCenter} />
@@ -540,10 +541,10 @@ function MainNavigator({ route }: any) {
         visible={showPlansModal}
         type="success"
         title="🎉 ¡Ahora que conoces FinZen AI!"
-        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Reportes avanzados con IA\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
-        buttonText="Ver Planes Premium 👑"
+        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Acceso a reportes\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
+        buttonText="Ver Premium 👑"
         showSecondaryButton={true}
-        secondaryButtonText="Empezar con Gratis"
+        secondaryButtonText="Gratis"
         onClose={() => {
           setShowPlansModal(false);
           setShowSubscriptionsModal(true);

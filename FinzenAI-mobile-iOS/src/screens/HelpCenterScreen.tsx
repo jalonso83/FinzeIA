@@ -7,6 +7,7 @@ import {
   TextInput,
   StyleSheet,
   ActivityIndicator,
+  StatusBar,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -95,7 +96,8 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
 
   return (
     <>
-    <SafeAreaView style={styles.container} edges={['top']}>
+    <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>

@@ -172,7 +172,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                  <Text style={styles.featureText}>Reportes avanzados con IA</Text>
+                  <Text style={styles.featureText}>Acceso a reportes</Text>
                 </View>
                 <View style={styles.featureRow}>
                   <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
