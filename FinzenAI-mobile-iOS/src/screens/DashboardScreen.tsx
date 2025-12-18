@@ -505,7 +505,7 @@ export default function DashboardScreen() {
             {!subscription || subscription.plan === 'FREE' ? '🆓' : subscription.plan === 'PREMIUM' ? '👑' : '💎'}
           </Text>
           <Text style={styles.planBadgeText}>
-            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan}
+            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan === 'PREMIUM' ? 'Plan Premium' : 'Plan Pro'}
           </Text>
           <Ionicons name="chevron-forward" size={16} color="#6B7280" />
         </TouchableOpacity>
@@ -1179,7 +1179,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   loadingContainer: {

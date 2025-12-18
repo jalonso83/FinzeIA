@@ -59,7 +59,57 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
       onCancel();
       return;
     }
+
+    // Detectar cuando Stripe cierra la ventana (X dentro del checkout)
+    // Stripe redirige a la URL base o a about:blank cuando se cierra
+    if (url === 'about:blank' || url.includes('checkout.stripe.com/canceled')) {
+      console.log('❌ Stripe checkout closed by user');
+      setLoading(false);
+      onCancel();
+      return;
+    }
   };
+
+  // Manejar mensajes desde Stripe (para detectar el cierre del checkout)
+  const handleMessage = (event: any) => {
+    try {
+      const data = JSON.parse(event.nativeEvent.data);
+      console.log('📩 Message from WebView:', data);
+
+      if (data.type === 'checkout_closed' || data.action === 'close') {
+        console.log('❌ Checkout closed via message');
+        setLoading(false);
+        onCancel();
+      }
+    } catch (e) {
+      // No es JSON, ignorar
+    }
+  };
+
+  // Script para interceptar el cierre del checkout de Stripe
+  const injectedJavaScript = `
+    (function() {
+      // Interceptar clicks en el botón X de Stripe
+      document.addEventListener('click', function(e) {
+        const target = e.target;
+        // Stripe usa varios selectores para el botón de cerrar
+        if (target.closest('[data-testid="hosted-payment-cancel-button"]') ||
+            target.closest('.CloseButton') ||
+            target.closest('[aria-label="Close"]') ||
+            target.closest('[aria-label="Cerrar"]')) {
+          window.ReactNativeWebView.postMessage(JSON.stringify({type: 'checkout_closed'}));
+        }
+      }, true);
+
+      // Detectar si window.close es llamado
+      const originalClose = window.close;
+      window.close = function() {
+        window.ReactNativeWebView.postMessage(JSON.stringify({type: 'checkout_closed'}));
+        return originalClose.apply(this, arguments);
+      };
+    })();
+    true;
+  `;
 
   return (
     <Modal
@@ -93,6 +143,8 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={handleNavigationStateChange}
+          onMessage={handleMessage}
+          injectedJavaScript={injectedJavaScript}
           startInLoadingState={true}
           javaScriptEnabled={true}
           domStorageEnabled={true}

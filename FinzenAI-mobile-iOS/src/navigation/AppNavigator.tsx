@@ -1,7 +1,7 @@
 // Navegación principal de la app móvil FinZen
 // Configuración multiplataforma (Android + iOS)
 
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavigationContainer } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
@@ -31,6 +31,10 @@ import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
+import EmailSyncScreen from '../screens/EmailSyncScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import NotificationBell from '../components/NotificationBell';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
@@ -43,6 +47,14 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 // Stores
 import { useAuthStore } from '../stores/auth';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { useDashboardStore } from '../stores/dashboard';
+import { useNotificationStore } from '../stores/notificationStore';
+
+// Services
+import notificationService from '../services/notificationService';
+
+// Hooks
+import { useBiometric } from '../hooks/useBiometric';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -76,11 +88,16 @@ function ToolsStackNavigator() {
 }
 
 // Navegación principal con tabs
-function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean) => void }) {
+function MainTabNavigator({
+  setShowUserMenu,
+  setShowNotifications
+}: {
+  setShowUserMenu: (show: boolean) => void;
+  setShowNotifications: (show: boolean) => void;
+}) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
 
-  
   return (
     <Tab.Navigator
       screenOptions={({ route }) => ({
@@ -131,15 +148,34 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
           shadowOpacity: 0.08,
           shadowRadius: 2,
           elevation: 1,
-          height: Platform.OS === 'ios' ? Math.max(110 + insets.top, 120) : 80,
+          height: Math.max(110 + insets.top, 120),
         },
         headerRight: route.name === 'Dashboard' ? () => (
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
-            marginRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
-            marginTop: Platform.OS === 'ios' ? Math.max(insets.top - 20, 0) : 0,
+            marginRight: Math.max(insets.right + 12, 20),
+            marginTop: Math.max(insets.top - 20, 0),
+            gap: 8,
           }}>
+            {/* Notification Bell */}
+            <View style={{
+              backgroundColor: '#f8fafc',
+              borderRadius: 20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 2,
+              marginBottom: 20,
+            }}>
+              <NotificationBell
+                onPress={() => setShowNotifications(true)}
+                size={22}
+                color="#374151"
+              />
+            </View>
+            {/* User Menu Button */}
             <TouchableOpacity
               onPress={() => setShowUserMenu(true)}
               style={{
@@ -156,7 +192,7 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
                 shadowOpacity: 0.15,
                 shadowRadius: 4,
                 elevation: 3,
-                marginBottom: Platform.OS === 'ios' ? 20 : 8,
+                marginBottom: 20,
               }}
             >
               <View style={{
@@ -235,15 +271,14 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
         component={ToolsStackNavigator}
         options={{
           tabBarLabel: 'Más',
-          tabBarItemStyle: { flex: 1 }
+          tabBarItemStyle: { flex: 1 },
+          tabBarButton: (props) => (
+            <UtilitiesMenu
+              color={props.accessibilityState?.selected ? '#2563EB' : 'gray'}
+              focused={props.accessibilityState?.selected || false}
+            />
+          ),
         }}
-        listeners={({ navigation, route }) => ({
-          tabPress: (e) => {
-            // Prevenir la navegación por defecto
-            e.preventDefault();
-            // El UtilitiesMenu manejará la apertura del modal
-          },
-        })}
       />
     </Tab.Navigator>
   );
@@ -263,8 +298,16 @@ function MainNavigator({ route }: any) {
   const [profileData, setProfileData] = React.useState(null);
   const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
-  const { updateUser, logout } = useAuthStore();
+  const [showBiometricModal, setShowBiometricModal] = React.useState(false);
+  const [storedBiometricType, setStoredBiometricType] = React.useState('');
+  // New states for Email Sync and Notifications
+  const [showEmailSync, setShowEmailSync] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
+  const { updateUser, logout, user, saveBiometricCredentials } = useAuthStore();
   const { fetchSubscription } = useSubscriptionStore();
+  const { onTransactionChange } = useDashboardStore();
+  const { enable, refresh } = useBiometric();
   const insets = useSafeAreaInsets();
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
@@ -300,6 +343,90 @@ function MainNavigator({ route }: any) {
     checkOpenHelpCenter();
   }, []);
 
+  // Verificar si hay un setup pendiente de biometría
+  React.useEffect(() => {
+    const checkPendingBiometricSetup = async () => {
+      try {
+        // Pequeño delay para asegurar que la navegación y otros modales se completen primero
+        await new Promise(resolve => setTimeout(resolve, 800));
+
+        const pending = await AsyncStorage.getItem('pendingBiometricSetup');
+        const bioType = await AsyncStorage.getItem('biometricType');
+
+        if (pending === 'true') {
+          console.log('🔔 Detectado setup pendiente de biometría');
+          setStoredBiometricType(bioType || 'Face ID');
+
+          // Limpiar el flag ANTES de mostrar el modal
+          await AsyncStorage.removeItem('pendingBiometricSetup');
+
+          // Mostrar modal solo si no hay otros modales abiertos
+          if (!showHelpCenter && !showUserMenu && !showProfileModal && !showPlansModal) {
+            setShowBiometricModal(true);
+          }
+        }
+      } catch (error) {
+        console.error('Error verificando pending biometric setup:', error);
+      }
+    };
+
+    checkPendingBiometricSetup();
+  }, []);
+
+  // Initialize push notifications when user is authenticated
+  React.useEffect(() => {
+    const initializeNotifications = async () => {
+      try {
+        console.log('🔔 Inicializando servicio de notificaciones...');
+        await notificationService.initialize();
+        console.log('✅ Servicio de notificaciones inicializado');
+      } catch (error) {
+        console.error('❌ Error inicializando notificaciones:', error);
+      }
+    };
+
+    if (user) {
+      initializeNotifications();
+    }
+
+    return () => {
+      // Cleanup listeners when component unmounts
+      notificationService.removeListeners();
+    };
+  }, [user]);
+
+  const handleEnableBiometric = async () => {
+    try {
+      console.log('🔐 Usuario aceptó configurar biometría desde MainNavigator');
+      await enable();
+      console.log('✅ Biometría habilitada exitosamente');
+
+      if (user) {
+        const token = await AsyncStorage.getItem('token');
+        if (token) {
+          await saveBiometricCredentials(user, token);
+          console.log('🔐 Credenciales guardadas en SecureStore');
+        }
+      }
+
+      await refresh();
+      setShowBiometricModal(false);
+
+      // Mostrar alerta de éxito
+      Alert.alert(
+        '¡Listo!',
+        `${storedBiometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`
+      );
+    } catch (error) {
+      console.error('❌ Error configurando biometría:', error);
+      setShowBiometricModal(false);
+      Alert.alert(
+        'Error',
+        'No se pudo configurar la biometría. Intenta desde tu perfil.'
+      );
+    }
+  };
+
   const handleCloseHelpCenter = () => {
     console.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
     setShowHelpCenter(false);
@@ -329,8 +456,8 @@ function MainNavigator({ route }: any) {
           backgroundColor: 'rgba(0,0,0,0.5)',
           justifyContent: 'flex-start',
           alignItems: 'flex-end',
-          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top + 80, 120) : 90,
-          paddingRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
+          paddingTop: Platform.OS === 'ios' ? Math.max(insets.top + 50, 100) : 60,
+          paddingRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 16) : 12,
         }}
         activeOpacity={1}
         onPress={() => setShowUserMenu(false)}
@@ -424,6 +551,38 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setShowEmailSync(true);
+              }}
+            >
+              <Ionicons name="mail-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Email Bancario</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowNotificationSettings(true);
+              }}
+            >
+              <Ionicons name="notifications-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Notificaciones</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
                 setShowHelpCenter(true);
               }}
             >
@@ -459,7 +618,7 @@ function MainNavigator({ route }: any) {
     <React.Fragment>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main">
-          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} />}
+          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} setShowNotifications={setShowNotifications} />}
         </Stack.Screen>
       </Stack.Navigator>
       
@@ -467,7 +626,7 @@ function MainNavigator({ route }: any) {
       <ZenioFloatingButton />
       
       <UserMenuModal />
-      
+
       {/* Profile Modal */}
       {showProfileModal && profileData && (
         <ProfileForm
@@ -536,6 +695,48 @@ function MainNavigator({ route }: any) {
         <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
 
+      {/* Email Sync Modal */}
+      <Modal
+        visible={showEmailSync}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowEmailSync(false)}
+      >
+        <EmailSyncScreen
+          onClose={() => {
+            setShowEmailSync(false);
+            // Refresh dashboard data after email sync
+            onTransactionChange?.();
+          }}
+        />
+      </Modal>
+
+      {/* Notifications Modal */}
+      <Modal
+        visible={showNotifications}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <NotificationsScreen
+          onClose={() => setShowNotifications(false)}
+          onOpenSettings={() => {
+            setShowNotifications(false);
+            setTimeout(() => setShowNotificationSettings(true), 300);
+          }}
+        />
+      </Modal>
+
+      {/* Notification Settings Modal */}
+      <Modal
+        visible={showNotificationSettings}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotificationSettings(false)}
+      >
+        <NotificationSettingsScreen onClose={() => setShowNotificationSettings(false)} />
+      </Modal>
+
       {/* Plans Modal after Tutorial */}
       <CustomModal
         visible={showPlansModal}
@@ -560,6 +761,19 @@ function MainNavigator({ route }: any) {
         message={profileSuccessMessage}
         buttonText="Continuar"
         onClose={() => setShowProfileSuccessModal(false)}
+      />
+
+      {/* Biometric Setup Modal */}
+      <CustomModal
+        visible={showBiometricModal}
+        type="info"
+        title={`¿Usar ${storedBiometricType}?`}
+        message={`¿Quieres usar ${storedBiometricType} para iniciar sesión más rápido en el futuro?`}
+        buttonText="Sí, activar"
+        showSecondaryButton={true}
+        secondaryButtonText="No, gracias"
+        onSecondaryPress={() => setShowBiometricModal(false)}
+        onClose={handleEnableBiometric}
       />
 
       {/* Logout Confirmation Modal */}

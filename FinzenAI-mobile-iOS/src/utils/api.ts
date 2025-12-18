@@ -73,6 +73,12 @@ api.interceptors.request.use(
   }
 );
 
+// Endpoints que NO deben causar logout automático en 401
+const SKIP_LOGOUT_ENDPOINTS = [
+  '/email-sync/status',
+  '/email-sync/gmail/auth-url',
+];
+
 // Interceptor para manejar respuestas
 api.interceptors.response.use(
   (response: AxiosResponse) => {
@@ -80,18 +86,26 @@ api.interceptors.response.use(
     return response;
   },
   async (error) => {
-    console.log('❌ API ERROR:', error.config?.url);
+    const url = error.config?.url || '';
+    console.log('❌ API ERROR:', url);
     console.log('Error details:', error.message);
     console.log('Response status:', error.response?.status);
     console.log('Response data:', error.response?.data);
-    
+
     // Manejar errores de autenticación
     if (error.response?.status === 401) {
-      // Limpiar token y forzar logout
-      await removeToken();
-      console.log('Token inválido, limpiando almacenamiento...');
+      // Verificar si es un endpoint que no debe causar logout
+      const shouldSkipLogout = SKIP_LOGOUT_ENDPOINTS.some(endpoint => url.includes(endpoint));
+
+      if (!shouldSkipLogout) {
+        // Limpiar token y forzar logout solo para endpoints críticos
+        await removeToken();
+        console.log('Token inválido, limpiando almacenamiento...');
+      } else {
+        console.log('401 en endpoint no crítico, no se hace logout');
+      }
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -246,11 +260,27 @@ export const goalsAPI = {
 
 // API de Zenio (chat AI)
 export const zenioAPI = {
-  chat: (message: string, threadId?: string, isOnboarding?: boolean) => 
+  chat: (message: string, threadId?: string, isOnboarding?: boolean) =>
     api.post('/zenio/chat', { message, threadId, isOnboarding }),
-  
-  updateOnboardingStatus: (completed: boolean) => 
+
+  updateOnboardingStatus: (completed: boolean) =>
     api.put('/auth/onboarding-status', { onboardingCompleted: completed }),
+};
+
+// API de Detective de Gastos Hormiga
+export const antExpenseAPI = {
+  // Obtener configuración y opciones disponibles
+  getConfig: () =>
+    api.get('/zenio/ant-expense-config'),
+
+  // Analizar gastos hormiga con parámetros configurables
+  analyze: (params?: {
+    antThreshold?: number;
+    minFrequency?: number;
+    monthsToAnalyze?: number;
+    useAI?: boolean;
+  }) =>
+    api.get('/zenio/ant-expense-analysis', { params }),
 };
 
 // API de reportes
@@ -300,6 +330,57 @@ export const subscriptionsAPI = {
   // Verificar estado de sesión de checkout (requiere auth)
   checkCheckoutSession: (sessionId: string) =>
     api.get(`/subscriptions/checkout/${sessionId}`),
+};
+
+// API de notificaciones push
+export const notificationsAPI = {
+  // Registrar dispositivo
+  registerDevice: (data: {
+    fcmToken: string;
+    platform: 'ANDROID' | 'IOS';
+    deviceName?: string;
+    appVersion?: string;
+  }) => api.post('/notifications/device', data),
+
+  // Desregistrar dispositivo
+  unregisterDevice: (fcmToken: string) =>
+    api.delete('/notifications/device', { data: { fcmToken } }),
+
+  // Obtener preferencias
+  getPreferences: () =>
+    api.get('/notifications/preferences'),
+
+  // Actualizar preferencias
+  updatePreferences: (preferences: {
+    emailSyncEnabled?: boolean;
+    budgetAlertsEnabled?: boolean;
+    goalRemindersEnabled?: boolean;
+    weeklyReportEnabled?: boolean;
+    tipsEnabled?: boolean;
+    budgetAlertThreshold?: number;
+    quietHoursStart?: number | null;
+    quietHoursEnd?: number | null;
+  }) => api.put('/notifications/preferences', preferences),
+
+  // Obtener historial
+  getHistory: (limit: number = 50) =>
+    api.get(`/notifications/history?limit=${limit}`),
+
+  // Marcar como leída
+  markAsRead: (notificationId: string) =>
+    api.put(`/notifications/${notificationId}/read`),
+
+  // Eliminar una notificación
+  delete: (notificationId: string) =>
+    api.delete(`/notifications/${notificationId}`),
+
+  // Eliminar todas las notificaciones
+  deleteAll: () =>
+    api.delete('/notifications/all'),
+
+  // Enviar notificación de prueba (solo desarrollo)
+  sendTest: () =>
+    api.post('/notifications/test'),
 };
 
 export default api;

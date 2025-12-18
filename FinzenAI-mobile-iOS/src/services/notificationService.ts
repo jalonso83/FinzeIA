@@ -1,0 +1,355 @@
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import { Platform } from 'react-native';
+import Constants from 'expo-constants';
+import api from '../utils/api';
+
+// Configurar cómo se muestran las notificaciones cuando la app está en primer plano
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldPlaySound: true,
+    shouldSetBadge: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+  }),
+});
+
+export interface NotificationPreferences {
+  emailSyncEnabled: boolean;
+  budgetAlertsEnabled: boolean;
+  goalRemindersEnabled: boolean;
+  weeklyReportEnabled: boolean;
+  tipsEnabled: boolean;
+  budgetAlertThreshold: number;
+  quietHoursStart: number | null;
+  quietHoursEnd: number | null;
+}
+
+export interface NotificationHistoryItem {
+  id: string;
+  type: string;
+  title: string;
+  body: string;
+  data: Record<string, any> | null;
+  status: string;
+  sentAt: string | null;
+  readAt: string | null;
+  createdAt: string;
+}
+
+class NotificationService {
+  private pushToken: string | null = null;
+  private notificationListener: Notifications.Subscription | null = null;
+  private responseListener: Notifications.Subscription | null = null;
+
+  /**
+   * Inicializa el servicio de notificaciones
+   * Debe llamarse al iniciar la app o después del login
+   */
+  async initialize(): Promise<string | null> {
+    try {
+      // Verificar si estamos en un dispositivo físico
+      if (!Device.isDevice) {
+        console.log('[NotificationService] Notificaciones no disponibles en simulador');
+        return null;
+      }
+
+      // Solicitar permisos
+      const { status: existingStatus } = await Notifications.getPermissionsAsync();
+      let finalStatus = existingStatus;
+
+      if (existingStatus !== 'granted') {
+        const { status } = await Notifications.requestPermissionsAsync();
+        finalStatus = status;
+      }
+
+      if (finalStatus !== 'granted') {
+        console.log('[NotificationService] Permiso de notificaciones denegado');
+        return null;
+      }
+
+      // Configurar canal de Android (no aplica para iOS pero no causa error)
+      if (Platform.OS === 'android') {
+        await Notifications.setNotificationChannelAsync('finzenai_notifications', {
+          name: 'FinZenAI',
+          importance: Notifications.AndroidImportance.HIGH,
+          vibrationPattern: [0, 250, 250, 250],
+          lightColor: '#10B981',
+          sound: 'default',
+        });
+      }
+
+      // Obtener token de push
+      const token = await this.getExpoPushToken();
+      this.pushToken = token;
+
+      console.log('[NotificationService] Token obtenido:', token);
+      return token;
+
+    } catch (error) {
+      console.error('[NotificationService] Error inicializando:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene el token de Expo Push
+   */
+  private async getExpoPushToken(): Promise<string | null> {
+    try {
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+
+      if (!projectId) {
+        console.warn('[NotificationService] No project ID found');
+        // Intentar obtener token FCM directamente
+        const { data } = await Notifications.getDevicePushTokenAsync();
+        return data;
+      }
+
+      const { data } = await Notifications.getExpoPushTokenAsync({
+        projectId,
+      });
+
+      return data;
+    } catch (error) {
+      console.error('[NotificationService] Error obteniendo token:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Registra el dispositivo en el backend
+   */
+  async registerDevice(deviceName?: string, appVersion?: string): Promise<boolean> {
+    try {
+      if (!this.pushToken) {
+        await this.initialize();
+      }
+
+      if (!this.pushToken) {
+        console.log('[NotificationService] No hay token disponible para registrar');
+        return false;
+      }
+
+      const response = await api.post('/notifications/device', {
+        fcmToken: this.pushToken,
+        platform: Platform.OS === 'ios' ? 'IOS' : 'ANDROID',
+        deviceName: deviceName || Device.modelName || 'Unknown Device',
+        appVersion: appVersion || Constants.expoConfig?.version || '1.0.0',
+      });
+
+      console.log('[NotificationService] Dispositivo registrado:', response.data);
+      return response.data?.success === true;
+
+    } catch (error: any) {
+      console.error('[NotificationService] Error registrando dispositivo:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Desregistra el dispositivo (llamar al hacer logout)
+   */
+  async unregisterDevice(): Promise<boolean> {
+    try {
+      if (!this.pushToken) {
+        return true;
+      }
+
+      await api.delete('/notifications/device', {
+        data: { fcmToken: this.pushToken }
+      });
+
+      console.log('[NotificationService] Dispositivo desregistrado');
+      return true;
+
+    } catch (error: any) {
+      console.error('[NotificationService] Error desregistrando dispositivo:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Obtiene las preferencias de notificación del usuario
+   */
+  async getPreferences(): Promise<NotificationPreferences | null> {
+    try {
+      const response = await api.get('/notifications/preferences');
+      return response.data;
+    } catch (error: any) {
+      console.error('[NotificationService] Error obteniendo preferencias:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Actualiza las preferencias de notificación
+   */
+  async updatePreferences(preferences: Partial<NotificationPreferences>): Promise<NotificationPreferences | null> {
+    try {
+      const response = await api.put('/notifications/preferences', preferences);
+      return response.data?.preferences || response.data;
+    } catch (error: any) {
+      console.error('[NotificationService] Error actualizando preferencias:', error.response?.data || error.message);
+      return null;
+    }
+  }
+
+  /**
+   * Obtiene el historial de notificaciones
+   */
+  async getHistory(limit: number = 50): Promise<NotificationHistoryItem[]> {
+    try {
+      const response = await api.get(`/notifications/history?limit=${limit}`);
+      return response.data?.notifications || [];
+    } catch (error: any) {
+      console.error('[NotificationService] Error obteniendo historial:', error.response?.data || error.message);
+      return [];
+    }
+  }
+
+  /**
+   * Marca una notificación como leída
+   */
+  async markAsRead(notificationId: string): Promise<boolean> {
+    try {
+      await api.put(`/notifications/${notificationId}/read`);
+      return true;
+    } catch (error: any) {
+      console.error('[NotificationService] Error marcando como leída:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Envía una notificación de prueba (solo desarrollo)
+   */
+  async sendTest(): Promise<boolean> {
+    try {
+      const response = await api.post('/notifications/test');
+      return response.data?.success === true;
+    } catch (error: any) {
+      console.error('[NotificationService] Error enviando prueba:', error.response?.data || error.message);
+      return false;
+    }
+  }
+
+  /**
+   * Configura listeners para notificaciones recibidas
+   */
+  setupListeners(
+    onNotificationReceived?: (notification: Notifications.Notification) => void,
+    onNotificationResponse?: (response: Notifications.NotificationResponse) => void
+  ): void {
+    // Limpiar listeners anteriores
+    this.removeListeners();
+
+    // Listener para notificaciones recibidas (app en primer plano)
+    this.notificationListener = Notifications.addNotificationReceivedListener((notification) => {
+      console.log('[NotificationService] Notificación recibida:', notification);
+      if (onNotificationReceived) {
+        onNotificationReceived(notification);
+      }
+    });
+
+    // Listener para cuando el usuario interactúa con la notificación
+    this.responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
+      console.log('[NotificationService] Usuario respondió a notificación:', response);
+      if (onNotificationResponse) {
+        onNotificationResponse(response);
+      }
+    });
+  }
+
+  /**
+   * Remueve los listeners de notificaciones
+   */
+  removeListeners(): void {
+    if (this.notificationListener) {
+      this.notificationListener.remove();
+      this.notificationListener = null;
+    }
+    if (this.responseListener) {
+      this.responseListener.remove();
+      this.responseListener = null;
+    }
+  }
+
+  /**
+   * Obtiene el token actual
+   */
+  getToken(): string | null {
+    return this.pushToken;
+  }
+
+  /**
+   * Verifica si las notificaciones están habilitadas
+   */
+  async isEnabled(): Promise<boolean> {
+    const { status } = await Notifications.getPermissionsAsync();
+    return status === 'granted';
+  }
+
+  /**
+   * Abre la configuración de notificaciones del sistema
+   */
+  async openSettings(): Promise<void> {
+    if (Platform.OS === 'ios') {
+      // En iOS, no hay una forma directa de abrir la configuración de notificaciones
+      // Se puede abrir la configuración general de la app
+      await Notifications.getPermissionsAsync();
+    } else {
+      // En Android, tampoco hay una forma directa con Expo
+      // Pero podemos solicitar permisos de nuevo
+      await Notifications.requestPermissionsAsync();
+    }
+  }
+
+  /**
+   * Programa una notificación local
+   */
+  async scheduleLocalNotification(
+    title: string,
+    body: string,
+    data?: Record<string, any>,
+    trigger?: Notifications.NotificationTriggerInput
+  ): Promise<string> {
+    const identifier = await Notifications.scheduleNotificationAsync({
+      content: {
+        title,
+        body,
+        data: data || {},
+        sound: 'default',
+      },
+      trigger: trigger || null, // null = inmediata
+    });
+
+    return identifier;
+  }
+
+  /**
+   * Cancela todas las notificaciones programadas
+   */
+  async cancelAllScheduledNotifications(): Promise<void> {
+    await Notifications.cancelAllScheduledNotificationsAsync();
+  }
+
+  /**
+   * Obtiene el badge count actual
+   */
+  async getBadgeCount(): Promise<number> {
+    return await Notifications.getBadgeCountAsync();
+  }
+
+  /**
+   * Establece el badge count
+   */
+  async setBadgeCount(count: number): Promise<void> {
+    await Notifications.setBadgeCountAsync(count);
+  }
+}
+
+// Exportar instancia singleton
+export const notificationService = new NotificationService();
+export default notificationService;

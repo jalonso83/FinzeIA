@@ -22,18 +22,17 @@ import { saveToken } from '../utils/api';
 import { useBiometric } from '../hooks/useBiometric';
 
 export default function LoginScreen() {
-  const [email, setEmail] = useState('test@finzen.com');
-  const [password, setPassword] = useState('123456');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingBiometric, setLoadingBiometric] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [rememberEmail, setRememberEmail] = useState(false);
-  const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
 
   const navigation = useNavigation<any>();
   const { login, loginWithBiometric, saveBiometricCredentials } = useAuthStore();
-  const { isAvailable, isEnabled, biometricType, authenticate, enable, refresh } = useBiometric();
+  const { isAvailable, isEnabled, biometricType, authenticate } = useBiometric();
 
   // Cargar email recordado al montar el componente
   useEffect(() => {
@@ -44,19 +43,10 @@ export default function LoginScreen() {
         if (rememberedEmail) {
           setEmail(rememberedEmail);
           setRememberEmail(true);
-          console.log('📧 Email recordado cargado:', rememberedEmail);
-        } else {
-          // Si no hay email recordado, limpiar el valor de prueba
-          setEmail('');
-          setPassword('');
         }
 
-        // IMPORTANTE: Eliminar contraseñas guardadas previamente (migración)
-        const oldPassword = await AsyncStorage.getItem('rememberedPassword');
-        if (oldPassword) {
-          console.log('🗑️ Eliminando contraseña guardada previamente por seguridad');
-          await AsyncStorage.removeItem('rememberedPassword');
-        }
+        // Eliminar contraseñas guardadas previamente (migración de seguridad)
+        await AsyncStorage.removeItem('rememberedPassword');
       } catch (error) {
         console.error('Error loading remembered email:', error);
       }
@@ -100,51 +90,6 @@ export default function LoginScreen() {
     }
   };
 
-  const promptBiometricSetup = (user: any, token: string) => {
-    Alert.alert(
-      `¿Usar ${biometricType}?`,
-      `¿Quieres usar ${biometricType} para iniciar sesión más rápido en el futuro?`,
-      [
-        {
-          text: 'No, gracias',
-          style: 'cancel',
-        },
-        {
-          text: 'Sí, activar',
-          onPress: async () => {
-            try {
-              console.log('🔐 Usuario aceptó configurar biometría');
-              // IMPORTANTE: Llamar a enable() para guardar el flag
-              await enable();
-              console.log('✅ Biometría habilitada exitosamente');
-
-              // Guardar credenciales AHORA que el usuario habilitó Face ID
-              await saveBiometricCredentials(user, token);
-              console.log('🔐 Credenciales guardadas en SecureStore para biometría');
-
-              // Refrescar estado del hook para que se actualice isEnabled
-              await refresh();
-              console.log('✅ Estado de biometría actualizado');
-
-              Alert.alert(
-                '¡Listo!',
-                `${biometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`,
-                [{ text: 'OK' }]
-              );
-            } catch (error) {
-              console.error('❌ Error configurando biometría:', error);
-              Alert.alert(
-                'Error',
-                'No se pudo configurar la biometría. Intenta desde tu perfil.',
-                [{ text: 'OK' }]
-              );
-            }
-          },
-        },
-      ]
-    );
-  };
-
   const handleLogin = async () => {
     // Validaciones
     const newErrors: any = {};
@@ -184,11 +129,15 @@ export default function LoginScreen() {
         console.log('🔐 Credenciales actualizadas en SecureStore para biometría');
       }
 
-      // Si tiene biometría disponible pero no habilitada, preguntar
+      // Si tiene biometría disponible pero no habilitada, guardar flag para mostrar modal después
+      console.log('🔍 Verificando biometría - isAvailable:', isAvailable, 'isEnabled:', isEnabled);
       if (isAvailable && !isEnabled) {
-        setTimeout(() => {
-          promptBiometricSetup(response.data.user, response.data.token);
-        }, 500);
+        console.log('✅ Condición cumplida, guardando flag para prompt biométrico');
+        // Guardar flag para que MainNavigator muestre el modal después de la navegación
+        await AsyncStorage.setItem('pendingBiometricSetup', 'true');
+        await AsyncStorage.setItem('biometricType', biometricType);
+      } else {
+        console.log('ℹ️ No se mostrará prompt - Razón:', !isAvailable ? 'No disponible' : 'Ya habilitado');
       }
 
       // El useAuthStore se encargará de la navegación automática

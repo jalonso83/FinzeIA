@@ -8,8 +8,9 @@ import {
   StyleSheet,
   ActivityIndicator,
   StatusBar,
+  Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import TutorialCard from '../components/tutorial/TutorialCard';
 import TutorialModal from '../components/tutorial/TutorialModal';
@@ -26,6 +27,7 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
   const [selectedTutorial, setSelectedTutorial] = useState<Tutorial | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const { completedIds, loading: loadingCompleted, refresh, isCompleted } = useCompletedTutorials();
+  const insets = useSafeAreaInsets();
 
   // Categorías de tutoriales
   const categories = [
@@ -85,19 +87,20 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
 
   if (loadingCompleted) {
     return (
-      <SafeAreaView style={styles.container}>
+      <View style={[styles.container, { paddingTop: insets.top }]}>
+        <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#2563EB" />
           <Text style={styles.loadingText}>Cargando tutoriales...</Text>
         </View>
-      </SafeAreaView>
+      </View>
     );
   }
 
   return (
     <>
     <StatusBar barStyle="dark-content" backgroundColor="#f8fafc" />
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
@@ -247,9 +250,9 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
           </View>
         )}
       </ScrollView>
-    </SafeAreaView>
+    </View>
 
-    {/* Tutorial Modal - FUERA del SafeAreaView */}
+    {/* Tutorial Modal - FUERA del container */}
     {selectedTutorial && (
       <TutorialModal
         visible={!!selectedTutorial}

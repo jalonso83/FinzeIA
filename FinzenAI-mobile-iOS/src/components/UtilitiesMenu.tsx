@@ -19,7 +19,7 @@ interface UtilitiesMenuProps {
 const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
   const [isVisible, setIsVisible] = useState(false);
   const navigation = useNavigation<any>();
-  
+
   const utilities = [
     {
       id: 'skip-vs-save',
@@ -53,7 +53,6 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       color: '#2563EB',
       onPress: () => {
         setIsVisible(false);
-        // Navegar primero al tab Tools y luego a la screen específica
         navigation.navigate('Tools', { screen: 'LoanCalculator' });
       },
     },
@@ -66,7 +65,6 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        // Navegar primero al tab Tools y luego a la screen específica
         navigation.navigate('Tools', { screen: 'InvestmentSimulator' });
       },
     },
@@ -82,27 +80,18 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
         navigation.navigate('Tools', { screen: 'InflationCalculator' });
       },
     },
-    // {
-    //   id: 'ant-expense-detective',
-    //   title: 'Detective de Gastos Hormiga',
-    //   description: 'Descubre a dónde se va tu dinero 🕵️',
-    //   icon: 'search' as const,
-    //   color: '#7c3aed',
-    //   disabled: false,
-    //   onPress: () => {
-    //     setIsVisible(false);
-    //     navigation.navigate('Tools', { screen: 'AntExpenseDetective' });
-    //   },
-    // },
-    // {
-    //   id: 'currency-converter',
-    //   title: 'Conversor de Monedas',
-    //   description: 'Próximamente',
-    //   icon: 'cash' as const,
-    //   color: '#d97706',
-    //   disabled: true,
-    //   onPress: () => {},
-    // },
+    {
+      id: 'ant-expense-detective',
+      title: 'Detective de Gastos Hormiga',
+      description: 'Descubre a dónde se va tu dinero 🕵️',
+      icon: 'search' as const,
+      color: '#2563EB',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        navigation.navigate('Tools', { screen: 'AntExpenseDetective' });
+      },
+    },
   ];
 
   const openMenu = () => {
@@ -115,25 +104,26 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
 
   return (
     <>
-      <TouchableOpacity onPress={openMenu} style={styles.plusButton}>
-        <Ionicons 
-          name="add-circle" 
-          size={28} 
-          color={focused ? color : '#9CA3AF'} 
+      <TouchableOpacity onPress={openMenu} style={styles.tabButton}>
+        <Ionicons
+          name="add-circle"
+          size={24}
+          color={focused ? color : '#9CA3AF'}
         />
+        <Text style={[styles.tabLabel, { color: focused ? color : '#9CA3AF' }]}>
+          Más
+        </Text>
       </TouchableOpacity>
 
       <Modal
-        key={isVisible ? 'utilities-open' : 'utilities-closed'}
         visible={isVisible}
         transparent
         animationType="fade"
         onRequestClose={closeMenu}
-        pointerEvents={isVisible ? 'auto' : 'none'}
       >
-        <TouchableOpacity 
-          style={styles.overlay} 
-          activeOpacity={1} 
+        <TouchableOpacity
+          style={styles.overlay}
+          activeOpacity={1}
           onPress={closeMenu}
         >
           <View style={styles.menuContainer}>
@@ -144,7 +134,7 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
               </TouchableOpacity>
             </View>
 
-            <ScrollView 
+            <ScrollView
               style={styles.utilitiesList}
               contentContainerStyle={styles.utilitiesListContent}
               showsVerticalScrollIndicator={false}
@@ -173,7 +163,7 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
                       color="white"
                     />
                   </View>
-                  
+
                   <View style={styles.utilityContent}>
                     <Text
                       style={[
@@ -211,11 +201,13 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
 };
 
 const styles = StyleSheet.create({
-  plusButton: {
+  tabButton: {
+    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
+    paddingTop: 8,
   },
-  plusText: {
+  tabLabel: {
     fontSize: 10,
     fontWeight: '600',
     marginTop: 2,
@@ -229,8 +221,8 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    paddingBottom: 34, // Safe area para iPhone
-    maxHeight: '75%', // Aumentar altura máxima
+    paddingBottom: 34,
+    maxHeight: '75%',
   },
   menuHeader: {
     flexDirection: 'row',
@@ -250,7 +242,7 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   utilitiesList: {
-    maxHeight: 350, // Altura máxima para permitir scroll
+    maxHeight: 350,
   },
   utilitiesListContent: {
     paddingHorizontal: 20,
