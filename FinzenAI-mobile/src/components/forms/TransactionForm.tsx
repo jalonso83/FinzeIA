@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -73,6 +73,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Hook para moneda del usuario
   const { userCurrencyInfo } = useCurrency();
   const currency = userCurrencyInfo;
+
+  // Ref para el ScrollView de categorías
+  const categoriesScrollRef = useRef<ScrollView>(null);
+  const CATEGORY_ITEM_WIDTH = 100; // Ancho aproximado de cada item de categoría
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -166,14 +170,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (editTransaction && categories.length > 0 && formData.categoryId) {
       const selectedCategory = categories.find(cat => cat.id === formData.categoryId);
       const isCompatible = selectedCategory && (selectedCategory.type === formData.type || selectedCategory.type === 'BOTH');
-      
+
       console.log('Validando categoría después de cargar:', {
         selectedCategory: selectedCategory?.name,
         categoryType: selectedCategory?.type,
         transactionType: formData.type,
         isCompatible
       });
-      
+
       // Si la categoría no es compatible, buscar una por defecto o limpiar
       if (!isCompatible) {
         console.log('Categoría no compatible, limpiando...');
@@ -181,6 +185,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
     }
   }, [categories, editTransaction]);
+
+  // Effect para hacer scroll a la categoría seleccionada
+  useEffect(() => {
+    if (formData.categoryId && categories.length > 0 && categoriesScrollRef.current) {
+      // Filtrar categorías por tipo
+      const filtered = categories.filter(
+        cat => cat.type === formData.type || cat.type === 'BOTH'
+      );
+
+      // Encontrar el índice de la categoría seleccionada
+      const selectedIndex = filtered.findIndex(cat => cat.id === formData.categoryId);
+
+      if (selectedIndex > 0) {
+        // Calcular posición de scroll (centrar la categoría seleccionada si es posible)
+        const scrollPosition = Math.max(0, (selectedIndex * CATEGORY_ITEM_WIDTH) - CATEGORY_ITEM_WIDTH);
+
+        // Hacer scroll con un pequeño delay para asegurar que el componente esté renderizado
+        setTimeout(() => {
+          categoriesScrollRef.current?.scrollTo({ x: scrollPosition, animated: true });
+        }, 100);
+      }
+    }
+  }, [formData.categoryId, categories, formData.type]);
 
   const loadCategories = async () => {
     try {
@@ -549,7 +576,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <Text style={styles.loadingText}>Cargando categorías...</Text>
               </View>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
+              <ScrollView
+                ref={categoriesScrollRef}
+                horizontal
+                showsHorizontalScrollIndicator={false}
+              >
                 <View style={styles.categoriesContainer}>
                   {filteredCategories.map((category) => (
                     <TouchableOpacity

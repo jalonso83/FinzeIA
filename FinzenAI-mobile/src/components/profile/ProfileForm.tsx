@@ -11,7 +11,7 @@ interface ProfileFormProps {
   visible: boolean;
   user: any;
   onClose: () => void;
-  onProfileUpdated: () => void;
+  onProfileUpdated: (message: string) => void;
 }
 
 const occupationOptions = [
@@ -72,9 +72,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   });
   const [errors, setErrors] = useState<any>({});
   const [submitting, setSubmitting] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
 
   // Hook de biometría
@@ -241,16 +239,11 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
 
       console.log('✅ Perfil actualizado exitosamente');
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
-      onProfileUpdated();
+      const message = 'Tu información ha sido guardada correctamente.';
 
-      const message = 'Perfil actualizado correctamente';
-      setSuccessMessage(message);
-      console.log('📝 Mensaje de éxito:', message);
-
-      // Mostrar modal de éxito
-      setShowSuccessModal(true);
-      console.log('🟢 showSuccessModal activado');
+      // Llamar callback con mensaje - el modal se maneja en AppNavigator
+      onProfileUpdated(message);
+      console.log('🟢 onProfileUpdated llamado con mensaje:', message);
     } catch (error: any) {
       console.error('Error al actualizar perfil:', error);
       const errMsg = error?.response?.data?.message || 'Error al actualizar perfil';
@@ -599,22 +592,6 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
             onSelect={(value) => handleChange('preferredLanguage', value)}
             title="Seleccionar Idioma"
             currentValue={form.preferredLanguage}
-          />
-
-          {/* Modal de éxito */}
-          <CustomModal
-            visible={showSuccessModal}
-            type="success"
-            title="¡Perfil actualizado!"
-            message={successMessage}
-            buttonText="Continuar"
-            onClose={() => {
-              console.log('👆 Usuario presionó Continuar en modal de éxito');
-              setShowSuccessModal(false);
-              // Los callbacks ya se ejecutaron después de guardar
-              // Cerrar el formulario
-              onClose();
-            }}
           />
 
           {/* Modal de error */}

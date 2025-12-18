@@ -30,6 +30,10 @@ import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
+import EmailSyncScreen from '../screens/EmailSyncScreen';
+import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
+import NotificationsScreen from '../screens/NotificationsScreen';
+import NotificationBell from '../components/NotificationBell';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
 import VoiceZenioFloatingButton from '../components/VoiceZenioFloatingButton';
@@ -42,8 +46,11 @@ import OnboardingScreen from '../screens/OnboardingScreen';
 // Stores
 import { useAuthStore } from '../stores/auth';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { useDashboardStore } from '../stores/dashboard';
 import { useBiometric } from '../hooks/useBiometric';
 import { useState, useEffect } from 'react';
+import notificationService from '../services/notificationService';
+import { useNotificationStore } from '../stores/notificationStore';
 
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
@@ -77,7 +84,13 @@ function ToolsStackNavigator() {
 }
 
 // Navegación principal con tabs
-function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean) => void }) {
+function MainTabNavigator({
+  setShowUserMenu,
+  setShowNotifications
+}: {
+  setShowUserMenu: (show: boolean) => void;
+  setShowNotifications: (show: boolean) => void;
+}) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
 
@@ -132,15 +145,36 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
           shadowOpacity: 0.08,
           shadowRadius: 2,
           elevation: 1,
-          height: Platform.OS === 'ios' ? Math.max(110 + insets.top, 120) : 80,
+          height: Platform.OS === 'ios'
+            ? Math.max(110 + insets.top, 120)
+            : insets.top + 64, // Android: status bar + header content
         },
         headerRight: route.name === 'Dashboard' ? () => (
           <View style={{
             flexDirection: 'row',
             alignItems: 'center',
             marginRight: Platform.OS === 'ios' ? Math.max(insets.right + 12, 20) : 16,
-            marginTop: Platform.OS === 'ios' ? Math.max(insets.top - 20, 0) : 0,
+            marginTop: Platform.OS === 'ios' ? Math.max(insets.top - 20, 0) : 4,
+            gap: 8,
           }}>
+            {/* Notification Bell */}
+            <View style={{
+              backgroundColor: '#f8fafc',
+              borderRadius: 20,
+              shadowColor: '#000',
+              shadowOffset: { width: 0, height: 2 },
+              shadowOpacity: 0.1,
+              shadowRadius: 3,
+              elevation: 2,
+              marginBottom: Platform.OS === 'ios' ? 20 : 5,
+            }}>
+              <NotificationBell
+                onPress={() => setShowNotifications(true)}
+                size={22}
+                color="#374151"
+              />
+            </View>
+            {/* User Menu Button */}
             <TouchableOpacity
               onPress={() => setShowUserMenu(true)}
               style={{
@@ -157,7 +191,7 @@ function MainTabNavigator({ setShowUserMenu }: { setShowUserMenu: (show: boolean
                 shadowOpacity: 0.15,
                 shadowRadius: 4,
                 elevation: 3,
-                marginBottom: Platform.OS === 'ios' ? 20 : 8,
+                marginBottom: Platform.OS === 'ios' ? 20 : 5,
               }}
             >
               <View style={{
@@ -257,12 +291,18 @@ function MainNavigator({ route }: any) {
   const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
   const [showHelpCenter, setShowHelpCenter] = React.useState(false);
   const [showSubscriptions, setShowSubscriptions] = React.useState(false);
+  const [showEmailSync, setShowEmailSync] = React.useState(false);
+  const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
+  const [showNotifications, setShowNotifications] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [showPlansModal, setShowPlansModal] = React.useState(false);
   const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
+  const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
+  const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
   const { updateUser, logout } = useAuthStore();
   const { fetchSubscription } = useSubscriptionStore();
+  const { onTransactionChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
@@ -320,7 +360,7 @@ function MainNavigator({ route }: any) {
       animationType="fade"
       onRequestClose={() => setShowUserMenu(false)}
       pointerEvents={showUserMenu ? 'auto' : 'none'}
-      statusBarTranslucent={false}
+      statusBarTranslucent={Platform.OS === 'android'}
     >
       <TouchableOpacity
         style={{
@@ -328,7 +368,9 @@ function MainNavigator({ route }: any) {
           backgroundColor: 'rgba(0,0,0,0.5)',
           justifyContent: 'flex-start',
           alignItems: 'flex-end',
-          paddingTop: 60,
+          paddingTop: Platform.OS === 'android'
+            ? insets.top + 60  // Android: status bar + espacio del header
+            : 60,              // iOS: ya maneja safe area diferente
           paddingRight: 16,
         }}
         activeOpacity={1}
@@ -424,6 +466,38 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setShowEmailSync(true);
+              }}
+            >
+              <Ionicons name="mail-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Email Bancario</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowNotificationSettings(true);
+              }}
+            >
+              <Ionicons name="notifications-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Notificaciones</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
                 setShowHelpCenter(true);
               }}
             >
@@ -459,7 +533,7 @@ function MainNavigator({ route }: any) {
     <React.Fragment>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main">
-          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} />}
+          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} setShowNotifications={setShowNotifications} />}
         </Stack.Screen>
       </Stack.Navigator>
       
@@ -474,15 +548,21 @@ function MainNavigator({ route }: any) {
           visible={showProfileModal}
           user={profileData}
           onClose={() => setShowProfileModal(false)}
-          onProfileUpdated={async () => {
+          onProfileUpdated={async (message: string) => {
+            // 1. CERRAR FORMULARIO PRIMERO
             setShowProfileModal(false);
-            // Recargar usuario global
+
+            // 2. Recargar usuario global
             try {
               const res = await api.get('/auth/profile');
               updateUser(res.data);
             } catch (e) {
               console.error('Error updating user profile:', e);
             }
+
+            // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
+            setProfileSuccessMessage(message);
+            setShowProfileSuccessModal(true);
           }}
         />
       )}
@@ -520,6 +600,58 @@ function MainNavigator({ route }: any) {
       >
         <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
+
+      {/* Email Sync Modal */}
+      <Modal
+        visible={showEmailSync}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => {
+          setShowEmailSync(false);
+          onTransactionChange(); // Refrescar dashboard al cerrar
+        }}
+      >
+        <EmailSyncScreen onClose={() => {
+          setShowEmailSync(false);
+          onTransactionChange(); // Refrescar dashboard al cerrar
+        }} />
+      </Modal>
+
+      {/* Notifications List Modal */}
+      <Modal
+        visible={showNotifications}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotifications(false)}
+      >
+        <NotificationsScreen
+          onClose={() => setShowNotifications(false)}
+          onOpenSettings={() => {
+            setShowNotifications(false);
+            setShowNotificationSettings(true);
+          }}
+        />
+      </Modal>
+
+      {/* Notification Settings Modal */}
+      <Modal
+        visible={showNotificationSettings}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowNotificationSettings(false)}
+      >
+        <NotificationSettingsScreen onClose={() => setShowNotificationSettings(false)} />
+      </Modal>
+
+      {/* Profile Success Modal */}
+      <CustomModal
+        visible={showProfileSuccessModal}
+        type="success"
+        title="¡Perfil actualizado!"
+        message={profileSuccessMessage}
+        buttonText="Continuar"
+        onClose={() => setShowProfileSuccessModal(false)}
+      />
 
       {/* Logout Confirmation Modal */}
       <CustomModal
@@ -589,8 +721,31 @@ function MainStackNavigator() {
 export default function AppNavigator() {
   const { isAuthenticated, user, saveBiometricCredentials } = useAuthStore();
   const { enable, refresh, biometricType } = useBiometric();
+  const { fetchUnreadCount } = useNotificationStore();
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [storedBiometricType, setStoredBiometricType] = useState('');
+
+  // Inicializar notificaciones cuando el usuario está autenticado
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      const initNotifications = async () => {
+        try {
+          console.log('[AppNavigator] Inicializando notificaciones para usuario autenticado...');
+          const token = await notificationService.initialize();
+          if (token) {
+            await notificationService.registerDevice();
+            console.log('[AppNavigator] Dispositivo registrado para notificaciones');
+          }
+          // Cargar contador de notificaciones no leídas
+          await fetchUnreadCount();
+        } catch (error) {
+          console.error('[AppNavigator] Error inicializando notificaciones:', error);
+        }
+      };
+
+      initNotifications();
+    }
+  }, [isAuthenticated, user]);
 
   // Verificar si hay un setup pendiente de biometría
   useEffect(() => {

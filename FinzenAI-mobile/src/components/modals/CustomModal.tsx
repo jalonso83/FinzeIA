@@ -76,14 +76,9 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
   const config = getConfig();
 
-  console.log('🎭 CustomModal render:', { visible, type, title, message: message.substring(0, 50) });
-
   if (!visible) {
-    console.log('⚠️ CustomModal NO visible, no renderizando');
     return null;
   }
-
-  console.log('✅ CustomModal SÍ visible, renderizando...');
 
   return (
     <Modal

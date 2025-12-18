@@ -82,6 +82,21 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
     }
   };
 
+  const getStatusLabel = (status: string) => {
+    switch (status) {
+      case 'SUCCEEDED':
+        return 'Exitoso';
+      case 'FAILED':
+        return 'Fallido';
+      case 'PENDING':
+        return 'Pendiente';
+      case 'REFUNDED':
+        return 'Reembolsado';
+      default:
+        return status;
+    }
+  };
+
   const renderPaymentItem = ({ item }: { item: Payment }) => (
     <View style={styles.paymentCard}>
       <View style={styles.paymentHeader}>
@@ -93,7 +108,7 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
           />
           <View style={styles.paymentInfo}>
             <Text style={styles.paymentDescription}>
-              {item.description || 'Payment for subscription'}
+              {item.description || 'Pago de suscripción'}
             </Text>
             <Text style={styles.paymentDate}>
               {formatDate(item.createdAt)} • {formatTime(item.createdAt)}
@@ -116,13 +131,13 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
           ]}
         >
           <Text style={[styles.statusText, { color: getStatusColor(item.status) }]}>
-            {item.status}
+            {getStatusLabel(item.status)}
           </Text>
         </View>
 
         {item.stripeInvoiceId && (
           <Text style={styles.invoiceId}>
-            Invoice: {item.stripeInvoiceId.substring(0, 20)}...
+            Factura: {item.stripeInvoiceId.substring(0, 20)}...
           </Text>
         )}
       </View>
@@ -132,9 +147,9 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
   const renderEmptyState = () => (
     <View style={styles.emptyContainer}>
       <Ionicons name="receipt-outline" size={64} color="#D1D5DB" />
-      <Text style={styles.emptyTitle}>No Payments Yet</Text>
+      <Text style={styles.emptyTitle}>Sin pagos aún</Text>
       <Text style={styles.emptySubtitle}>
-        Your payment history will appear here once you subscribe
+        Tu historial de pagos aparecerá aquí una vez que te suscribas
       </Text>
     </View>
   );
@@ -146,7 +161,7 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
         <TouchableOpacity onPress={onClose} style={styles.backButton}>
           <Ionicons name="arrow-back" size={24} color="#1F2937" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Payment History</Text>
+        <Text style={styles.headerTitle}>Historial de Pagos</Text>
         <View style={styles.placeholder} />
       </View>
 
@@ -154,7 +169,7 @@ const PaymentHistoryScreen: React.FC<PaymentHistoryScreenProps> = ({ onClose }) 
       {loading && payments.length === 0 ? (
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#6C47FF" />
-          <Text style={styles.loadingText}>Loading payments...</Text>
+          <Text style={styles.loadingText}>Cargando pagos...</Text>
         </View>
       ) : (
         <FlatList
@@ -186,6 +201,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E5E5E5',
+    elevation: 2,
   },
   backButton: {
     padding: 4,
@@ -219,6 +235,7 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     borderWidth: 1,
     borderColor: '#E5E7EB',
+    elevation: 1,
   },
   paymentHeader: {
     flexDirection: 'row',

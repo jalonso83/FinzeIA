@@ -3,6 +3,7 @@
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
     "version": "1.0.0",
+    "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
