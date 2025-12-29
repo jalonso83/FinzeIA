@@ -22,6 +22,20 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
 
   const utilities = [
     {
+      id: 'payment-reminders',
+      title: 'Recordatorios de Pago',
+      description: 'No olvides tus pagos importantes 🔔',
+      icon: 'notifications' as const,
+      color: '#2563EB',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'Reminders' });
+        }, 100);
+      },
+    },
+    {
       id: 'skip-vs-save',
       title: 'Reto: ¿Gastar o Ahorrar?',
       description: 'Ve el impacto de tus gastos 💸',
@@ -30,7 +44,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'SkipVsSave' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'SkipVsSave' });
+        }, 100);
       },
     },
     {
@@ -42,7 +58,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'GoalCalculator' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'GoalCalculator' });
+        }, 100);
       },
     },
     {
@@ -53,7 +71,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       color: '#2563EB',
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'LoanCalculator' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'LoanCalculator' });
+        }, 100);
       },
     },
     {
@@ -65,7 +85,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'InvestmentSimulator' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'InvestmentSimulator' });
+        }, 100);
       },
     },
     {
@@ -77,7 +99,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'InflationCalculator' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'InflationCalculator' });
+        }, 100);
       },
     },
     {
@@ -89,7 +113,9 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       disabled: false,
       onPress: () => {
         setIsVisible(false);
-        navigation.navigate('Tools', { screen: 'AntExpenseDetective' });
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'AntExpenseDetective' });
+        }, 100);
       },
     },
   ];
@@ -205,12 +231,12 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingTop: 8,
+    marginTop: -8,
   },
   tabLabel: {
     fontSize: 10,
     fontWeight: '600',
-    marginTop: 2,
+    marginTop: 4,
   },
   overlay: {
     flex: 1,

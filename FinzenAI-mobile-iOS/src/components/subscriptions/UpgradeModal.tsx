@@ -6,11 +6,11 @@ import {
   StyleSheet,
   TouchableOpacity,
   ScrollView,
+  Linking,
+  Alert,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
-import StripeWebView from './StripeWebView';
 import CustomModal from '../modals/CustomModal';
 
 interface UpgradeModalProps {
@@ -25,10 +25,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
   limitType,
 }) => {
   const { createCheckout } = useSubscriptionStore();
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [showWebView, setShowWebView] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -75,8 +72,13 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
     setLoading(true);
     try {
       const { url } = await createCheckout('PREMIUM');
-      setCheckoutUrl(url);
-      setShowWebView(true);
+      const canOpen = await Linking.canOpenURL(url);
+      if (canOpen) {
+        await Linking.openURL(url);
+        onClose(); // Cerrar modal, Universal Links manejará el retorno
+      } else {
+        Alert.alert('Error', 'No se puede abrir el navegador');
+      }
     } catch (error: any) {
       setErrorMessage(error.message || 'No se pudo crear la sesión de pago');
       setShowErrorModal(true);
@@ -85,27 +87,10 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
     }
   };
 
-  const handlePaymentSuccess = () => {
-    setShowWebView(false);
-    setCheckoutUrl(null);
-    setShowSuccessModal(true);
-  };
-
-  const handlePaymentCancel = () => {
-    setShowWebView(false);
-    setCheckoutUrl(null);
-  };
-
-  const handleCloseWebView = () => {
-    // Simplemente cerrar el WebView, no necesitamos confirmación
-    setShowWebView(false);
-    setCheckoutUrl(null);
-  };
-
   return (
     <>
       <Modal
-        visible={visible && !showWebView}
+        visible={visible}
         transparent
         animationType="fade"
         onRequestClose={onClose}
@@ -219,30 +204,6 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
           </View>
         </View>
       </Modal>
-
-      {/* Stripe WebView */}
-      {checkoutUrl && (
-        <StripeWebView
-          visible={showWebView}
-          checkoutUrl={checkoutUrl}
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
-          onClose={handleCloseWebView}
-        />
-      )}
-
-      {/* Success Modal */}
-      <CustomModal
-        visible={showSuccessModal}
-        type="success"
-        title="¡Éxito!"
-        message="¡Ahora eres miembro Premium! Disfruta del acceso ilimitado."
-        buttonText="Continuar"
-        onClose={() => {
-          setShowSuccessModal(false);
-          onClose();
-        }}
-      />
 
       {/* Error Modal */}
       <CustomModal

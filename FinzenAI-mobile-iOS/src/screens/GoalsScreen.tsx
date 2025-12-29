@@ -72,7 +72,6 @@ export default function GoalsScreen() {
   // Listener para cambios de metas desde Zenio
   useEffect(() => {
     if (goalChangeTrigger > 0) {
-      console.log('[GoalsScreen] Goal change detected, reloading...');
       loadGoals();
     }
   }, [goalChangeTrigger]);
@@ -83,7 +82,6 @@ export default function GoalsScreen() {
       const response = await goalsAPI.getAll();
       // Obtener datos de la estructura correcta
       const goalsData = response.data.goals || response.data || [];
-      console.log('Goals loaded:', goalsData);
       setGoals(goalsData);
     } catch (error) {
       console.error('Error loading goals:', error);
@@ -493,6 +491,7 @@ export default function GoalsScreen() {
           // Refrescar suscripción después de cerrar
           fetchSubscription();
         }}
+        limitType="goals"
       />
     </SafeAreaView>
   );

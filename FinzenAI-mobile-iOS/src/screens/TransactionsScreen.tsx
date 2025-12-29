@@ -79,7 +79,6 @@ export default function TransactionsScreen() {
   // Refresh cuando Zenio crea/modifica transacciones
   useEffect(() => {
     if (transactionChangeTrigger > 0) {
-      console.log('[TransactionsScreen] Transaction change detected, reloading...');
       loadTransactions();
     }
   }, [transactionChangeTrigger]);
@@ -93,8 +92,7 @@ export default function TransactionsScreen() {
     try {
       setLoading(true);
       const response = await transactionsAPI.getAll({ limit: 5000 }); // Cargar todas las transacciones como la web
-      console.log('Transactions response:', response.data);
-      
+
       // El backend puede devolver { data: [...] } o directamente [...]
       const transactionsData = response.data.transactions || response.data || [];
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);

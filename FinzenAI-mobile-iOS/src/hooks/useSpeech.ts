@@ -172,6 +172,14 @@ export const useSpeech = () => {
     try {
       setState(prev => ({ ...prev, isSpeaking: true, error: null }));
 
+      // Configurar audio mode para reproducción por altavoz (NO auricular)
+      await Audio.setAudioModeAsync({
+        allowsRecordingIOS: false,
+        playsInSilentModeIOS: true,
+        staysActiveInBackground: false,
+        shouldDuckAndroid: true,
+      });
+
       // Configuraciones específicas por plataforma
       const speechOptions: Speech.SpeechOptions = {
         language: 'es-ES',

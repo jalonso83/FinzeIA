@@ -77,6 +77,8 @@ api.interceptors.request.use(
 const SKIP_LOGOUT_ENDPOINTS = [
   '/email-sync/status',
   '/email-sync/gmail/auth-url',
+  '/notifications/',
+  '/reports/',
 ];
 
 // Interceptor para manejar respuestas
@@ -381,6 +383,136 @@ export const notificationsAPI = {
   // Enviar notificación de prueba (solo desarrollo)
   sendTest: () =>
     api.post('/notifications/test'),
+};
+
+// Interfaces para recordatorios de pago
+export interface PaymentReminder {
+  id: string;
+  userId: string;
+  name: string;
+  type: PaymentType;
+  dueDay: number;
+  cutoffDay?: number | null;
+  amount?: number | null;
+  currency: string;
+  creditLimit?: number | null;
+  isDualCurrency: boolean;
+  creditLimitUSD?: number | null;
+  reminderDays: number[];
+  notifyOnCutoff: boolean;
+  isActive: boolean;
+  lastNotifiedAt?: string | null;
+  lastDueDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  typeInfo?: PaymentTypeInfo;
+}
+
+export type PaymentType =
+  | 'CREDIT_CARD'
+  | 'LOAN'
+  | 'MORTGAGE'
+  | 'UTILITY'
+  | 'INSURANCE'
+  | 'SUBSCRIPTION'
+  | 'OTHER';
+
+export interface PaymentTypeInfo {
+  label: string;
+  icon: string;
+}
+
+export interface UpcomingPayment {
+  id: string;
+  name: string;
+  type: PaymentType;
+  dueDate: string;
+  daysUntilDue: number;
+  amount?: number | null;
+  currency: string;
+  typeInfo?: PaymentTypeInfo;
+}
+
+export interface ReminderStats {
+  totalReminders: number;
+  activeReminders: number;
+  totalMonthlyAmount: number;
+  upcomingThisWeek: number;
+  byType: Record<PaymentType, number>;
+}
+
+// API de recordatorios de pago
+export const remindersAPI = {
+  // Obtener tipos de pago disponibles (público)
+  getPaymentTypes: () =>
+    api.get<{ success: boolean; types: { value: PaymentType; label: string; icon: string }[] }>('/reminders/types'),
+
+  // Obtener todos los recordatorios del usuario
+  getAll: (activeOnly: boolean = true) =>
+    api.get<{ success: boolean; reminders: PaymentReminder[]; total: number }>('/reminders', {
+      params: { active: activeOnly }
+    }),
+
+  // Obtener un recordatorio por ID
+  getById: (id: string) =>
+    api.get<{ success: boolean; reminder: PaymentReminder }>(`/reminders/${id}`),
+
+  // Crear nuevo recordatorio
+  create: (data: {
+    name: string;
+    type?: PaymentType;
+    dueDay: number;
+    cutoffDay?: number;
+    amount?: number;
+    currency?: string;
+    creditLimit?: number;
+    isDualCurrency?: boolean;
+    creditLimitUSD?: number;
+    reminderDays?: number[];
+    notifyOnCutoff?: boolean;
+    notes?: string;
+  }) =>
+    api.post<{ success: boolean; message: string; reminder: PaymentReminder }>('/reminders', data),
+
+  // Actualizar recordatorio
+  update: (id: string, data: {
+    name?: string;
+    type?: PaymentType;
+    dueDay?: number;
+    cutoffDay?: number | null;
+    amount?: number | null;
+    currency?: string;
+    creditLimit?: number | null;
+    isDualCurrency?: boolean;
+    creditLimitUSD?: number | null;
+    reminderDays?: number[];
+    notifyOnCutoff?: boolean;
+    notes?: string | null;
+    isActive?: boolean;
+  }) =>
+    api.put<{ success: boolean; message: string; reminder: PaymentReminder }>(`/reminders/${id}`, data),
+
+  // Eliminar recordatorio
+  delete: (id: string) =>
+    api.delete<{ success: boolean; message: string }>(`/reminders/${id}`),
+
+  // Obtener próximos pagos
+  getUpcoming: (days: number = 30) =>
+    api.get<{ success: boolean; upcoming: UpcomingPayment[]; total: number }>('/reminders/upcoming', {
+      params: { days }
+    }),
+
+  // Obtener estadísticas
+  getStats: () =>
+    api.get<{ success: boolean; stats: ReminderStats }>('/reminders/stats'),
+
+  // Activar/desactivar recordatorio
+  toggle: (id: string, isActive: boolean) =>
+    api.patch<{ success: boolean; message: string; reminder: { id: string; name: string; isActive: boolean } }>(
+      `/reminders/${id}/toggle`,
+      { isActive }
+    ),
 };
 
 export default api;

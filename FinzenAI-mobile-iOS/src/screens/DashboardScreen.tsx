@@ -77,17 +77,12 @@ export default function DashboardScreen() {
     fetchSubscription(); // Cargar suscripción
   }, []);
 
-  // Log cuando subscription cambia (NO refrescar aquí para evitar loop)
-  useEffect(() => {
-    console.log('Dashboard - Subscription state changed:', subscription);
-    // La UI se actualiza automáticamente con los componentes reactivos
-    // NO llamamos loadDashboardData aquí porque causa loop infinito
-  }, [subscription]);
+  // La UI se actualiza automáticamente con los componentes reactivos
+  // NO llamamos loadDashboardData aquí porque causa loop infinito
 
   // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
   useEffect(() => {
     if (refreshTrigger > 0) {
-      console.log('Dashboard: Recargando datos debido a cambios...');
       loadDashboardData();
     }
   }, [refreshTrigger]);
@@ -100,10 +95,6 @@ export default function DashboardScreen() {
         
         // Verificar si cambió el día/mes desde la última vez
         if (lastDateRef.current !== currentDate) {
-          console.log('Dashboard: Fecha cambió mientras la app estaba en background, recargando datos...', { 
-            from: lastDateRef.current, 
-            to: currentDate 
-          });
           lastDateRef.current = currentDate;
           loadDashboardData();
         }
@@ -117,10 +108,6 @@ export default function DashboardScreen() {
       if (AppState.currentState === 'active') {
         const currentDate = new Date().toDateString();
         if (lastDateRef.current !== currentDate) {
-          console.log('Dashboard: Fecha cambió, recargando datos por intervalo...', {
-            from: lastDateRef.current,
-            to: currentDate
-          });
           lastDateRef.current = currentDate;
           loadDashboardData();
         }
@@ -166,12 +153,10 @@ export default function DashboardScreen() {
 
       if (gamificationResponse.status === 'fulfilled') {
         const response = gamificationResponse.value.data;
-        console.log('Gamification response:', response);
-        
+
         // El endpoint /gamification/finscore devuelve { success: true, data: {...} }
         if (response.success && response.data) {
           const data = response.data;
-          console.log('Gamification data extracted:', data);
           gamificationData = {
             finScore: data.currentScore || 0,
             level: data.level || 1,
@@ -191,12 +176,10 @@ export default function DashboardScreen() {
 
       if (streakResponse.status === 'fulfilled') {
         const response = streakResponse.value.data;
-        console.log('Streak response:', response);
-        
+
         // Verificar si viene en formato { success: true, data: {...} } o directo
         if (response.success && response.data) {
           const data = response.data;
-          console.log('Streak data (from wrapper):', data);
           streakData = {
             currentStreak: data.currentStreak || 0,
             longestStreak: data.longestStreak || 0,
@@ -205,7 +188,6 @@ export default function DashboardScreen() {
           };
         } else if (response.currentStreak !== undefined) {
           // Los datos vienen directos sin wrapper
-          console.log('Streak data (direct):', response);
           streakData = {
             currentStreak: response.currentStreak || 0,
             longestStreak: response.longestStreak || 0,
@@ -225,8 +207,7 @@ export default function DashboardScreen() {
 
       if (transactionsResponse.status === 'fulfilled') {
         const transactions = transactionsResponse.value.data.transactions || transactionsResponse.value.data || [];
-        console.log('Transactions data:', transactions);
-        
+
         // Calcular totales GENERALES (como en la web)
         transactions.forEach((transaction: any) => {
           if (transaction.type === 'INCOME') {
@@ -310,8 +291,7 @@ export default function DashboardScreen() {
       
       if (budgetsResponse.status === 'fulfilled') {
         budgets = budgetsResponse.value.data.budgets || budgetsResponse.value.data || [];
-        console.log('Budgets data:', budgets);
-        
+
         // Filtrar presupuestos activos (como en la web)
         const activeBudgetsList = budgets.filter((budget: any) => budget.is_active);
         activeBudgets = activeBudgetsList.length;
@@ -332,28 +312,20 @@ export default function DashboardScreen() {
       if (goalsResponse.status === 'fulfilled') {
         // Usar la misma extracción que la web: goalsRes.data || []
         goals = goalsResponse.value.data || [];
-        console.log('Goals response status:', goalsResponse.status);
-        console.log('Goals response data:', goalsResponse.value.data);
-        console.log('Goals data extracted:', goals);
         // Filtrar metas que NO están completadas (como en la web línea 225)
         const activeGoalsList = goals.filter((goal: any) => !goal.isCompleted);
         activeGoals = activeGoalsList.length;
-        console.log('Active goals:', activeGoalsList);
-        
+
         // Calcular totales como en la web (usando los mismos campos que la web)
         totalGoalTarget = activeGoalsList.reduce((sum, g) => sum + (g.targetAmount || g.target_amount || 0), 0);
         totalGoalSaved = activeGoalsList.reduce((sum, g) => sum + (g.currentAmount || g.current_amount || 0), 0);
         totalGoalRemaining = totalGoalTarget - totalGoalSaved;
-        console.log('Goals totals:', { totalGoalTarget, totalGoalSaved, totalGoalRemaining });
-      } else {
-        console.log('Goals response failed:', goalsResponse.status, goalsResponse.reason);
       }
 
       // Procesar categorías
       let categories: any[] = [];
       if (categoriesResponse.status === 'fulfilled') {
         categories = categoriesResponse.value.data || [];
-        console.log('Categories data:', categories);
       }
 
       // Obtener transacciones para el gráfico

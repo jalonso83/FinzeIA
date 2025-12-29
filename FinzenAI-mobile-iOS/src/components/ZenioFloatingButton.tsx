@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../stores/auth';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
@@ -68,8 +69,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const [showTipsModal, setShowTipsModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { user } = useAuthStore();
+  const { updateZenioUsage } = useSubscriptionStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -179,16 +182,40 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           if (response.data.threadId) {
             setThreadId(response.data.threadId);
           }
-          
+
+          // Actualizar uso de Zenio si viene en la respuesta
+          if (response.data.zenioUsage) {
+            updateZenioUsage(response.data.zenioUsage);
+          }
+
           setHasSentFirst(true);
-        } catch (error) {
+        } catch (error: any) {
           console.error('Error al inicializar conversación:', error);
-          setMessages([{
-            id: '1',
-            text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
-            isUser: false,
-            timestamp: new Date(),
-          }]);
+          console.log('Error status:', error.response?.status);
+
+          // Detectar error 403 - límite de Zenio alcanzado
+          if (error.response?.status === 403) {
+            setMessages([{
+              id: '1',
+              text: '¡Hola! Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+            // Cerrar tips modal si está abierto antes de mostrar upgrade
+            setShowTipsModal(false);
+            setTimeout(() => {
+              setShowUpgradeModal(true);
+            }, 300);
+          } else {
+            setMessages([{
+              id: '1',
+              text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+          }
+          // IMPORTANTE: Siempre marcar como enviado para evitar loop infinito
+          setHasSentFirst(true);
         } finally {
           setLoading(false);
         }
@@ -269,6 +296,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         setThreadId(response.data.threadId);
       }
 
+      // Actualizar uso de Zenio si viene en la respuesta
+      if (response.data.zenioUsage) {
+        updateZenioUsage(response.data.zenioUsage);
+      }
+
       // Trigger callbacks if needed
       if (response.data.action) {
         switch (response.data.action) {
@@ -308,18 +340,50 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             onGoalDeleted?.();
             onGoalChange(); // Refresh dashboard AND goal module
             break;
+          case 'budget_limit_reached':
+          case 'goal_limit_reached':
+            // Mostrar modal de upgrade cuando se alcanza límite de presupuestos o metas
+            setTimeout(() => {
+              setShowUpgradeModal(true);
+            }, 500);
+            break;
         }
       }
 
-    } catch (error) {
+      // También verificar si la respuesta indica que se debe hacer upgrade
+      if (response.data.upgrade === true) {
+        setTimeout(() => {
+          setShowUpgradeModal(true);
+        }, 500);
+      }
+
+    } catch (error: any) {
       console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Error al enviar mensaje. Por favor intenta de nuevo.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      console.log('Error status:', error.response?.status);
+
+      // Detectar error 403 - límite de Zenio alcanzado
+      if (error.response?.status === 403) {
+        const limitMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, limitMessage]);
+        // Cerrar tips modal si está abierto antes de mostrar upgrade
+        setShowTipsModal(false);
+        setTimeout(() => {
+          setShowUpgradeModal(true);
+        }, 300);
+      } else {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Error al enviar mensaje. Por favor intenta de nuevo.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setLoading(false);
     }
@@ -663,6 +727,109 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               </View>
             </View>
           </View>
+
+          {/* Overlay de Upgrade - DENTRO del Modal de Chat para evitar conflictos en iOS */}
+          {showUpgradeModal && (
+            <TouchableOpacity
+              style={styles.upgradeOverlayContainer}
+              activeOpacity={1}
+              onPress={() => setShowUpgradeModal(false)}
+            >
+              <TouchableOpacity
+                style={styles.upgradeOverlayModal}
+                activeOpacity={1}
+                onPress={(e) => e.stopPropagation()}
+              >
+                <TouchableOpacity
+                  style={styles.upgradeCloseButton}
+                  onPress={() => setShowUpgradeModal(false)}
+                >
+                  <Ionicons name="close" size={24} color="#6B7280" />
+                </TouchableOpacity>
+
+                <ScrollView
+                    showsVerticalScrollIndicator={true}
+                    contentContainerStyle={{ flexGrow: 1 }}
+                    bounces={true}
+                  >
+                  {/* Icon */}
+                  <View style={styles.upgradeIconContainer}>
+                    <View style={styles.upgradeIconCircle}>
+                      <Ionicons name="chatbubble-ellipses" size={34} color="#F59E0B" />
+                    </View>
+                  </View>
+
+                  {/* Title */}
+                  <Text style={styles.upgradeTitle}>Límite de Consultas Alcanzado</Text>
+
+                  {/* Description */}
+                  <Text style={styles.upgradeDescription}>
+                    Has usado las 10 consultas a Zenio AI de este mes.
+                  </Text>
+
+                  {/* Comparison */}
+                  <View style={styles.upgradeComparisonContainer}>
+                    <View style={styles.upgradeComparisonCard}>
+                      <Text style={styles.upgradeComparisonLabel}>Actual (Gratis)</Text>
+                      <Text style={styles.upgradeComparisonValue}>10/10</Text>
+                    </View>
+                    <Ionicons name="arrow-forward" size={24} color="#9CA3AF" />
+                    <View style={[styles.upgradeComparisonCard, styles.upgradePremiumCard]}>
+                      <Text style={[styles.upgradeComparisonLabel, styles.upgradePremiumLabel]}>Premium</Text>
+                      <Text style={[styles.upgradeComparisonValue, styles.upgradePremiumValue]}>Ilimitado</Text>
+                    </View>
+                  </View>
+
+                  {/* Features */}
+                  <View style={styles.upgradeFeaturesContainer}>
+                    <Text style={styles.upgradeFeaturesTitle}>Características Premium:</Text>
+                    <View style={styles.upgradeFeatureRow}>
+                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+                      <Text style={styles.upgradeFeatureText}>Consultas ilimitadas a Zenio AI</Text>
+                    </View>
+                    <View style={styles.upgradeFeatureRow}>
+                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+                      <Text style={styles.upgradeFeatureText}>Presupuestos ilimitados</Text>
+                    </View>
+                    <View style={styles.upgradeFeatureRow}>
+                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+                      <Text style={styles.upgradeFeatureText}>Metas ilimitadas</Text>
+                    </View>
+                    <View style={styles.upgradeFeatureRow}>
+                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
+                      <Text style={styles.upgradeFeatureText}>Acceso a reportes</Text>
+                    </View>
+                  </View>
+
+                  {/* Trial Badge */}
+                  <View style={styles.upgradeTrialBadge}>
+                    <Ionicons name="gift" size={16} color="#059669" />
+                    <Text style={styles.upgradeTrialText}>7 días de prueba gratis</Text>
+                  </View>
+
+                  {/* Buttons */}
+                  <TouchableOpacity
+                    style={styles.upgradeButton}
+                    onPress={() => {
+                      setShowUpgradeModal(false);
+                      setShowChat(false);
+                      // Navigate to subscription screen or open upgrade flow
+                    }}
+                  >
+                    <Ionicons name="diamond" size={20} color="#fff" />
+                    <Text style={styles.upgradeButtonText}>Ver Planes</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.upgradeContinueButton}
+                    onPress={() => setShowUpgradeModal(false)}
+                  >
+                    <Text style={styles.upgradeContinueButtonText}>Continuar con Gratis</Text>
+                  </TouchableOpacity>
+                </ScrollView>
+              </TouchableOpacity>
+            </TouchableOpacity>
+          )}
 
           {/* Overlay de Tips - DENTRO del Modal de Chat para evitar conflictos en iOS */}
           {showTipsModal && (
@@ -1108,6 +1275,164 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#64748b',
     lineHeight: 18,
+  },
+  // Upgrade Overlay styles
+  upgradeOverlayContainer: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+    zIndex: 9999,
+  },
+  upgradeOverlayModal: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 20,
+    paddingTop: 16,
+    width: '100%',
+    maxWidth: 380,
+    maxHeight: '80%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 10,
+  },
+  upgradeCloseButton: {
+    position: 'absolute',
+    top: 16,
+    right: 16,
+    zIndex: 10,
+    padding: 4,
+  },
+  upgradeIconContainer: {
+    alignItems: 'center',
+    marginBottom: 12,
+    marginTop: 4,
+  },
+  upgradeIconCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 35,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  upgradeTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1F2937',
+    textAlign: 'center',
+    marginBottom: 6,
+  },
+  upgradeDescription: {
+    fontSize: 13,
+    color: '#6B7280',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  upgradeComparisonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  upgradeComparisonCard: {
+    flex: 1,
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 12,
+    alignItems: 'center',
+  },
+  upgradePremiumCard: {
+    backgroundColor: '#FEF3C7',
+    borderWidth: 2,
+    borderColor: '#F59E0B',
+  },
+  upgradeComparisonLabel: {
+    fontSize: 11,
+    color: '#6B7280',
+    marginBottom: 4,
+    fontWeight: '600',
+  },
+  upgradePremiumLabel: {
+    color: '#92400E',
+  },
+  upgradeComparisonValue: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  upgradePremiumValue: {
+    color: '#B45309',
+  },
+  upgradeFeaturesContainer: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    padding: 12,
+    marginBottom: 12,
+  },
+  upgradeFeaturesTitle: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 8,
+  },
+  upgradeFeatureRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  upgradeFeatureText: {
+    fontSize: 12,
+    color: '#4B5563',
+  },
+  upgradeTrialBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 12,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    backgroundColor: '#D1FAE5',
+    borderRadius: 20,
+    alignSelf: 'center',
+  },
+  upgradeTrialText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  upgradeButton: {
+    backgroundColor: '#F59E0B',
+    borderRadius: 12,
+    paddingVertical: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  upgradeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  upgradeContinueButton: {
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  upgradeContinueButtonText: {
+    color: '#6B7280',
+    fontSize: 14,
+    fontWeight: '500',
   },
 });
 

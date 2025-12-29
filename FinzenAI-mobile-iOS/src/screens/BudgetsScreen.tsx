@@ -123,7 +123,7 @@ export default function BudgetsScreen() {
       })
       .filter(alert => alert !== null);
 
-    const result = {
+    return {
       totalBudget,
       monthlyExpenses,
       remaining,
@@ -133,9 +133,6 @@ export default function BudgetsScreen() {
       controlIcon,
       projectionAlerts
     };
-
-    console.log('[BudgetsScreen] Stats calculados:', result);
-    return result;
   }, [budgets]);
 
   useEffect(() => {
@@ -145,7 +142,6 @@ export default function BudgetsScreen() {
   // Listener para cambios de presupuestos desde Zenio
   useEffect(() => {
     if (budgetChangeTrigger > 0) {
-      console.log('[BudgetsScreen] Budget change detected, reloading...');
       loadBudgets();
     }
   }, [budgetChangeTrigger]);
@@ -153,7 +149,6 @@ export default function BudgetsScreen() {
   // Listener para cambios de transacciones (actualizar spent en budgets)
   useEffect(() => {
     if (transactionChangeTrigger > 0) {
-      console.log('[BudgetsScreen] Transaction change detected, reloading budgets...');
       loadBudgets();
     }
   }, [transactionChangeTrigger]);
@@ -161,23 +156,10 @@ export default function BudgetsScreen() {
   const loadBudgets = async () => {
     try {
       setLoading(true);
-      // Obtener TODOS los presupuestos (activos e inactivos) para debugging
-      // TODO: Cambiar a { is_active: true } cuando se arregle el problema de renovación
+      // Obtener TODOS los presupuestos (activos e inactivos)
       const response = await budgetsAPI.getAll();
 
-      console.log('🔍 [BudgetsScreen] Raw API Response:', JSON.stringify(response.data, null, 2));
-
       const budgetsData = response.data.budgets || response.data || [];
-      console.log('🔍 [BudgetsScreen] Budgets data:', budgetsData);
-
-      // Log individual de cada presupuesto
-      budgetsData.forEach((budget: Budget, index: number) => {
-        console.log(`🔍 [Budget ${index}] ID: ${budget.id}`);
-        console.log(`🔍 [Budget ${index}] Name: ${budget.name}`);
-        console.log(`🔍 [Budget ${index}] Amount: ${budget.amount} (type: ${typeof budget.amount})`);
-        console.log(`🔍 [Budget ${index}] Spent: ${budget.spent} (type: ${typeof budget.spent})`);
-        console.log(`🔍 [Budget ${index}] Spent value:`, budget.spent);
-      });
 
       // Usar la estructura correcta de la API
       setBudgets(budgetsData);
@@ -512,6 +494,7 @@ export default function BudgetsScreen() {
           // Refrescar suscripción después de cerrar
           fetchSubscription();
         }}
+        limitType="budgets"
       />
     </SafeAreaView>
   );

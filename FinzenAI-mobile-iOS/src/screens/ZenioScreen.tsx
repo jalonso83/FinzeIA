@@ -110,17 +110,25 @@ export default function ZenioScreen() {
           setHasSentFirst(true);
         } catch (error: any) {
           console.error('Error al inicializar conversación:', error);
+          console.log('Error status:', error.response?.status);
+          console.log('Error data:', JSON.stringify(error.response?.data));
 
           // Verificar si es error de límite alcanzado (403)
-          if (error.response?.status === 403 && error.response?.data?.upgrade) {
-            setShowUpgradeModal(true);
+          if (error.response?.status === 403) {
+            // Cerrar cualquier modal activo primero (evitar modales anidados en iOS)
+            setShowTips(false);
+
             setMessages([{
               id: '1',
               text: '¡Hola! Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
               isUser: false,
               timestamp: new Date(),
             }]);
-            setHasSentFirst(true);
+
+            // Usar setTimeout para dar tiempo a iOS de cerrar modales antes de abrir otro
+            setTimeout(() => {
+              setShowUpgradeModal(true);
+            }, 300);
           } else {
             setMessages([{
               id: '1',
@@ -129,6 +137,8 @@ export default function ZenioScreen() {
               timestamp: new Date(),
             }]);
           }
+          // IMPORTANTE: Siempre marcar como enviado para evitar loop infinito de reintentos
+          setHasSentFirst(true);
         } finally {
           setLoading(false);
         }
@@ -206,10 +216,14 @@ export default function ZenioScreen() {
 
     } catch (error: any) {
       console.error('Error sending message:', error);
+      console.log('Error status:', error.response?.status);
+      console.log('Error data:', JSON.stringify(error.response?.data));
 
       // Verificar si es error de límite alcanzado (403)
-      if (error.response?.status === 403 && error.response?.data?.upgrade) {
-        setShowUpgradeModal(true);
+      if (error.response?.status === 403) {
+        // Cerrar cualquier modal activo primero (evitar modales anidados en iOS)
+        setShowTips(false);
+
         const limitMessage: Message = {
           id: (Date.now() + 1).toString(),
           text: 'Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
@@ -217,6 +231,11 @@ export default function ZenioScreen() {
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, limitMessage]);
+
+        // Usar setTimeout para dar tiempo a iOS de cerrar modales antes de abrir otro
+        setTimeout(() => {
+          setShowUpgradeModal(true);
+        }, 300);
       } else {
         Alert.alert('Error', 'No se pudo enviar el mensaje');
       }

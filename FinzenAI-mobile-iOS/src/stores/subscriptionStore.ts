@@ -26,6 +26,7 @@ interface SubscriptionState {
   fetchPlans: () => Promise<void>;
   fetchPayments: (limit?: number) => Promise<void>;
   createCheckout: (plan: 'PREMIUM' | 'PRO') => Promise<CheckoutSessionResponse>;
+  syncCheckoutSession: (sessionId: string) => Promise<void>;
   cancelSubscription: () => Promise<CancelSubscriptionResponse>;
   reactivateSubscription: () => Promise<void>;
   changePlan: (newPlan: 'PREMIUM' | 'PRO') => Promise<void>;
@@ -115,6 +116,23 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
       const errorMessage = error.response?.data?.message || 'Error al crear sesión de pago';
       set({ error: errorMessage, loading: false });
       throw new Error(errorMessage);
+    }
+  },
+
+  // Sincronizar estado de checkout después del pago (Universal Links)
+  syncCheckoutSession: async (sessionId: string): Promise<void> => {
+    try {
+      console.log('🔄 Sincronizando sesión de checkout:', sessionId);
+      const response = await subscriptionsAPI.checkCheckoutSession(sessionId);
+      console.log('✅ Sesión sincronizada:', response.data);
+
+      // Si el pago fue exitoso, actualizar la suscripción
+      if (response.data.status === 'complete' && response.data.paymentStatus === 'paid') {
+        await get().fetchSubscription();
+      }
+    } catch (error: any) {
+      console.error('Error sincronizando sesión de checkout:', error);
+      // No lanzamos error, solo logueamos - el pago puede haber funcionado aunque falle la sync
     }
   },
 

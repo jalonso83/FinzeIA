@@ -1,13 +1,13 @@
 // Navegación principal de la app móvil FinZen
 // Configuración multiplataforma (Android + iOS)
 
-import React, { useState, useEffect } from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform } from 'react-native';
+import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
@@ -28,6 +28,8 @@ import GoalCalculatorScreen from '../screens/GoalCalculatorScreen';
 import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
 import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
+import RemindersScreen from '../screens/RemindersScreen';
+import AddReminderScreen from '../screens/AddReminderScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
@@ -77,6 +79,8 @@ function ToolsStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ToolsHome" component={ToolsScreen} />
+      <Stack.Screen name="Reminders" component={RemindersScreen} />
+      <Stack.Screen name="AddReminder" component={AddReminderScreen} />
       <Stack.Screen name="LoanCalculator" component={LoanCalculatorScreen} />
       <Stack.Screen name="InvestmentSimulator" component={InvestmentSimulatorScreen} />
       <Stack.Screen name="GoalCalculator" component={GoalCalculatorScreen} />
@@ -378,8 +382,19 @@ function MainNavigator({ route }: any) {
     const initializeNotifications = async () => {
       try {
         console.log('🔔 Inicializando servicio de notificaciones...');
-        await notificationService.initialize();
-        console.log('✅ Servicio de notificaciones inicializado');
+        const token = await notificationService.initialize();
+
+        if (token) {
+          // Registrar dispositivo en el backend
+          const registered = await notificationService.registerDevice();
+          if (registered) {
+            console.log('✅ Dispositivo iOS registrado para notificaciones');
+          } else {
+            console.warn('⚠️ No se pudo registrar el dispositivo iOS');
+          }
+        } else {
+          console.log('⚠️ No se obtuvo token de notificaciones');
+        }
       } catch (error) {
         console.error('❌ Error inicializando notificaciones:', error);
       }
@@ -806,19 +821,142 @@ function MainStackNavigator() {
   );
 }
 
+// Configuración de Universal Links / Deep Links
+const BACKEND_DOMAIN = 'finzenai-backend-production.up.railway.app';
+
+const linking = {
+  prefixes: [
+    `https://${BACKEND_DOMAIN}`,
+    'finzenai://',
+  ],
+  config: {
+    screens: {
+      // Rutas de checkout manejadas globalmente
+      CheckoutSuccess: 'checkout/success',
+      CheckoutCancel: 'checkout/cancel',
+    },
+  },
+};
+
 // Navegador principal de la app
 export default function AppNavigator() {
   const { isAuthenticated, user } = useAuthStore();
+  const { fetchSubscription, syncCheckoutSession } = useSubscriptionStore();
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
+  const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
+  const [showPaymentCancelModal, setShowPaymentCancelModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Manejar URLs entrantes (Universal Links)
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+      console.log('🔗 Deep link recibido:', url);
+
+      // Checkout Success
+      if (url.includes('/checkout/success')) {
+        console.log('✅ Checkout exitoso detectado');
+        setProcessingPayment(true);
+
+        try {
+          // Extraer session_id de la URL
+          const urlObj = new URL(url);
+          const sessionId = urlObj.searchParams.get('session_id');
+
+          if (sessionId) {
+            console.log('🔄 Sincronizando sesión:', sessionId);
+            await syncCheckoutSession(sessionId);
+          }
+
+          // Actualizar suscripción
+          await fetchSubscription();
+          setShowPaymentSuccessModal(true);
+        } catch (error) {
+          console.error('Error sincronizando pago:', error);
+          // Aún así mostrar éxito si el pago se procesó
+          setShowPaymentSuccessModal(true);
+        } finally {
+          setProcessingPayment(false);
+        }
+      }
+      // Checkout Cancel
+      else if (url.includes('/checkout/cancel')) {
+        console.log('❌ Checkout cancelado');
+        setShowPaymentCancelModal(true);
+      }
+    };
+
+    // Listener para URLs mientras la app está abierta
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Verificar si la app se abrió con una URL
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        console.log('🚀 App abierta con URL:', url);
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchSubscription, syncCheckoutSession]);
 
   return (
-    <NavigationContainer>
-      {isAuthenticated ? (
-        // Si está autenticado pero no completó onboarding, mostrar onboarding
-        user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
-      ) : (
-        <AuthNavigator />
+    <>
+      <NavigationContainer ref={navigationRef} linking={linking}>
+        {isAuthenticated ? (
+          // Si está autenticado pero no completó onboarding, mostrar onboarding
+          user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
+        ) : (
+          <AuthNavigator />
+        )}
+      </NavigationContainer>
+
+      {/* Payment Success Modal */}
+      <CustomModal
+        visible={showPaymentSuccessModal}
+        type="success"
+        title="¡Pago Exitoso!"
+        message="¡Ahora eres miembro Premium! Disfruta del acceso ilimitado a todas las funciones."
+        buttonText="¡Genial!"
+        onClose={() => setShowPaymentSuccessModal(false)}
+      />
+
+      {/* Payment Cancel Modal */}
+      <CustomModal
+        visible={showPaymentCancelModal}
+        type="info"
+        title="Pago Cancelado"
+        message="No te preocupes, puedes completar tu suscripción en cualquier momento."
+        buttonText="Entendido"
+        onClose={() => setShowPaymentCancelModal(false)}
+      />
+
+      {/* Processing Payment Overlay */}
+      {processingPayment && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <View style={{
+              backgroundColor: 'white',
+              padding: 24,
+              borderRadius: 16,
+              alignItems: 'center',
+            }}>
+              <Ionicons name="sync" size={40} color="#2563EB" />
+              <Text style={{ marginTop: 12, fontSize: 16, color: '#374151' }}>
+                Procesando pago...
+              </Text>
+            </View>
+          </View>
+        </Modal>
       )}
-    </NavigationContainer>
+    </>
   );
 }
 

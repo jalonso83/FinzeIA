@@ -123,12 +123,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loadCategories();
       loadLastExchangeRates();
       if (editTransaction) {
-        console.log('Editando transacción:', editTransaction);
-        console.log('Category data:', editTransaction.category);
-        console.log('Category ID directo:', editTransaction.categoryId);
-
         const categoryId = editTransaction.category?.id || editTransaction.categoryId || '';
-        console.log('Category ID final:', categoryId);
 
         const backendDate = editTransaction.date.split('T')[0]; // YYYY-MM-DD
         const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
@@ -185,17 +180,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (editTransaction && categories.length > 0 && formData.categoryId) {
       const selectedCategory = categories.find(cat => cat.id === formData.categoryId);
       const isCompatible = selectedCategory && (selectedCategory.type === formData.type || selectedCategory.type === 'BOTH');
-      
-      console.log('Validando categoría después de cargar:', {
-        selectedCategory: selectedCategory?.name,
-        categoryType: selectedCategory?.type,
-        transactionType: formData.type,
-        isCompatible
-      });
-      
+
       // Si la categoría no es compatible, buscar una por defecto o limpiar
       if (!isCompatible) {
-        console.log('Categoría no compatible, limpiando...');
         setFormData(prev => ({ ...prev, categoryId: '' }));
       }
     }
@@ -387,8 +374,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         await transactionsAPI.create(transactionData);
         message = 'Transacción creada correctamente';
       }
-
-      console.log('✅ Transacción guardada exitosamente');
 
       // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
       onTransactionChange();
