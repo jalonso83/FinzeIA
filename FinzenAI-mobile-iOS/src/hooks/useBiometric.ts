@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import * as LocalAuthentication from 'expo-local-authentication';
 import * as SecureStore from 'expo-secure-store';
 
+import { logger } from '../utils/logger';
 interface BiometricResult {
   isAvailable: boolean;
   isEnabled: boolean;
@@ -31,7 +32,7 @@ export function useBiometric(): BiometricResult {
       const hasHardware = await LocalAuthentication.hasHardwareAsync();
 
       if (!hasHardware) {
-        console.log('🔒 Dispositivo no tiene hardware biométrico');
+        logger.log('🔒 Dispositivo no tiene hardware biométrico');
         setIsAvailable(false);
         setLoading(false);
         return;
@@ -41,7 +42,7 @@ export function useBiometric(): BiometricResult {
       const isEnrolled = await LocalAuthentication.isEnrolledAsync();
 
       if (!isEnrolled) {
-        console.log('🔒 No hay datos biométricos registrados en el dispositivo');
+        logger.log('🔒 No hay datos biométricos registrados en el dispositivo');
         setIsAvailable(false);
         setLoading(false);
         return;
@@ -53,13 +54,13 @@ export function useBiometric(): BiometricResult {
       // Determinar tipo de biometría disponible
       if (types.includes(LocalAuthentication.AuthenticationType.FACIAL_RECOGNITION)) {
         setBiometricType('Face ID');
-        console.log('✅ Face ID disponible');
+        logger.log('✅ Face ID disponible');
       } else if (types.includes(LocalAuthentication.AuthenticationType.FINGERPRINT)) {
         setBiometricType('Huella Digital');
-        console.log('✅ Huella Digital disponible');
+        logger.log('✅ Huella Digital disponible');
       } else if (types.includes(LocalAuthentication.AuthenticationType.IRIS)) {
         setBiometricType('Iris');
-        console.log('✅ Iris disponible');
+        logger.log('✅ Iris disponible');
       } else {
         setBiometricType('Biometría');
       }
@@ -69,10 +70,10 @@ export function useBiometric(): BiometricResult {
       // Verificar si el usuario tiene habilitada la biometría en la app
       const enabled = await SecureStore.getItemAsync('biometric_enabled');
       setIsEnabled(enabled === 'true');
-      console.log(`🔐 Biometría ${enabled === 'true' ? 'habilitada' : 'deshabilitada'} en la app`);
+      logger.log(`🔐 Biometría ${enabled === 'true' ? 'habilitada' : 'deshabilitada'} en la app`);
 
     } catch (error) {
-      console.error('❌ Error verificando biometría:', error);
+      logger.error('❌ Error verificando biometría:', error);
       setIsAvailable(false);
     } finally {
       setLoading(false);
@@ -81,7 +82,7 @@ export function useBiometric(): BiometricResult {
 
   const authenticate = async (): Promise<boolean> => {
     try {
-      console.log('🔐 Iniciando autenticación biométrica...');
+      logger.log('🔐 Iniciando autenticación biométrica...');
 
       const result = await LocalAuthentication.authenticateAsync({
         promptMessage: `Desbloquea FinZen AI`,
@@ -91,21 +92,21 @@ export function useBiometric(): BiometricResult {
       });
 
       if (result.success) {
-        console.log('✅ Autenticación biométrica exitosa');
+        logger.log('✅ Autenticación biométrica exitosa');
         return true;
       } else {
-        console.log('❌ Autenticación biométrica fallida:', result.error);
+        logger.log('❌ Autenticación biométrica fallida:', result.error);
         return false;
       }
     } catch (error) {
-      console.error('❌ Error en autenticación biométrica:', error);
+      logger.error('❌ Error en autenticación biométrica:', error);
       return false;
     }
   };
 
   const enable = async (): Promise<void> => {
     try {
-      console.log('🔐 Habilitando biometría...');
+      logger.log('🔐 Habilitando biometría...');
 
       // Primero autenticar para confirmar que funciona
       const authenticated = await authenticate();
@@ -113,24 +114,24 @@ export function useBiometric(): BiometricResult {
       if (authenticated) {
         await SecureStore.setItemAsync('biometric_enabled', 'true');
         setIsEnabled(true);
-        console.log('✅ Biometría habilitada exitosamente');
+        logger.log('✅ Biometría habilitada exitosamente');
       } else {
         throw new Error('Autenticación biométrica fallida');
       }
     } catch (error) {
-      console.error('❌ Error habilitando biometría:', error);
+      logger.error('❌ Error habilitando biometría:', error);
       throw error;
     }
   };
 
   const disable = async (): Promise<void> => {
     try {
-      console.log('🔓 Deshabilitando biometría...');
+      logger.log('🔓 Deshabilitando biometría...');
       await SecureStore.deleteItemAsync('biometric_enabled');
       setIsEnabled(false);
-      console.log('✅ Biometría deshabilitada exitosamente');
+      logger.log('✅ Biometría deshabilitada exitosamente');
     } catch (error) {
-      console.error('❌ Error deshabilitando biometría:', error);
+      logger.error('❌ Error deshabilitando biometría:', error);
       throw error;
     }
   };

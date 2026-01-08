@@ -18,6 +18,7 @@ import { useCurrency } from '../hooks/useCurrency';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import SubscriptionsScreen from './SubscriptionsScreen';
 
+import { logger } from '../utils/logger';
 interface DashboardData {
   totalBalance: number;
   monthlyBalance: number;
@@ -377,8 +378,8 @@ export default function DashboardScreen() {
 
       setDashboardData(dashboardData);
     } catch (error: any) {
-      console.error('Error loading dashboard:', error);
-      console.error('Error details:', {
+      logger.error('Error loading dashboard:', error);
+      logger.error('Error details:', {
         message: error.message,
         response: error.response?.data,
         status: error.response?.status,
@@ -386,7 +387,7 @@ export default function DashboardScreen() {
       });
       
       // Mostrar errores específicos por endpoint
-      console.log('Response statuses:', {
+      logger.log('Response statuses:', {
         gamification: gamificationResponse?.status,
         streak: streakResponse?.status, 
         transactions: transactionsResponse?.status,

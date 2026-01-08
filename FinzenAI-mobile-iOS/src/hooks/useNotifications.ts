@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
 import { useNavigation } from '@react-navigation/native';
+import { logger } from '../utils/logger';
 import notificationService, {
   NotificationPreferences,
   NotificationHistoryItem,
@@ -70,7 +71,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
 
       return false;
     } catch (error) {
-      console.error('[useNotifications] Error inicializando:', error);
+      logger.error('[useNotifications] Error inicializando:', error);
       return false;
     } finally {
       setIsLoading(false);
@@ -92,7 +93,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
         // @ts-ignore - La navegación depende de las rutas disponibles
         navigation.navigate(screen);
       } catch (error) {
-        console.log('[useNotifications] Error navegando a:', screen);
+        logger.log('[useNotifications] Error navegando a:', screen);
       }
     }
   }, [navigation, onNotificationTapped]);
@@ -107,7 +108,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
       }
       return false;
     } catch (error) {
-      console.error('[useNotifications] Error actualizando preferencias:', error);
+      logger.error('[useNotifications] Error actualizando preferencias:', error);
       return false;
     }
   }, []);
@@ -118,7 +119,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
       const hist = await notificationService.getHistory(50);
       setHistory(hist);
     } catch (error) {
-      console.error('[useNotifications] Error refrescando historial:', error);
+      logger.error('[useNotifications] Error refrescando historial:', error);
     }
   }, []);
 
@@ -135,7 +136,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
       }
       return success;
     } catch (error) {
-      console.error('[useNotifications] Error marcando como leída:', error);
+      logger.error('[useNotifications] Error marcando como leída:', error);
       return false;
     }
   }, []);
@@ -145,7 +146,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
     try {
       return await notificationService.sendTest();
     } catch (error) {
-      console.error('[useNotifications] Error enviando prueba:', error);
+      logger.error('[useNotifications] Error enviando prueba:', error);
       return false;
     }
   }, []);
@@ -161,7 +162,7 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
       }
       return success;
     } catch (error) {
-      console.error('[useNotifications] Error desregistrando:', error);
+      logger.error('[useNotifications] Error desregistrando:', error);
       return false;
     }
   }, []);

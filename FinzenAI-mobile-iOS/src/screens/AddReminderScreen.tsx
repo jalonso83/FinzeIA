@@ -16,7 +16,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute } from '@react-navigation/native';
 import { remindersAPI, PaymentReminder, PaymentType } from '../utils/api';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 // Tipos de pago con información
 const PAYMENT_TYPES: { value: PaymentType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { value: 'CREDIT_CARD', label: 'Tarjeta de Crédito', icon: 'card', color: '#2563EB' },
@@ -44,6 +46,7 @@ export default function AddReminderScreen() {
   const [loading, setLoading] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showTypeDropdown, setShowTypeDropdown] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
@@ -172,9 +175,14 @@ export default function AddReminderScreen() {
 
       setShowSuccessModal(true);
     } catch (error: any) {
-      console.error('Error saving reminder:', error);
-      setErrorMessage(error.response?.data?.message || 'Error al guardar el recordatorio');
-      setShowErrorModal(true);
+      logger.error('Error saving reminder:', error);
+      // Si es error 403 (límite de plan), mostrar modal de upgrade
+      if (error.response?.status === 403) {
+        setShowUpgradeModal(true);
+      } else {
+        setErrorMessage(error.response?.data?.message || 'Error al guardar el recordatorio');
+        setShowErrorModal(true);
+      }
     } finally {
       setLoading(false);
     }
@@ -202,7 +210,7 @@ export default function AddReminderScreen() {
             style={styles.backButton}
             onPress={() => {
               // No navegar si hay modales visibles (prevenir conflictos en iOS)
-              if (!showErrorModal && !showSuccessModal) {
+              if (!showErrorModal && !showSuccessModal && !showUpgradeModal) {
                 navigation.goBack();
               }
             }}
@@ -511,6 +519,13 @@ export default function AddReminderScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Modal de upgrade */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="reminders"
       />
     </SafeAreaView>
   );

@@ -280,7 +280,7 @@ Los colores de cada tutorial se definen en el objeto Tutorial:
 ```typescript
 const COLORS = {
   blue: { start: '#2563EB', end: '#1e40af' },
-  purple: { start: '#7C3AED', end: '#6D28D9' },
+  pro: { start: '#1E40AF', end: '#1E3A8A' },
   green: { start: '#10B981', end: '#059669' },
   red: { start: '#DC2626', end: '#B91C1C' },
   orange: { start: '#F59E0B', end: '#D97706' },

@@ -19,6 +19,7 @@ import { goalsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface Goal {
   id: string;
   name: string;
@@ -84,7 +85,7 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
         amount: contributionAmount
       });
 
-      console.log('✅ Contribución guardada exitosamente');
+      logger.log('✅ Contribución guardada exitosamente');
 
       const message = 'Contribución añadida correctamente';
 
@@ -93,9 +94,9 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 
       // Pasar mensaje al Screen (que cerrará formulario y mostrará modal)
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
+      logger.log('🟢 onSuccess llamado con mensaje:', message);
     } catch (error: any) {
-      console.error('Error al añadir contribución:', error);
+      logger.error('Error al añadir contribución:', error);
       const errMsg = error.response?.data?.message || 'Error al añadir la contribución';
       setErrorMessage(errMsg);
       setShowErrorModal(true);

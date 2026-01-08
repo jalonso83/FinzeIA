@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { authAPI } from '../utils/api';
 import { formatCurrency as baseCurrencyFormatter, getCurrencyByCode, DEFAULT_CURRENCY } from '../utils/currency';
 
+import { logger } from '../utils/logger';
 interface UserProfile {
   currency: string;
   country?: string;
@@ -40,7 +41,7 @@ export const useCurrency = () => {
       fetchPromise = null;
       return profile;
     }).catch(error => {
-      console.error('Error fetching user currency:', error);
+      logger.error('Error fetching user currency:', error);
       setIsLoading(false);
       fetchPromise = null;
       // En caso de error, usar valores por defecto sin país específico

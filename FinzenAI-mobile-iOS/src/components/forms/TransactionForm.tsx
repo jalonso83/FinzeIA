@@ -22,6 +22,7 @@ import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface TransactionFormProps {
   visible: boolean;
   onClose: () => void;
@@ -194,7 +195,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const response = await categoriesAPI.getAll();
       setCategories(response.data);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       setErrorMessage('No se pudieron cargar las categorías');
       setShowErrorModal(true);
     } finally {
@@ -210,7 +211,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         setLastExchangeRates(JSON.parse(savedRates));
       }
     } catch (error) {
-      console.error('Error loading saved exchange rates:', error);
+      logger.error('Error loading saved exchange rates:', error);
     }
   };
 
@@ -298,7 +299,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       try {
         await AsyncStorage.setItem('lastExchangeRates', JSON.stringify(newRates));
       } catch (error) {
-        console.error('Error saving exchange rates:', error);
+        logger.error('Error saving exchange rates:', error);
       }
       
       closeConverter();
@@ -379,7 +380,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       onTransactionChange();
       onSuccess(message);
     } catch (error: any) {
-      console.error('Error saving transaction:', error);
+      logger.error('Error saving transaction:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la transacción';
       setErrorMessage(errMsg);
       setShowErrorModal(true);

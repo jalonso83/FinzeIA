@@ -25,7 +25,9 @@ import {
   CategoryStats,
   DEFAULT_ANT_EXPENSE_CONFIG,
 } from '../types/antExpense';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 export default function AntExpenseDetectiveScreen() {
   const navigation = useNavigation();
   const { formatCurrency } = useCurrency();
@@ -44,6 +46,9 @@ export default function AntExpenseDetectiveScreen() {
   const [tempThreshold, setTempThreshold] = useState(DEFAULT_ANT_EXPENSE_CONFIG.antThreshold);
   const [tempFrequency, setTempFrequency] = useState(DEFAULT_ANT_EXPENSE_CONFIG.minFrequency);
   const [tempMonths, setTempMonths] = useState(DEFAULT_ANT_EXPENSE_CONFIG.monthsToAnalyze);
+
+  // Upgrade modal for premium features
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   useEffect(() => {
     loadInitialData();
@@ -80,7 +85,7 @@ export default function AntExpenseDetectiveScreen() {
         setTempMonths(recommendedConfig.monthsToAnalyze);
       }
     } catch (error) {
-      console.error('Error loading config:', error);
+      logger.error('Error loading config:', error);
     } finally {
       setConfigLoading(false);
     }
@@ -99,7 +104,7 @@ export default function AntExpenseDetectiveScreen() {
       });
 
       // DEBUG: Ver respuesta completa del backend
-      console.log('[AntExpense] Respuesta del backend:', JSON.stringify(response.data, null, 2));
+      logger.log('[AntExpense] Respuesta del backend:', JSON.stringify(response.data, null, 2));
 
       setAnalysis(response.data);
 
@@ -110,7 +115,7 @@ export default function AntExpenseDetectiveScreen() {
       }).start();
 
     } catch (error: any) {
-      console.error('Error loading ant expense analysis:', error);
+      logger.error('Error loading ant expense analysis:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo cargar el análisis de gastos hormiga'
@@ -404,7 +409,8 @@ export default function AntExpenseDetectiveScreen() {
       return renderCannotAnalyze();
     }
 
-    const { calculations, insights } = analysis;
+    const { calculations, insights, planInfo } = analysis;
+    const isLimited = planInfo?.isLimited === true;
 
     return (
       <Animated.View style={[styles.results, { opacity: animatedValue }]}>
@@ -454,6 +460,34 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         </View>
 
+        {/* Banner de análisis limitado para FREE */}
+        {isLimited && (
+          <TouchableOpacity
+            style={styles.limitedBanner}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.limitedBannerContent}>
+              <View style={styles.limitedBannerIcon}>
+                <Ionicons name="sparkles" size={20} color="#D97706" />
+              </View>
+              <View style={styles.limitedBannerText}>
+                <Text style={styles.limitedBannerTitle}>Análisis Básico</Text>
+                <Text style={styles.limitedBannerSubtitle}>
+                  {planInfo?.upgradeMessage || 'Mejora a PLUS para ver el análisis completo con IA'}
+                </Text>
+              </View>
+              <View style={styles.limitedBannerBadge}>
+                <Text style={styles.limitedBannerBadgeText}>PLUS</Text>
+              </View>
+            </View>
+            <View style={styles.limitedBannerAction}>
+              <Text style={styles.limitedBannerActionText}>Desbloquear análisis completo</Text>
+              <Ionicons name="chevron-forward" size={16} color="#D97706" />
+            </View>
+          </TouchableOpacity>
+        )}
+
         {/* Top Criminales */}
         {calculations.topCriminals.length > 0 && (
           <View style={styles.criminalsSection}>
@@ -484,7 +518,7 @@ export default function AntExpenseDetectiveScreen() {
         )}
 
         {/* Sugerencias por categoría */}
-        {insights.categorySuggestions.length > 0 && (
+        {insights.categorySuggestions.length > 0 ? (
           <View style={styles.suggestionsSection}>
             <Text style={styles.sectionTitle}>💡 Sugerencias de Zenio</Text>
             {insights.categorySuggestions.map((catSuggestion, index) => (
@@ -496,6 +530,25 @@ export default function AntExpenseDetectiveScreen() {
               </View>
             ))}
           </View>
+        ) : isLimited && (
+          <TouchableOpacity
+            style={styles.lockedSection}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.lockedSectionHeader}>
+              <View style={styles.lockedIconContainer}>
+                <Ionicons name="lock-closed" size={16} color="#9CA3AF" />
+              </View>
+              <Text style={styles.lockedSectionTitle}>💡 Sugerencias personalizadas</Text>
+              <View style={styles.plusBadgeSmall}>
+                <Text style={styles.plusBadgeSmallText}>PLUS</Text>
+              </View>
+            </View>
+            <Text style={styles.lockedSectionDescription}>
+              Zenio IA te dará consejos específicos para reducir cada categoría
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Tendencia mensual */}
@@ -533,7 +586,7 @@ export default function AntExpenseDetectiveScreen() {
         )}
 
         {/* Equivalencias */}
-        {insights.equivalencies.length > 0 && (
+        {insights.equivalencies.length > 0 ? (
           <View style={styles.equivalenciesSection}>
             <Text style={styles.sectionTitle}>
               🏆 Con {formatCurrency(calculations.totalAntExpenses)} podrías:
@@ -544,6 +597,25 @@ export default function AntExpenseDetectiveScreen() {
               </View>
             ))}
           </View>
+        ) : isLimited && (
+          <TouchableOpacity
+            style={styles.lockedSection}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.lockedSectionHeader}>
+              <View style={styles.lockedIconContainer}>
+                <Ionicons name="lock-closed" size={16} color="#9CA3AF" />
+              </View>
+              <Text style={styles.lockedSectionTitle}>🏆 Equivalencias de ahorro</Text>
+              <View style={styles.plusBadgeSmall}>
+                <Text style={styles.plusBadgeSmallText}>PLUS</Text>
+              </View>
+            </View>
+            <Text style={styles.lockedSectionDescription}>
+              Descubre qué podrías comprar con el dinero que gastas en hormiga
+            </Text>
+          </TouchableOpacity>
         )}
 
         {/* Mensaje motivacional */}
@@ -595,6 +667,13 @@ export default function AntExpenseDetectiveScreen() {
       </ScrollView>
 
       {renderConfigModal()}
+
+      {/* Upgrade Modal for Premium Features */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="antExpenseAnalysis"
+      />
     </SafeAreaView>
   );
 }
@@ -1200,5 +1279,119 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: 'white',
+  },
+  // Limited Analysis Banner (FREE users)
+  limitedBanner: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  limitedBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  limitedBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  limitedBannerText: {
+    flex: 1,
+  },
+  limitedBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  limitedBannerSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    lineHeight: 16,
+  },
+  limitedBannerBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  limitedBannerBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
+  limitedBannerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+  },
+  limitedBannerActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  // Locked Section (for premium-only content)
+  lockedSection: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  lockedSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  lockedIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  lockedSectionTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  plusBadgeSmall: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  plusBadgeSmallText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.3,
+  },
+  lockedSectionDescription: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginLeft: 38,
+    lineHeight: 18,
   },
 });

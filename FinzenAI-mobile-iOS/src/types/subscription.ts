@@ -3,6 +3,8 @@
 
 export type SubscriptionPlan = 'FREE' | 'PREMIUM' | 'PRO';
 
+export type BillingPeriod = 'monthly' | 'yearly';
+
 export type SubscriptionStatus =
   | 'ACTIVE'
   | 'CANCELED'
@@ -18,26 +20,41 @@ export interface PlanLimits {
   budgets: number; // -1 = unlimited
   goals: number; // -1 = unlimited
   zenioQueries: number; // -1 = unlimited
+  reminders: number; // -1 = unlimited (recordatorios de pago)
+  budgetAlerts: boolean; // Alertas de umbral de presupuesto
+  textToSpeech: boolean; // TTS para respuestas de Zenio
   advancedReports: boolean;
   exportData: boolean;
+  bankIntegration: boolean; // Email Sync (PRO only)
+  antExpenseAnalysis: 'basic' | 'full'; // Detector de gastos hormiga
+  advancedCalculators: boolean; // Skip vs Save Challenge
   multipleWallets?: boolean;
-  bankIntegration?: boolean;
   prioritySupport?: boolean;
+}
+
+export interface PlanPrice {
+  monthly: number;
+  yearly: number;
+}
+
+export interface PlanSavings {
+  yearly: number;
+  percentage: number;
 }
 
 export interface Plan {
   id: SubscriptionPlan;
   name: string;
-  price: number;
-  stripePriceId: string | null;
+  price: PlanPrice;
+  savings?: PlanSavings | null;
   limits: PlanLimits;
   features: string[];
 }
 
 export interface PlanDetails {
   name: string;
-  price: number;
-  stripePriceId: string | null;
+  price: PlanPrice;
+  savings?: PlanSavings | null;
   limits: PlanLimits;
   features: string[];
 }

@@ -26,6 +26,7 @@ import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
 
+import { logger } from '../utils/logger';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Message {
@@ -72,7 +73,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { user } = useAuthStore();
-  const { updateZenioUsage } = useSubscriptionStore();
+  const { updateZenioUsage, canUseTextToSpeech } = useSubscriptionStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -98,6 +99,19 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
+    // Verificar si el usuario tiene acceso a TTS (PLUS/PRO)
+    if (!canUseTextToSpeech()) {
+      Alert.alert(
+        'Función Premium',
+        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ver Planes', onPress: () => setShowUpgradeModal(true) }
+        ]
+      );
+      return;
+    }
+
     if (speech.isSpeaking && currentlyPlayingId === messageId) {
       speech.stopSpeaking();
       setCurrentlyPlayingId(null);
@@ -138,7 +152,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };
@@ -190,8 +204,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
           setHasSentFirst(true);
         } catch (error: any) {
-          console.error('Error al inicializar conversación:', error);
-          console.log('Error status:', error.response?.status);
+          logger.error('Error al inicializar conversación:', error);
+          logger.log('Error status:', error.response?.status);
 
           // Detectar error 403 - límite de Zenio alcanzado
           if (error.response?.status === 403) {
@@ -278,8 +292,9 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         setMessages(prev => [...prev, zenioMessage]);
 
         // Auto-reproducir si está habilitado o si el mensaje original fue por voz
-        if ((autoPlay || isVoiceMessage) && !speech.isSpeaking) {
-          console.log('🔊 Zenio va a responder hablando...');
+        // Solo si el usuario tiene acceso a TTS (PLUS/PRO)
+        if ((autoPlay || isVoiceMessage) && !speech.isSpeaking && canUseTextToSpeech()) {
+          logger.log('🔊 Zenio va a responder hablando...');
           setCurrentlyPlayingId(messageId);
           const cleanText = cleanMarkdownForSpeech(response.data.message);
           await speech.speakResponse(cleanText);
@@ -289,7 +304,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
       // Log para debugging de acciones ejecutadas
       if (response.data.executedActions) {
-        console.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
+        logger.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
       }
 
       if (response.data.threadId && !threadId) {
@@ -358,8 +373,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       }
 
     } catch (error: any) {
-      console.error('Error sending message:', error);
-      console.log('Error status:', error.response?.status);
+      logger.error('Error sending message:', error);
+      logger.log('Error status:', error.response?.status);
 
       // Detectar error 403 - límite de Zenio alcanzado
       if (error.response?.status === 403) {
@@ -422,7 +437,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('Error copying message:', error);
+      logger.error('Error copying message:', error);
       Alert.alert('Error', 'No se pudo copiar el mensaje');
     }
   };
@@ -509,7 +524,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               {/* Botón de información/tips */}
               <TouchableOpacity
                 onPress={() => {
-                  console.log('Info button pressed, showing tips modal');
+                  logger.log('Info button pressed, showing tips modal');
                   setShowTipsModal(true);
                 }}
                 style={styles.infoButton}
@@ -764,14 +779,14 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
                   {/* Description */}
                   <Text style={styles.upgradeDescription}>
-                    Has usado las 10 consultas a Zenio AI de este mes.
+                    Has usado las 15 consultas a Zenio AI de este mes.
                   </Text>
 
                   {/* Comparison */}
                   <View style={styles.upgradeComparisonContainer}>
                     <View style={styles.upgradeComparisonCard}>
                       <Text style={styles.upgradeComparisonLabel}>Actual (Gratis)</Text>
-                      <Text style={styles.upgradeComparisonValue}>10/10</Text>
+                      <Text style={styles.upgradeComparisonValue}>15/15</Text>
                     </View>
                     <Ionicons name="arrow-forward" size={24} color="#9CA3AF" />
                     <View style={[styles.upgradeComparisonCard, styles.upgradePremiumCard]}>
@@ -837,7 +852,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           style={styles.tipsModalContainer}
           activeOpacity={1}
           onPress={() => {
-            console.log('Tips modal backdrop pressed');
+            logger.log('Tips modal backdrop pressed');
             setShowTipsModal(false);
           }}
         >
@@ -853,7 +868,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
               <TouchableOpacity
                 onPress={() => {
-                  console.log('Tips modal close button pressed');
+                  logger.log('Tips modal close button pressed');
                   setShowTipsModal(false);
                 }}
                 style={styles.tipsModalClose}

@@ -1,6 +1,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { TutorialProgress } from '../data/tutorials/types';
 
+import { logger } from '../utils/logger';
 const KEYS = {
   COACH_MARKS_SEEN: '@finzenai/coachMarksSeen',
   TUTORIALS_PROGRESS: '@finzenai/tutorialsProgress',
@@ -20,7 +21,7 @@ export const tutorialStore = {
       const seen = JSON.parse(data);
       return seen[screen] === true;
     } catch (error) {
-      console.error('[TutorialStore] Error checking coach marks:', error);
+      logger.error('[TutorialStore] Error checking coach marks:', error);
       return false;
     }
   },
@@ -34,9 +35,9 @@ export const tutorialStore = {
       const seen = data ? JSON.parse(data) : {};
       seen[screen] = true;
       await AsyncStorage.setItem(KEYS.COACH_MARKS_SEEN, JSON.stringify(seen));
-      console.log(`[TutorialStore] Coach marks marked as seen for: ${screen}`);
+      logger.log(`[TutorialStore] Coach marks marked as seen for: ${screen}`);
     } catch (error) {
-      console.error('[TutorialStore] Error saving coach marks:', error);
+      logger.error('[TutorialStore] Error saving coach marks:', error);
     }
   },
 
@@ -46,9 +47,9 @@ export const tutorialStore = {
   async resetCoachMarks(): Promise<void> {
     try {
       await AsyncStorage.removeItem(KEYS.COACH_MARKS_SEEN);
-      console.log('[TutorialStore] All coach marks reset');
+      logger.log('[TutorialStore] All coach marks reset');
     } catch (error) {
-      console.error('[TutorialStore] Error resetting coach marks:', error);
+      logger.error('[TutorialStore] Error resetting coach marks:', error);
     }
   },
 
@@ -64,7 +65,7 @@ export const tutorialStore = {
       const progress = JSON.parse(data);
       return progress[tutorialId] || null;
     } catch (error) {
-      console.error('[TutorialStore] Error getting tutorial progress:', error);
+      logger.error('[TutorialStore] Error getting tutorial progress:', error);
       return null;
     }
   },
@@ -78,9 +79,9 @@ export const tutorialStore = {
       const allProgress = data ? JSON.parse(data) : {};
       allProgress[tutorialId] = progress;
       await AsyncStorage.setItem(KEYS.TUTORIALS_PROGRESS, JSON.stringify(allProgress));
-      console.log(`[TutorialStore] Progress saved for tutorial: ${tutorialId}`);
+      logger.log(`[TutorialStore] Progress saved for tutorial: ${tutorialId}`);
     } catch (error) {
-      console.error('[TutorialStore] Error saving tutorial progress:', error);
+      logger.error('[TutorialStore] Error saving tutorial progress:', error);
     }
   },
 
@@ -106,7 +107,7 @@ export const tutorialStore = {
       const progress = JSON.parse(data);
       return Object.keys(progress).filter(id => progress[id].completed);
     } catch (error) {
-      console.error('[TutorialStore] Error getting completed tutorials:', error);
+      logger.error('[TutorialStore] Error getting completed tutorials:', error);
       return [];
     }
   },
@@ -119,7 +120,7 @@ export const tutorialStore = {
       const data = await AsyncStorage.getItem(KEYS.TUTORIALS_PROGRESS);
       return data ? JSON.parse(data) : {};
     } catch (error) {
-      console.error('[TutorialStore] Error getting all tutorial progress:', error);
+      logger.error('[TutorialStore] Error getting all tutorial progress:', error);
       return {};
     }
   },
@@ -130,9 +131,9 @@ export const tutorialStore = {
   async resetAllTutorialProgress(): Promise<void> {
     try {
       await AsyncStorage.removeItem(KEYS.TUTORIALS_PROGRESS);
-      console.log('[TutorialStore] All tutorial progress reset');
+      logger.log('[TutorialStore] All tutorial progress reset');
     } catch (error) {
-      console.error('[TutorialStore] Error resetting tutorial progress:', error);
+      logger.error('[TutorialStore] Error resetting tutorial progress:', error);
     }
   },
 
@@ -148,7 +149,7 @@ export const tutorialStore = {
       const screens = JSON.parse(data);
       return !screens[screen];
     } catch (error) {
-      console.error('[TutorialStore] Error checking first time screen:', error);
+      logger.error('[TutorialStore] Error checking first time screen:', error);
       return true;
     }
   },
@@ -162,9 +163,9 @@ export const tutorialStore = {
       const screens = data ? JSON.parse(data) : {};
       screens[screen] = true;
       await AsyncStorage.setItem(KEYS.FIRST_TIME_SCREENS, JSON.stringify(screens));
-      console.log(`[TutorialStore] Screen marked as visited: ${screen}`);
+      logger.log(`[TutorialStore] Screen marked as visited: ${screen}`);
     } catch (error) {
-      console.error('[TutorialStore] Error marking screen as visited:', error);
+      logger.error('[TutorialStore] Error marking screen as visited:', error);
     }
   },
 
@@ -174,9 +175,9 @@ export const tutorialStore = {
   async resetFirstTimeScreens(): Promise<void> {
     try {
       await AsyncStorage.removeItem(KEYS.FIRST_TIME_SCREENS);
-      console.log('[TutorialStore] All first time screens reset');
+      logger.log('[TutorialStore] All first time screens reset');
     } catch (error) {
-      console.error('[TutorialStore] Error resetting first time screens:', error);
+      logger.error('[TutorialStore] Error resetting first time screens:', error);
     }
   },
 
@@ -191,6 +192,6 @@ export const tutorialStore = {
       this.resetAllTutorialProgress(),
       this.resetFirstTimeScreens(),
     ]);
-    console.log('[TutorialStore] All tutorial data reset');
+    logger.log('[TutorialStore] All tutorial data reset');
   },
 };

@@ -17,9 +17,11 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { categoriesAPI, goalsAPI, Category } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
+import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface Goal {
   id: string;
   name: string;
@@ -103,7 +105,10 @@ const GoalForm: React.FC<GoalFormProps> = ({
   
   // Dashboard store para notificar cambios
   const { onGoalChange } = useDashboardStore();
-  
+
+  // Subscription store para verificar plan
+  const { isFreePlan } = useSubscriptionStore();
+
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
@@ -168,7 +173,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
       const response = await categoriesAPI.getAll();
       setCategories(response.data);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       setErrorMessage('No se pudieron cargar las categorías');
       setShowErrorModal(true);
     } finally {
@@ -325,8 +330,8 @@ const GoalForm: React.FC<GoalFormProps> = ({
         message = 'Meta creada correctamente';
       }
 
-      console.log('✅ Meta guardada exitosamente');
-      console.log('📝 Mensaje de éxito:', message);
+      logger.log('✅ Meta guardada exitosamente');
+      logger.log('📝 Mensaje de éxito:', message);
 
       // EJECUTAR CALLBACKS INMEDIATAMENTE
       onGoalChange();
@@ -336,9 +341,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
 
       // Pasar mensaje al Screen (que cerrará formulario y mostrará modal)
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
+      logger.log('🟢 onSuccess llamado con mensaje:', message);
     } catch (error: any) {
-      console.error('Error al guardar meta:', error);
+      logger.error('Error al guardar meta:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la meta';
       setErrorMessage(errMsg);
       setShowErrorModal(true);
@@ -561,32 +566,34 @@ const GoalForm: React.FC<GoalFormProps> = ({
               </View>
             </View>
 
-            {/* Prioridad */}
-            <View style={styles.section}>
-              <Text style={styles.label}>Prioridad</Text>
-              <View style={styles.prioritiesContainer}>
-                {priorities.map((priority) => (
-                  <TouchableOpacity
-                    key={priority.value}
-                    style={[
-                      styles.priorityButton,
-                      formData.priority === priority.value && {
-                        backgroundColor: priority.bgColor,
-                        borderColor: priority.color,
-                      },
-                    ]}
-                    onPress={() => handleInputChange('priority', priority.value)}
-                  >
-                    <Text style={[
-                      styles.priorityButtonText,
-                      formData.priority === priority.value && { color: priority.color },
-                    ]}>
-                      {priority.label}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+            {/* Prioridad - Solo visible para planes PLUS/PRO */}
+            {!isFreePlan() && (
+              <View style={styles.section}>
+                <Text style={styles.label}>Prioridad</Text>
+                <View style={styles.prioritiesContainer}>
+                  {priorities.map((priority) => (
+                    <TouchableOpacity
+                      key={priority.value}
+                      style={[
+                        styles.priorityButton,
+                        formData.priority === priority.value && {
+                          backgroundColor: priority.bgColor,
+                          borderColor: priority.color,
+                        },
+                      ]}
+                      onPress={() => handleInputChange('priority', priority.value)}
+                    >
+                      <Text style={[
+                        styles.priorityButtonText,
+                        formData.priority === priority.value && { color: priority.color },
+                      ]}>
+                        {priority.label}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </View>
               </View>
-            </View>
+            )}
 
             {/* Descripción */}
             <View style={styles.section}>

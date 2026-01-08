@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+import UpgradeModal from './subscriptions/UpgradeModal';
 
 interface UtilitiesMenuProps {
   color: string;
@@ -18,9 +20,27 @@ interface UtilitiesMenuProps {
 
 const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
   const [isVisible, setIsVisible] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const navigation = useNavigation<any>();
+  const { hasAdvancedCalculators, isFreePlan } = useSubscriptionStore();
+
+  const canAccessSkipVsSave = hasAdvancedCalculators();
 
   const utilities = [
+    {
+      id: 'referrals',
+      title: 'Invitar Amigos',
+      description: 'Gana meses gratis por referidos 🎁',
+      icon: 'gift' as const,
+      color: '#10B981',
+      disabled: false,
+      onPress: () => {
+        setIsVisible(false);
+        setTimeout(() => {
+          navigation.navigate('Tools', { screen: 'Referrals' });
+        }, 100);
+      },
+    },
     {
       id: 'payment-reminders',
       title: 'Recordatorios de Pago',
@@ -42,11 +62,19 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
       icon: 'flash' as const,
       color: '#059669',
       disabled: false,
+      isPremiumFeature: true,
       onPress: () => {
-        setIsVisible(false);
-        setTimeout(() => {
-          navigation.navigate('Tools', { screen: 'SkipVsSave' });
-        }, 100);
+        if (canAccessSkipVsSave) {
+          setIsVisible(false);
+          setTimeout(() => {
+            navigation.navigate('Tools', { screen: 'SkipVsSave' });
+          }, 100);
+        } else {
+          setIsVisible(false);
+          setTimeout(() => {
+            setShowUpgradeModal(true);
+          }, 100);
+        }
       },
     },
     {
@@ -191,14 +219,21 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
                   </View>
 
                   <View style={styles.utilityContent}>
-                    <Text
-                      style={[
-                        styles.utilityTitle,
-                        utility.disabled && styles.utilityTitleDisabled,
-                      ]}
-                    >
-                      {utility.title}
-                    </Text>
+                    <View style={styles.titleRow}>
+                      <Text
+                        style={[
+                          styles.utilityTitle,
+                          utility.disabled && styles.utilityTitleDisabled,
+                        ]}
+                      >
+                        {utility.title}
+                      </Text>
+                      {(utility as any).isPremiumFeature && isFreePlan() && (
+                        <View style={styles.plusBadge}>
+                          <Text style={styles.plusBadgeText}>PLUS</Text>
+                        </View>
+                      )}
+                    </View>
                     <Text
                       style={[
                         styles.utilityDescription,
@@ -210,11 +245,19 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
                   </View>
 
                   {!utility.disabled && (
-                    <Ionicons
-                      name="chevron-forward"
-                      size={16}
-                      color={utility.color}
-                    />
+                    (utility as any).isPremiumFeature && isFreePlan() ? (
+                      <Ionicons
+                        name="lock-closed"
+                        size={16}
+                        color="#D97706"
+                      />
+                    ) : (
+                      <Ionicons
+                        name="chevron-forward"
+                        size={16}
+                        color={utility.color}
+                      />
+                    )
                   )}
                 </TouchableOpacity>
               ))}
@@ -222,6 +265,12 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
           </View>
         </TouchableOpacity>
       </Modal>
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="advancedCalculators"
+      />
     </>
   );
 };
@@ -315,6 +364,22 @@ const styles = StyleSheet.create({
   },
   utilityDescriptionDisabled: {
     color: '#9ca3af',
+  },
+  titleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  plusBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  plusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
   },
 });
 

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 
+import { logger } from '../../utils/logger';
 interface PatternsData {
   mostActiveDay: {
     date: string;
@@ -65,7 +66,7 @@ const PatternsAndTrends: React.FC = () => {
         setPatternsData(data.patterns);
       }
     } catch (error: any) {
-      console.error('Error loading patterns data:', error);
+      logger.error('Error loading patterns data:', error);
       setError('No se pudieron cargar los patrones del mes');
     } finally {
       setLoading(false);

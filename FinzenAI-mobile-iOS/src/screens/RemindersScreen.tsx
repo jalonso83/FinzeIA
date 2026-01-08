@@ -15,7 +15,10 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { remindersAPI, PaymentReminder, UpcomingPayment, ReminderStats, PaymentType } from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 
+import { logger } from '../utils/logger';
 // Mapeo de tipos de pago a iconos de Ionicons
 const PAYMENT_TYPE_ICONS: Record<PaymentType, keyof typeof Ionicons.glyphMap> = {
   CREDIT_CARD: 'card',
@@ -41,6 +44,7 @@ const PAYMENT_TYPE_COLORS: Record<PaymentType, string> = {
 export default function RemindersScreen() {
   const navigation = useNavigation<any>();
   const { formatCurrency } = useCurrency();
+  const { canCreateReminder, getRemindersLimit, isFreePlan } = useSubscriptionStore();
 
   const [reminders, setReminders] = useState<PaymentReminder[]>([]);
   const [upcomingPayments, setUpcomingPayments] = useState<UpcomingPayment[]>([]);
@@ -50,9 +54,15 @@ export default function RemindersScreen() {
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [reminderToDelete, setReminderToDelete] = useState<PaymentReminder | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
+
+  // Calcular conteo de recordatorios activos
+  const activeRemindersCount = reminders.filter(r => r.isActive).length;
+  const remindersLimit = getRemindersLimit();
+  const isLimitReached = !canCreateReminder(activeRemindersCount);
 
   const loadData = async () => {
     try {
@@ -66,7 +76,7 @@ export default function RemindersScreen() {
       setUpcomingPayments(upcomingRes.data.upcoming || []);
       setStats(statsRes.data.stats || null);
     } catch (error) {
-      console.error('Error loading reminders:', error);
+      logger.error('Error loading reminders:', error);
       setErrorMessage('No se pudieron cargar los recordatorios');
       setShowErrorModal(true);
     } finally {
@@ -92,11 +102,18 @@ export default function RemindersScreen() {
   };
 
   // Helper para verificar si hay modales visibles
-  const isModalVisible = showErrorModal || showSuccessModal || showDeleteConfirmModal;
+  const isModalVisible = showErrorModal || showSuccessModal || showDeleteConfirmModal || showUpgradeModal;
 
   const handleAddReminder = () => {
     // No navegar si hay modales visibles (prevenir conflictos en iOS)
     if (isModalVisible) return;
+
+    // Verificar límite de plan
+    if (isLimitReached) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     navigation.navigate('AddReminder');
   };
 
@@ -133,7 +150,7 @@ export default function RemindersScreen() {
         setShowSuccessModal(true);
       }, 300);
     } catch (error) {
-      console.error('Error deleting reminder:', error);
+      logger.error('Error deleting reminder:', error);
       setShowDeleteConfirmModal(false);
       setReminderToDelete(null);
 
@@ -145,6 +162,12 @@ export default function RemindersScreen() {
   };
 
   const handleToggleReminder = async (reminder: PaymentReminder) => {
+    // Si está intentando activar, verificar límite
+    if (!reminder.isActive && isLimitReached) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
     try {
       await remindersAPI.toggle(reminder.id, !reminder.isActive);
       // Actualizar localmente para respuesta inmediata
@@ -153,10 +176,15 @@ export default function RemindersScreen() {
           r.id === reminder.id ? { ...r, isActive: !r.isActive } : r
         )
       );
-    } catch (error) {
-      console.error('Error toggling reminder:', error);
-      setErrorMessage('No se pudo cambiar el estado del recordatorio');
-      setShowErrorModal(true);
+    } catch (error: any) {
+      logger.error('Error toggling reminder:', error);
+      // Si es error 403, mostrar modal de upgrade
+      if (error.response?.status === 403) {
+        setShowUpgradeModal(true);
+      } else {
+        setErrorMessage('No se pudo cambiar el estado del recordatorio');
+        setShowErrorModal(true);
+      }
     }
   };
 
@@ -205,11 +233,47 @@ export default function RemindersScreen() {
         >
           <Ionicons name="arrow-back" size={24} color="#1e293b" />
         </TouchableOpacity>
-        <Text style={styles.title}>Recordatorios de Pago</Text>
-        <TouchableOpacity style={styles.addButton} onPress={handleAddReminder}>
-          <Ionicons name="add" size={24} color="white" />
+        <View style={styles.titleContainer}>
+          <Text style={styles.title}>Recordatorios de Pago</Text>
+          {/* Indicador de límite para usuarios FREE */}
+          {isFreePlan() && (
+            <View style={styles.limitBadge}>
+              <Text style={styles.limitBadgeText}>
+                {activeRemindersCount}/{remindersLimit}
+              </Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity
+          style={[styles.addButton, isLimitReached && styles.addButtonLimited]}
+          onPress={handleAddReminder}
+        >
+          {isLimitReached ? (
+            <Ionicons name="lock-closed" size={20} color="white" />
+          ) : (
+            <Ionicons name="add" size={24} color="white" />
+          )}
         </TouchableOpacity>
       </View>
+
+      {/* Banner de límite alcanzado para FREE */}
+      {isFreePlan() && isLimitReached && (
+        <TouchableOpacity
+          style={styles.limitBanner}
+          onPress={() => setShowUpgradeModal(true)}
+        >
+          <View style={styles.limitBannerContent}>
+            <Ionicons name="information-circle" size={20} color="#D97706" />
+            <Text style={styles.limitBannerText}>
+              Límite de {remindersLimit} recordatorios alcanzado
+            </Text>
+          </View>
+          <View style={styles.upgradeBadge}>
+            <Text style={styles.upgradeBadgeText}>PLUS</Text>
+            <Ionicons name="chevron-forward" size={14} color="#D97706" />
+          </View>
+        </TouchableOpacity>
+      )}
 
       <ScrollView
         style={styles.scrollView}
@@ -458,6 +522,13 @@ export default function RemindersScreen() {
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
       />
+
+      {/* Modal de upgrade */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="reminders"
+      />
     </SafeAreaView>
   );
 }
@@ -480,13 +551,30 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 4,
   },
+  titleContainer: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginHorizontal: 8,
+    gap: 8,
+  },
   title: {
     fontSize: 20,
     fontWeight: 'bold',
     color: '#1e293b',
-    flex: 1,
     textAlign: 'center',
-    marginHorizontal: 8,
+  },
+  limitBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+  },
+  limitBadgeText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#D97706',
   },
   addButton: {
     backgroundColor: '#2563EB',
@@ -495,6 +583,47 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  addButtonLimited: {
+    backgroundColor: '#9CA3AF',
+  },
+  limitBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFBEB',
+    marginHorizontal: 20,
+    marginTop: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+  },
+  limitBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    flex: 1,
+  },
+  limitBannerText: {
+    fontSize: 13,
+    color: '#92400E',
+    fontWeight: '500',
+  },
+  upgradeBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 12,
+    gap: 2,
+  },
+  upgradeBadgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#D97706',
   },
   scrollView: {
     flex: 1,

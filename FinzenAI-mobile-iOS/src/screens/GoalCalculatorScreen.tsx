@@ -21,6 +21,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
+import { logger } from '../utils/logger';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -89,7 +90,7 @@ export default function GoalCalculatorScreen() {
       const response = await api.get('/investment/goal-types');
       setGoalTypes(response.data);
     } catch (error) {
-      console.error('Error loading goal types:', error);
+      logger.error('Error loading goal types:', error);
     }
   };
 
@@ -116,7 +117,7 @@ export default function GoalCalculatorScreen() {
       }).start();
 
     } catch (error: any) {
-      console.error('Error calculating goal:', error);
+      logger.error('Error calculating goal:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo calcular la meta'

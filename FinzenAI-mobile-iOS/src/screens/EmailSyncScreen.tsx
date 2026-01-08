@@ -15,6 +15,7 @@ import * as WebBrowser from 'expo-web-browser';
 import api from '../utils/api';
 import CustomModal from '../components/modals/CustomModal';
 
+import { logger } from '../utils/logger';
 interface EmailSyncScreenProps {
   onClose: () => void;
 }
@@ -109,7 +110,7 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
         });
       }
     } catch (error) {
-      console.error('Error fetching email sync data:', error);
+      logger.error('Error fetching email sync data:', error);
       setConnectionStatus({
         connected: false,
         connections: [],
@@ -175,12 +176,12 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
           fetchStatus();
         }
       } else if (result.type === 'cancel' || result.type === 'dismiss') {
-        console.log('Usuario canceló la autenticación');
+        logger.log('Usuario canceló la autenticación');
         // Refrescar estado para asegurar que no muestre "conectado" falsamente
         fetchStatus();
       }
     } catch (error: any) {
-      console.error(`Error connecting ${provider}:`, error);
+      logger.error(`Error connecting ${provider}:`, error);
       showModal('error', 'Error', error.response?.data?.message || error.message || 'No se pudo iniciar la conexión');
     } finally {
       setConnecting(null);
@@ -224,7 +225,7 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
         );
       }
     } catch (error: any) {
-      console.error('Error syncing:', error);
+      logger.error('Error syncing:', error);
 
       if (error.code === 'ECONNABORTED' || error.message?.includes('timeout')) {
         showModal(

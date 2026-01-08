@@ -16,7 +16,9 @@ import Markdown from 'react-native-markdown-display';
 import api from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
 import { useCategoriesStore } from '../stores/categories';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 
+import { logger } from '../utils/logger';
 interface ZenioChatProps {
   onClose?: () => void;
   isOnboarding?: boolean;
@@ -54,6 +56,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   // Speech hook
   const speech = useSpeech();
 
+  // Subscription store para verificar TTS
+  const { canUseTextToSpeech } = useSubscriptionStore();
+
   // Obtener categorías del store
   const { categories, fetchCategories } = useCategoriesStore();
 
@@ -75,6 +80,15 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
+    // Verificar si el usuario tiene acceso a TTS (PLUS/PRO)
+    if (!canUseTextToSpeech()) {
+      Alert.alert(
+        'Función Premium',
+        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!'
+      );
+      return;
+    }
+
     if (speech.isSpeaking && currentlyPlayingId === messageId) {
       speech.stopSpeaking();
       setCurrentlyPlayingId(null);
@@ -152,8 +166,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
         setMessages(prev => [...prev, zenioMessage]);
 
-        // Auto-reproducir si está habilitado
-        if (autoPlay && !speech.isSpeaking) {
+        // Auto-reproducir si está habilitado y tiene acceso a TTS
+        if (autoPlay && !speech.isSpeaking && canUseTextToSpeech()) {
           setCurrentlyPlayingId(messageId);
           await speech.speakResponse(zenioResponse);
           setCurrentlyPlayingId(null);
@@ -169,10 +183,10 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         throw new Error('No se recibió respuesta de Zenio');
       }
     } catch (error: any) {
-      console.error('Error enviando mensaje a Zenio:', error);
-      console.error('Error code:', error.code);
-      console.error('Error response:', error.response);
-      console.error('Error message:', error.message);
+      logger.error('Error enviando mensaje a Zenio:', error);
+      logger.error('Error code:', error.code);
+      logger.error('Error response:', error.response);
+      logger.error('Error message:', error.message);
       
       let errorMessage = 'Error al comunicarse con Zenio. Intenta nuevamente.';
       

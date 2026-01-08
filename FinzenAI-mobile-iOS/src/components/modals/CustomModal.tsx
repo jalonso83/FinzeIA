@@ -8,6 +8,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 
+import { logger } from '../../utils/logger';
 type ModalType = 'success' | 'error' | 'warning' | 'info';
 
 interface CustomModalProps {
@@ -20,6 +21,8 @@ interface CustomModalProps {
   showSecondaryButton?: boolean;
   secondaryButtonText?: string;
   onSecondaryPress?: () => void;
+  customContent?: React.ReactNode;
+  hideDefaultButton?: boolean;
 }
 
 const CustomModal: React.FC<CustomModalProps> = ({
@@ -32,6 +35,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
   showSecondaryButton = false,
   secondaryButtonText = 'Cancelar',
   onSecondaryPress,
+  customContent,
+  hideDefaultButton = false,
 }) => {
   // Configuración de colores e iconos según el tipo
   const getConfig = () => {
@@ -76,14 +81,14 @@ const CustomModal: React.FC<CustomModalProps> = ({
 
   const config = getConfig();
 
-  console.log('🎭 CustomModal render:', { visible, type, title, message: message.substring(0, 50) });
+  logger.log('🎭 CustomModal render:', { visible, type, title, message: message.substring(0, 50) });
 
   if (!visible) {
-    console.log('⚠️ CustomModal NO visible, no renderizando');
+    logger.log('⚠️ CustomModal NO visible, no renderizando');
     return null;
   }
 
-  console.log('✅ CustomModal SÍ visible, renderizando...');
+  logger.log('✅ CustomModal SÍ visible, renderizando...');
 
   return (
     <Modal
@@ -117,9 +122,13 @@ const CustomModal: React.FC<CustomModalProps> = ({
           <Text style={styles.title}>{title}</Text>
 
           {/* Mensaje */}
-          <Text style={styles.message}>{message}</Text>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          {/* Contenido personalizado */}
+          {customContent}
 
           {/* Botones */}
+          {!hideDefaultButton && (
           <View style={styles.buttonsContainer}>
             {showSecondaryButton && (
               <TouchableOpacity
@@ -149,6 +158,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               )}
             </TouchableOpacity>
           </View>
+          )}
         </View>
       </View>
     </Modal>

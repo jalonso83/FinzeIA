@@ -21,6 +21,7 @@ import { useAuthStore } from '../stores/auth';
 import { saveToken } from '../utils/api';
 import { useBiometric } from '../hooks/useBiometric';
 
+import { logger } from '../utils/logger';
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -48,7 +49,7 @@ export default function LoginScreen() {
         // Eliminar contraseñas guardadas previamente (migración de seguridad)
         await AsyncStorage.removeItem('rememberedPassword');
       } catch (error) {
-        console.error('Error loading remembered email:', error);
+        logger.error('Error loading remembered email:', error);
       }
     };
 
@@ -58,13 +59,13 @@ export default function LoginScreen() {
   const handleBiometricLogin = async () => {
     try {
       setLoadingBiometric(true);
-      console.log('🔐 Iniciando login biométrico...');
+      logger.log('🔐 Iniciando login biométrico...');
 
       // Autenticar con biometría
       const authenticated = await authenticate();
 
       if (authenticated) {
-        console.log('✅ Biometría autenticada, iniciando sesión...');
+        logger.log('✅ Biometría autenticada, iniciando sesión...');
         // Login con credenciales guardadas
         const success = await loginWithBiometric();
 
@@ -76,10 +77,10 @@ export default function LoginScreen() {
           );
         }
       } else {
-        console.log('❌ Autenticación biométrica cancelada o fallida');
+        logger.log('❌ Autenticación biométrica cancelada o fallida');
       }
     } catch (error) {
-      console.error('❌ Error en login biométrico:', error);
+      logger.error('❌ Error en login biométrico:', error);
       Alert.alert(
         'Error',
         'No se pudo iniciar sesión con biometría. Intenta con tu contraseña.',
@@ -110,10 +111,10 @@ export default function LoginScreen() {
       // Guardar o remover SOLO email según la preferencia del usuario
       if (rememberEmail) {
         await AsyncStorage.setItem('rememberedEmail', email);
-        console.log('📧 Email guardado para autocompletar');
+        logger.log('📧 Email guardado para autocompletar');
       } else {
         await AsyncStorage.removeItem('rememberedEmail');
-        console.log('📧 Email eliminado de autocompletar');
+        logger.log('📧 Email eliminado de autocompletar');
       }
 
       // IMPORTANTE: Siempre eliminar contraseña guardada (por seguridad)
@@ -126,25 +127,25 @@ export default function LoginScreen() {
       // Solo guardar credenciales para biometría si YA está habilitada
       if (isEnabled) {
         await saveBiometricCredentials(response.data.user, response.data.token);
-        console.log('🔐 Credenciales actualizadas en SecureStore para biometría');
+        logger.log('🔐 Credenciales actualizadas en SecureStore para biometría');
       }
 
       // Si tiene biometría disponible pero no habilitada, guardar flag para mostrar modal después
-      console.log('🔍 Verificando biometría - isAvailable:', isAvailable, 'isEnabled:', isEnabled);
+      logger.log('🔍 Verificando biometría - isAvailable:', isAvailable, 'isEnabled:', isEnabled);
       if (isAvailable && !isEnabled) {
-        console.log('✅ Condición cumplida, guardando flag para prompt biométrico');
+        logger.log('✅ Condición cumplida, guardando flag para prompt biométrico');
         // Guardar flag para que MainNavigator muestre el modal después de la navegación
         await AsyncStorage.setItem('pendingBiometricSetup', 'true');
         await AsyncStorage.setItem('biometricType', biometricType);
       } else {
-        console.log('ℹ️ No se mostrará prompt - Razón:', !isAvailable ? 'No disponible' : 'Ya habilitado');
+        logger.log('ℹ️ No se mostrará prompt - Razón:', !isAvailable ? 'No disponible' : 'Ya habilitado');
       }
 
       // El useAuthStore se encargará de la navegación automática
       // Si no completó onboarding, se manejará en AppNavigator
 
     } catch (error: any) {
-      console.error('Login error:', error);
+      logger.error('Login error:', error);
       let errorMessage = 'Error inesperado. Intenta nuevamente.';
 
       if (error.response?.status === 401) {

@@ -30,6 +30,7 @@ import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
 import RemindersScreen from '../screens/RemindersScreen';
 import AddReminderScreen from '../screens/AddReminderScreen';
+import ReferralsScreen from '../screens/ReferralsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
@@ -58,6 +59,7 @@ import notificationService from '../services/notificationService';
 // Hooks
 import { useBiometric } from '../hooks/useBiometric';
 
+import { logger } from '../utils/logger';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -81,6 +83,7 @@ function ToolsStackNavigator() {
       <Stack.Screen name="ToolsHome" component={ToolsScreen} />
       <Stack.Screen name="Reminders" component={RemindersScreen} />
       <Stack.Screen name="AddReminder" component={AddReminderScreen} />
+      <Stack.Screen name="Referrals" component={ReferralsScreen} />
       <Stack.Screen name="LoanCalculator" component={LoanCalculatorScreen} />
       <Stack.Screen name="InvestmentSimulator" component={InvestmentSimulatorScreen} />
       <Stack.Screen name="GoalCalculator" component={GoalCalculatorScreen} />
@@ -318,29 +321,29 @@ function MainNavigator({ route }: any) {
   React.useEffect(() => {
     const checkOpenHelpCenter = async () => {
       try {
-        console.log('🔍 MainNavigator montado, verificando flag de HelpCenter...');
+        logger.log('🔍 MainNavigator montado, verificando flag de HelpCenter...');
         const shouldOpen = await AsyncStorage.getItem('openHelpCenterAfterOnboarding');
-        console.log('🔍 Flag de HelpCenter leído:', shouldOpen);
+        logger.log('🔍 Flag de HelpCenter leído:', shouldOpen);
 
         if (shouldOpen === 'true') {
-          console.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
+          logger.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
 
           // Marcar que viene del tutorial para mostrar planes después
           setCameFromTutorial(true);
 
           // Limpiar el flag PRIMERO
           await AsyncStorage.removeItem('openHelpCenterAfterOnboarding');
-          console.log('🗑️ Flag limpiado de AsyncStorage');
+          logger.log('🗑️ Flag limpiado de AsyncStorage');
 
           // Abrir el HelpCenter INMEDIATAMENTE
-          console.log('🚀 Llamando setShowHelpCenter(true)...');
+          logger.log('🚀 Llamando setShowHelpCenter(true)...');
           setShowHelpCenter(true);
-          console.log('✅ HelpCenter modal debería estar visible ahora');
+          logger.log('✅ HelpCenter modal debería estar visible ahora');
         } else {
-          console.log('ℹ️ Flag no es "true", no se abre HelpCenter');
+          logger.log('ℹ️ Flag no es "true", no se abre HelpCenter');
         }
       } catch (error) {
-        console.error('❌ Error checking HelpCenter flag:', error);
+        logger.error('❌ Error checking HelpCenter flag:', error);
       }
     };
 
@@ -358,7 +361,7 @@ function MainNavigator({ route }: any) {
         const bioType = await AsyncStorage.getItem('biometricType');
 
         if (pending === 'true') {
-          console.log('🔔 Detectado setup pendiente de biometría');
+          logger.log('🔔 Detectado setup pendiente de biometría');
           setStoredBiometricType(bioType || 'Face ID');
 
           // Limpiar el flag ANTES de mostrar el modal
@@ -370,7 +373,7 @@ function MainNavigator({ route }: any) {
           }
         }
       } catch (error) {
-        console.error('Error verificando pending biometric setup:', error);
+        logger.error('Error verificando pending biometric setup:', error);
       }
     };
 
@@ -381,22 +384,22 @@ function MainNavigator({ route }: any) {
   React.useEffect(() => {
     const initializeNotifications = async () => {
       try {
-        console.log('🔔 Inicializando servicio de notificaciones...');
+        logger.log('🔔 Inicializando servicio de notificaciones...');
         const token = await notificationService.initialize();
 
         if (token) {
           // Registrar dispositivo en el backend
           const registered = await notificationService.registerDevice();
           if (registered) {
-            console.log('✅ Dispositivo iOS registrado para notificaciones');
+            logger.log('✅ Dispositivo iOS registrado para notificaciones');
           } else {
-            console.warn('⚠️ No se pudo registrar el dispositivo iOS');
+            logger.warn('⚠️ No se pudo registrar el dispositivo iOS');
           }
         } else {
-          console.log('⚠️ No se obtuvo token de notificaciones');
+          logger.log('⚠️ No se obtuvo token de notificaciones');
         }
       } catch (error) {
-        console.error('❌ Error inicializando notificaciones:', error);
+        logger.error('❌ Error inicializando notificaciones:', error);
       }
     };
 
@@ -412,15 +415,15 @@ function MainNavigator({ route }: any) {
 
   const handleEnableBiometric = async () => {
     try {
-      console.log('🔐 Usuario aceptó configurar biometría desde MainNavigator');
+      logger.log('🔐 Usuario aceptó configurar biometría desde MainNavigator');
       await enable();
-      console.log('✅ Biometría habilitada exitosamente');
+      logger.log('✅ Biometría habilitada exitosamente');
 
       if (user) {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           await saveBiometricCredentials(user, token);
-          console.log('🔐 Credenciales guardadas en SecureStore');
+          logger.log('🔐 Credenciales guardadas en SecureStore');
         }
       }
 
@@ -433,7 +436,7 @@ function MainNavigator({ route }: any) {
         `${storedBiometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`
       );
     } catch (error) {
-      console.error('❌ Error configurando biometría:', error);
+      logger.error('❌ Error configurando biometría:', error);
       setShowBiometricModal(false);
       Alert.alert(
         'Error',
@@ -443,12 +446,12 @@ function MainNavigator({ route }: any) {
   };
 
   const handleCloseHelpCenter = () => {
-    console.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
+    logger.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
     setShowHelpCenter(false);
 
     // Si viene del tutorial, mostrar modal de planes
     if (cameFromTutorial) {
-      console.log('🎁 Mostrando modal de planes después del tutorial');
+      logger.log('🎁 Mostrando modal de planes después del tutorial');
       setTimeout(() => {
         setShowPlansModal(true);
       }, 500); // Pequeño delay para mejor UX
@@ -510,13 +513,13 @@ function MainNavigator({ route }: any) {
               onPress={async () => {
                 setShowUserMenu(false);
                 try {
-                  console.log('Cargando perfil del usuario...');
+                  logger.log('Cargando perfil del usuario...');
                   const res = await api.get('/auth/profile');
-                  console.log('Perfil cargado:', res.data);
+                  logger.log('Perfil cargado:', res.data);
                   setProfileData(res.data);
                   setShowProfileModal(true);
                 } catch (error) {
-                  console.error('Error cargando perfil:', error);
+                  logger.error('Error cargando perfil:', error);
                   Alert.alert('Error', 'No se pudo cargar el perfil');
                 }
               }}
@@ -657,7 +660,7 @@ function MainNavigator({ route }: any) {
               const res = await api.get('/auth/profile');
               updateUser(res.data);
             } catch (e) {
-              console.error('Error updating user profile:', e);
+              logger.error('Error updating user profile:', e);
             }
 
             // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
@@ -851,11 +854,11 @@ export default function AppNavigator() {
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
       const url = event.url;
-      console.log('🔗 Deep link recibido:', url);
+      logger.log('🔗 Deep link recibido:', url);
 
       // Checkout Success
       if (url.includes('/checkout/success')) {
-        console.log('✅ Checkout exitoso detectado');
+        logger.log('✅ Checkout exitoso detectado');
         setProcessingPayment(true);
 
         try {
@@ -864,7 +867,7 @@ export default function AppNavigator() {
           const sessionId = urlObj.searchParams.get('session_id');
 
           if (sessionId) {
-            console.log('🔄 Sincronizando sesión:', sessionId);
+            logger.log('🔄 Sincronizando sesión:', sessionId);
             await syncCheckoutSession(sessionId);
           }
 
@@ -872,7 +875,7 @@ export default function AppNavigator() {
           await fetchSubscription();
           setShowPaymentSuccessModal(true);
         } catch (error) {
-          console.error('Error sincronizando pago:', error);
+          logger.error('Error sincronizando pago:', error);
           // Aún así mostrar éxito si el pago se procesó
           setShowPaymentSuccessModal(true);
         } finally {
@@ -881,7 +884,7 @@ export default function AppNavigator() {
       }
       // Checkout Cancel
       else if (url.includes('/checkout/cancel')) {
-        console.log('❌ Checkout cancelado');
+        logger.log('❌ Checkout cancelado');
         setShowPaymentCancelModal(true);
       }
     };
@@ -892,7 +895,7 @@ export default function AppNavigator() {
     // Verificar si la app se abrió con una URL
     Linking.getInitialURL().then((url) => {
       if (url) {
-        console.log('🚀 App abierta con URL:', url);
+        logger.log('🚀 App abierta con URL:', url);
         handleDeepLink({ url });
       }
     });

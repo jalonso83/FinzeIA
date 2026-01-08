@@ -14,7 +14,9 @@ import Markdown from 'react-native-markdown-display';
 import { useSpeech } from '../hooks/useSpeech';
 import { zenioAPI, categoriesAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 
+import { logger } from '../utils/logger';
 interface Message {
   id: string;
   text: string;
@@ -46,9 +48,19 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
 
   const speech = useSpeech();
   const { user } = useAuthStore();
+  const { canUseTextToSpeech } = useSubscriptionStore();
 
   // Función para reproducir un mensaje específico
   const playMessage = async (messageId: string, text: string) => {
+    // Verificar si el usuario tiene acceso a TTS (PLUS/PRO)
+    if (!canUseTextToSpeech()) {
+      Alert.alert(
+        'Función Premium',
+        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!'
+      );
+      return;
+    }
+
     if (currentlyPlayingId === messageId) {
       // Si ya se está reproduciendo este mensaje, detenerlo
       speech.stopSpeaking();
@@ -62,19 +74,20 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
         await speech.speakResponse(text);
         setCurrentlyPlayingId(null);
       } catch (error) {
-        console.error('Error playing message:', error);
+        logger.error('Error playing message:', error);
         setCurrentlyPlayingId(null);
       }
     }
   };
 
   // Función para auto-reproducir cuando llega respuesta de Zenio
+  // Solo si el usuario tiene acceso a TTS (PLUS/PRO)
   const autoPlayResponse = async (text: string) => {
-    if (autoPlay && !speech.isSpeaking) {
+    if (autoPlay && !speech.isSpeaking && canUseTextToSpeech()) {
       try {
         await speech.speakResponse(text);
       } catch (error) {
-        console.error('Error auto-playing response:', error);
+        logger.error('Error auto-playing response:', error);
       }
     }
   };
@@ -86,7 +99,7 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };
@@ -130,7 +143,7 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
 
           setHasSentFirst(true);
         } catch (error) {
-          console.error('Error al inicializar conversación:', error);
+          logger.error('Error al inicializar conversación:', error);
           addMessage('Hola! Soy Zenio, tu asistente financiero. ¿En qué puedo ayudarte hoy?', false);
         } finally {
           setIsLoading(false);
@@ -190,7 +203,7 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
       setInputText('');
 
       // Enviar a Zenio
-      console.log('📤 Enviando mensaje a Zenio:', message);
+      logger.log('📤 Enviando mensaje a Zenio:', message);
       const response = await zenioAPI.chat(message, threadId, isOnboarding);
       
       if (response.data) {
@@ -206,14 +219,14 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
 
         // Si el mensaje original fue por voz, Zenio responde hablando
         if (isVoice && !speech.isSpeaking) {
-          console.log('🔊 Zenio va a responder hablando...');
+          logger.log('🔊 Zenio va a responder hablando...');
           await speech.speakResponse(zenioResponse);
         }
 
-        console.log('✅ Conversación completada');
+        logger.log('✅ Conversación completada');
       }
     } catch (error) {
-      console.error('❌ Error enviando mensaje:', error);
+      logger.error('❌ Error enviando mensaje:', error);
       addMessage('Lo siento, ocurrió un error. Por favor intenta de nuevo.', false);
       Alert.alert('Error', 'No se pudo enviar el mensaje. Verifica tu conexión.');
     } finally {

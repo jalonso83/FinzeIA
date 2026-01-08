@@ -3,6 +3,7 @@ import { persist } from 'zustand/middleware'
 import { saveToken, removeToken } from '../utils/api'
 import * as SecureStore from 'expo-secure-store'
 
+import { logger } from '../utils/logger';
 interface User {
   id: string
   name: string
@@ -44,14 +45,14 @@ export const useAuthStore = create<AuthState>()(
       },
       loginWithBiometric: async () => {
         try {
-          console.log('🔐 Intentando login con biometría...');
+          logger.log('🔐 Intentando login con biometría...');
 
           // Obtener credenciales guardadas
           const userDataStr = await SecureStore.getItemAsync('biometric_user');
           const token = await SecureStore.getItemAsync('biometric_token');
 
           if (!userDataStr || !token) {
-            console.log('❌ No hay credenciales biométricas guardadas');
+            logger.log('❌ No hay credenciales biométricas guardadas');
             return false;
           }
 
@@ -66,33 +67,33 @@ export const useAuthStore = create<AuthState>()(
             isLoading: false,
           });
 
-          console.log('✅ Login biométrico exitoso');
+          logger.log('✅ Login biométrico exitoso');
           return true;
         } catch (error) {
-          console.error('❌ Error en login biométrico:', error);
+          logger.error('❌ Error en login biométrico:', error);
           return false;
         }
       },
       saveBiometricCredentials: async (user: User, token: string) => {
         try {
-          console.log('💾 Guardando credenciales para biometría...');
+          logger.log('💾 Guardando credenciales para biometría...');
           await SecureStore.setItemAsync('biometric_user', JSON.stringify(user));
           await SecureStore.setItemAsync('biometric_token', token);
-          console.log('✅ Credenciales guardadas exitosamente');
+          logger.log('✅ Credenciales guardadas exitosamente');
         } catch (error) {
-          console.error('❌ Error guardando credenciales:', error);
+          logger.error('❌ Error guardando credenciales:', error);
           throw error;
         }
       },
       clearBiometricCredentials: async () => {
         try {
-          console.log('🗑️ Eliminando credenciales biométricas...');
+          logger.log('🗑️ Eliminando credenciales biométricas...');
           await SecureStore.deleteItemAsync('biometric_user');
           await SecureStore.deleteItemAsync('biometric_token');
           await SecureStore.deleteItemAsync('biometric_enabled');
-          console.log('✅ Credenciales eliminadas exitosamente');
+          logger.log('✅ Credenciales eliminadas exitosamente');
         } catch (error) {
-          console.error('❌ Error eliminando credenciales:', error);
+          logger.error('❌ Error eliminando credenciales:', error);
         }
       },
       logout: async () => {

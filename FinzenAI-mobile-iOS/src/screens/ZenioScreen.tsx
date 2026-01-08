@@ -20,6 +20,7 @@ import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 interface Message {
   id: string;
   text: string;
@@ -40,7 +41,7 @@ export default function ZenioScreen() {
 
   // Debug: monitorear cambios en showTips
   useEffect(() => {
-    console.log('🔵 showTips cambió a:', showTips);
+    logger.log('🔵 showTips cambió a:', showTips);
   }, [showTips]);
 
   const { user } = useAuthStore();
@@ -55,7 +56,7 @@ export default function ZenioScreen() {
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };
@@ -109,9 +110,9 @@ export default function ZenioScreen() {
 
           setHasSentFirst(true);
         } catch (error: any) {
-          console.error('Error al inicializar conversación:', error);
-          console.log('Error status:', error.response?.status);
-          console.log('Error data:', JSON.stringify(error.response?.data));
+          logger.error('Error al inicializar conversación:', error);
+          logger.log('Error status:', error.response?.status);
+          logger.log('Error data:', JSON.stringify(error.response?.data));
 
           // Verificar si es error de límite alcanzado (403)
           if (error.response?.status === 403) {
@@ -215,9 +216,9 @@ export default function ZenioScreen() {
       }
 
     } catch (error: any) {
-      console.error('Error sending message:', error);
-      console.log('Error status:', error.response?.status);
-      console.log('Error data:', JSON.stringify(error.response?.data));
+      logger.error('Error sending message:', error);
+      logger.log('Error status:', error.response?.status);
+      logger.log('Error data:', JSON.stringify(error.response?.data));
 
       // Verificar si es error de límite alcanzado (403)
       if (error.response?.status === 403) {
@@ -281,10 +282,10 @@ export default function ZenioScreen() {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
-              console.log('🔵 Tips button pressed!');
-              console.log('🔵 showTips ANTES:', showTips);
+              logger.log('🔵 Tips button pressed!');
+              logger.log('🔵 showTips ANTES:', showTips);
               setShowTips(true);
-              console.log('🔵 setShowTips(true) ejecutado');
+              logger.log('🔵 setShowTips(true) ejecutado');
             }}
             activeOpacity={0.6}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -404,7 +405,7 @@ export default function ZenioScreen() {
         transparent={true}
         animationType="fade"
         onRequestClose={() => {
-          console.log('🔴 Modal Tips cerrado');
+          logger.log('🔴 Modal Tips cerrado');
           setShowTips(false);
         }}
         statusBarTranslucent={false}

@@ -31,8 +31,8 @@ const PlanCard: React.FC<PlanCardProps> = ({
   const getColors = () => {
     if (isPro) {
       return {
-        primary: '#8B5CF6',
-        secondary: '#F3EEFF',
+        primary: '#1E40AF',
+        secondary: '#DBEAFE',
         icon: '💎',
       };
     }

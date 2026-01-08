@@ -133,6 +133,13 @@ export interface AnalysisWarning {
   message: string;
 }
 
+export interface PlanInfo {
+  currentPlan: string;
+  analysisType: 'basic' | 'full';
+  isLimited: boolean;
+  upgradeMessage?: string;
+}
+
 export interface AntExpenseAnalysisResponse {
   success: boolean;
   canAnalyze: boolean;
@@ -142,6 +149,7 @@ export interface AntExpenseAnalysisResponse {
   warnings: AnalysisWarning[];
   recommendedConfig: AntExpenseConfig;
   configOptions: ConfigLimits;
+  planInfo?: PlanInfo;
 }
 
 export interface ConfigRecommendation {

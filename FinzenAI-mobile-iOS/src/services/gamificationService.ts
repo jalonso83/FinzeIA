@@ -23,6 +23,7 @@ import type {
 } from '../types/gamification';
 import { EventType } from '../types/gamification';
 
+import { logger } from '../utils/logger';
 // ===== CONFIGURACIÓN =====
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutos
 const MAX_RETRIES = 3;
@@ -104,7 +105,7 @@ async function withRetry<T>(
 
 // Manejo robusto de errores de API
 function handleApiError(error: any): never {
-  console.error('[GamificationService] API Error:', error);
+  logger.error('[GamificationService] API Error:', error);
   
   if (error.response?.status === 401) {
     throw new APIError('No autorizado - sesión expirada', 401, 'UNAUTHORIZED');
@@ -303,7 +304,7 @@ export class GamificationService {
       }
 
       const streak = response.data;
-      console.log('🔄 RACHA DEL BACKEND:', streak);
+      logger.log('🔄 RACHA DEL BACKEND:', streak);
       
       return streak;
     } catch (error) {
@@ -401,7 +402,7 @@ export class GamificationService {
       return challenges;
     } catch (error) {
       // Los desafíos son opcionales, no fallar la aplicación
-      console.warn('[GamificationService] Error obteniendo desafíos:', error);
+      logger.warn('[GamificationService] Error obteniendo desafíos:', error);
       return [];
     }
   }
@@ -481,7 +482,7 @@ export class GamificationService {
         }
       };
     } catch (error) {
-      console.error('[GamificationService] Error precargando datos:', error);
+      logger.error('[GamificationService] Error precargando datos:', error);
       throw error;
     }
   }
@@ -494,7 +495,7 @@ export class GamificationService {
       await api.get('/health');
       return true;
     } catch (error) {
-      console.error('[GamificationService] Backend no disponible:', error);
+      logger.error('[GamificationService] Backend no disponible:', error);
       return false;
     }
   }

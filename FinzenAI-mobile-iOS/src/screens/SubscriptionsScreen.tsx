@@ -20,6 +20,7 @@ import CustomModal from '../components/modals/CustomModal';
 import { SubscriptionPlan } from '../types/subscription';
 import { subscriptionsAPI } from '../utils/api';
 
+import { logger } from '../utils/logger';
 interface SubscriptionsScreenProps {
   onClose?: () => void;
   onViewPayments?: () => void;
@@ -129,7 +130,7 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
 
     try {
       const { url, sessionId } = await createCheckout(planId);
-      console.log('Checkout session created:', sessionId);
+      logger.log('Checkout session created:', sessionId);
       setCheckoutUrl(url);
       setShowWebView(true);
     } catch (error: any) {
@@ -150,21 +151,21 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     setShowWebView(false);
     setCheckoutUrl(null);
 
-    console.log('💳 Pago exitoso detectado, sessionId:', sessionId);
+    logger.log('💳 Pago exitoso detectado, sessionId:', sessionId);
 
     // Si tenemos sessionId, sincronizar inmediatamente
     if (sessionId) {
       try {
-        console.log('🔄 Sincronizando suscripción con sessionId:', sessionId);
+        logger.log('🔄 Sincronizando suscripción con sessionId:', sessionId);
         const response = await subscriptionsAPI.checkCheckoutSession(sessionId);
-        console.log('✅ Respuesta de sincronización:', response.data);
+        logger.log('✅ Respuesta de sincronización:', response.data);
 
         // CRÍTICO: Refrescar suscripción INMEDIATAMENTE después de sincronizar
         await fetchSubscription();
-        console.log('✅ Suscripción refrescada después de sincronización');
+        logger.log('✅ Suscripción refrescada después de sincronización');
       } catch (syncError: any) {
-        console.error('❌ Error sincronizando:', syncError);
-        console.error('❌ Detalles del error:', syncError.response?.data);
+        logger.error('❌ Error sincronizando:', syncError);
+        logger.error('❌ Detalles del error:', syncError.response?.data);
       }
     }
 

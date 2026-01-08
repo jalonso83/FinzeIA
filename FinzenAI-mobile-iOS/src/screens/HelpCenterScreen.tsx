@@ -40,7 +40,7 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
     {
       name: 'Asistente IA',
       icon: 'chatbubbles',
-      color: '#7C3AED',
+      color: '#1E40AF',
       tutorials: TUTORIALS.filter(t => t.category === 'Asistente IA'),
     },
     {
@@ -239,7 +239,7 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
             </View>
 
             <View style={styles.tipCard}>
-              <Ionicons name="shield-checkmark" size={24} color="#7C3AED" />
+              <Ionicons name="shield-checkmark" size={24} color="#1E40AF" />
               <View style={styles.tipContent}>
                 <Text style={styles.tipTitle}>Tus datos están seguros</Text>
                 <Text style={styles.tipDescription}>

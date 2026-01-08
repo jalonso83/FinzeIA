@@ -19,6 +19,7 @@ import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface BudgetFormProps {
   visible: boolean;
   onClose: () => void;
@@ -98,7 +99,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       );
       setCategories(expenseCategories);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       setErrorMessage('No se pudieron cargar las categorías');
       setShowErrorModal(true);
     } finally {
@@ -167,13 +168,13 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         message = 'Presupuesto creado correctamente';
       }
 
-      console.log('✅ Presupuesto guardado exitosamente');
+      logger.log('✅ Presupuesto guardado exitosamente');
 
       // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
       onBudgetChange();
       onSuccess(message);
     } catch (error: any) {
-      console.error('Error saving budget:', error);
+      logger.error('Error saving budget:', error);
 
       // Detectar error de presupuesto duplicado (409)
       if (error.response?.status === 409 && error.response?.data?.existingBudget) {
@@ -204,7 +205,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         amount: newAmount
       });
 
-      console.log('✅ Presupuesto duplicado actualizado exitosamente');
+      logger.log('✅ Presupuesto duplicado actualizado exitosamente');
 
       const message = `Presupuesto de "${duplicateInfo.existingBudget.category.name}" actualizado a ${formatCurrency(newAmount)}`;
 
@@ -213,7 +214,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       onSuccess(message);
       setDuplicateInfo(null);
     } catch (error: any) {
-      console.error('Error updating budget:', error);
+      logger.error('Error updating budget:', error);
       setErrorMessage('No se pudo actualizar el presupuesto');
       setShowErrorModal(true);
     } finally {

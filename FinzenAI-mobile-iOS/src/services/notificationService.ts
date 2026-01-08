@@ -4,6 +4,7 @@ import { Platform } from 'react-native';
 import Constants from 'expo-constants';
 import api from '../utils/api';
 
+import { logger } from '../utils/logger';
 // Configurar cómo se muestran las notificaciones cuando la app está en primer plano
 Notifications.setNotificationHandler({
   handleNotification: async () => ({
@@ -51,7 +52,7 @@ class NotificationService {
     try {
       // Verificar si estamos en un dispositivo físico
       if (!Device.isDevice) {
-        console.log('[NotificationService] Notificaciones no disponibles en simulador');
+        logger.log('[NotificationService] Notificaciones no disponibles en simulador');
         return null;
       }
 
@@ -65,7 +66,7 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        console.log('[NotificationService] Permiso de notificaciones denegado');
+        logger.log('[NotificationService] Permiso de notificaciones denegado');
         return null;
       }
 
@@ -84,11 +85,11 @@ class NotificationService {
       const token = await this.getExpoPushToken();
       this.pushToken = token;
 
-      console.log('[NotificationService] Token obtenido:', token);
+      logger.log('[NotificationService] Token obtenido:', token);
       return token;
 
     } catch (error) {
-      console.error('[NotificationService] Error inicializando:', error);
+      logger.error('[NotificationService] Error inicializando:', error);
       return null;
     }
   }
@@ -101,7 +102,7 @@ class NotificationService {
       const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
 
       if (!projectId) {
-        console.warn('[NotificationService] No project ID found');
+        logger.warn('[NotificationService] No project ID found');
         // Intentar obtener token FCM directamente
         const { data } = await Notifications.getDevicePushTokenAsync();
         return data;
@@ -113,7 +114,7 @@ class NotificationService {
 
       return data;
     } catch (error) {
-      console.error('[NotificationService] Error obteniendo token:', error);
+      logger.error('[NotificationService] Error obteniendo token:', error);
       return null;
     }
   }
@@ -128,7 +129,7 @@ class NotificationService {
       }
 
       if (!this.pushToken) {
-        console.log('[NotificationService] No hay token disponible para registrar');
+        logger.log('[NotificationService] No hay token disponible para registrar');
         return false;
       }
 
@@ -139,11 +140,11 @@ class NotificationService {
         appVersion: appVersion || Constants.expoConfig?.version || '1.0.0',
       });
 
-      console.log('[NotificationService] Dispositivo registrado:', response.data);
+      logger.log('[NotificationService] Dispositivo registrado:', response.data);
       return response.data?.success === true;
 
     } catch (error: any) {
-      console.error('[NotificationService] Error registrando dispositivo:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error registrando dispositivo:', error.response?.data || error.message);
       return false;
     }
   }
@@ -161,11 +162,11 @@ class NotificationService {
         data: { fcmToken: this.pushToken }
       });
 
-      console.log('[NotificationService] Dispositivo desregistrado');
+      logger.log('[NotificationService] Dispositivo desregistrado');
       return true;
 
     } catch (error: any) {
-      console.error('[NotificationService] Error desregistrando dispositivo:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error desregistrando dispositivo:', error.response?.data || error.message);
       return false;
     }
   }
@@ -178,7 +179,7 @@ class NotificationService {
       const response = await api.get('/notifications/preferences');
       return response.data;
     } catch (error: any) {
-      console.error('[NotificationService] Error obteniendo preferencias:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error obteniendo preferencias:', error.response?.data || error.message);
       return null;
     }
   }
@@ -191,7 +192,7 @@ class NotificationService {
       const response = await api.put('/notifications/preferences', preferences);
       return response.data?.preferences || response.data;
     } catch (error: any) {
-      console.error('[NotificationService] Error actualizando preferencias:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error actualizando preferencias:', error.response?.data || error.message);
       return null;
     }
   }
@@ -204,7 +205,7 @@ class NotificationService {
       const response = await api.get(`/notifications/history?limit=${limit}`);
       return response.data?.notifications || [];
     } catch (error: any) {
-      console.error('[NotificationService] Error obteniendo historial:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error obteniendo historial:', error.response?.data || error.message);
       return [];
     }
   }
@@ -217,7 +218,7 @@ class NotificationService {
       await api.put(`/notifications/${notificationId}/read`);
       return true;
     } catch (error: any) {
-      console.error('[NotificationService] Error marcando como leída:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error marcando como leída:', error.response?.data || error.message);
       return false;
     }
   }
@@ -230,7 +231,7 @@ class NotificationService {
       const response = await api.post('/notifications/test');
       return response.data?.success === true;
     } catch (error: any) {
-      console.error('[NotificationService] Error enviando prueba:', error.response?.data || error.message);
+      logger.error('[NotificationService] Error enviando prueba:', error.response?.data || error.message);
       return false;
     }
   }
@@ -247,7 +248,7 @@ class NotificationService {
 
     // Listener para notificaciones recibidas (app en primer plano)
     this.notificationListener = Notifications.addNotificationReceivedListener((notification) => {
-      console.log('[NotificationService] Notificación recibida:', notification);
+      logger.log('[NotificationService] Notificación recibida:', notification);
       if (onNotificationReceived) {
         onNotificationReceived(notification);
       }
@@ -255,7 +256,7 @@ class NotificationService {
 
     // Listener para cuando el usuario interactúa con la notificación
     this.responseListener = Notifications.addNotificationResponseReceivedListener((response) => {
-      console.log('[NotificationService] Usuario respondió a notificación:', response);
+      logger.log('[NotificationService] Usuario respondió a notificación:', response);
       if (onNotificationResponse) {
         onNotificationResponse(response);
       }

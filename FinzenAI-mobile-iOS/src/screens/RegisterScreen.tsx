@@ -18,8 +18,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import { authAPI } from '../utils/api';
+import { authAPI, referralsAPI } from '../utils/api';
 
+import { logger } from '../utils/logger';
 // Datos constantes como en el web
 const occupationOptions = [
   'Estudiante',
@@ -78,7 +79,13 @@ export default function RegisterScreen() {
     preferredLanguage: 'es',
     occupation: '',
     company: '',
+    referralCode: '',
   });
+  const [referralValidation, setReferralValidation] = useState<{
+    valid: boolean;
+    message: string;
+    checking: boolean;
+  }>({ valid: false, message: '', checking: false });
   const [errors, setErrors] = useState<any>({});
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -90,6 +97,39 @@ export default function RegisterScreen() {
   const [showSuccessModal, setShowSuccessModal] = useState(false);
 
   const navigation = useNavigation<any>();
+
+  // Validar código de referido
+  const validateReferralCode = async (code: string) => {
+    if (!code || code.length < 5) {
+      setReferralValidation({ valid: false, message: '', checking: false });
+      return;
+    }
+
+    setReferralValidation({ valid: false, message: '', checking: true });
+
+    try {
+      const response = await referralsAPI.validateCode(code);
+      if (response.data.valid) {
+        setReferralValidation({
+          valid: true,
+          message: response.data.discountMessage || `${response.data.discount} de descuento`,
+          checking: false,
+        });
+      } else {
+        setReferralValidation({
+          valid: false,
+          message: response.data.message || 'Código inválido',
+          checking: false,
+        });
+      }
+    } catch (error: any) {
+      setReferralValidation({
+        valid: false,
+        message: error.response?.data?.message || 'Código inválido',
+        checking: false,
+      });
+    }
+  };
 
   const validate = () => {
     const newErrors: any = {};
@@ -135,7 +175,8 @@ export default function RegisterScreen() {
         currency: form.currency,
         preferredLanguage: form.preferredLanguage,
         occupation: form.occupation,
-        company: form.company || undefined
+        company: form.company || undefined,
+        referralCode: form.referralCode && referralValidation.valid ? form.referralCode : undefined,
       };
 
       await authAPI.register(registerData);
@@ -144,7 +185,7 @@ export default function RegisterScreen() {
       setShowSuccessModal(true);
       
     } catch (error: any) {
-      console.error('Error al registrar:', error);
+      logger.error('Error al registrar:', error);
       
       let errorMessage = 'Error al registrar usuario';
       
@@ -201,6 +242,17 @@ export default function RegisterScreen() {
     // Aplicar formato especial para fecha de nacimiento (visual DD-MM-YYYY)
     if (field === 'birthDate') {
       finalValue = formatBirthDateDisplay(value);
+    }
+
+    // Convertir código de referido a mayúsculas
+    if (field === 'referralCode') {
+      finalValue = value.toUpperCase();
+      // Validar código cuando tenga suficiente longitud
+      if (finalValue.length >= 5) {
+        validateReferralCode(finalValue);
+      } else {
+        setReferralValidation({ valid: false, message: '', checking: false });
+      }
     }
 
     setForm({ ...form, [field]: finalValue });
@@ -540,6 +592,54 @@ export default function RegisterScreen() {
                   placeholder="Nombre de tu empresa"
                   placeholderTextColor="#9ca3af"
                 />
+              </View>
+            </View>
+
+            {/* Código de Referido */}
+            <View style={styles.referralSection}>
+              <View style={styles.referralHeader}>
+                <Ionicons name="gift-outline" size={20} color="#2563EB" />
+                <Text style={styles.referralTitle}>¿Tienes un código de referido?</Text>
+              </View>
+              <View style={styles.inputContainer}>
+                <View style={styles.referralInputContainer}>
+                  <TextInput
+                    style={[styles.textInput, styles.referralInput]}
+                    value={form.referralCode}
+                    onChangeText={(value) => handleChange('referralCode', value)}
+                    placeholder="Ingresa tu código"
+                    placeholderTextColor="#9ca3af"
+                    autoCapitalize="characters"
+                    maxLength={20}
+                  />
+                  {referralValidation.checking && (
+                    <ActivityIndicator size="small" color="#2563EB" style={styles.referralLoader} />
+                  )}
+                  {!referralValidation.checking && referralValidation.valid && (
+                    <Ionicons name="checkmark-circle" size={24} color="#10b981" style={styles.referralIcon} />
+                  )}
+                  {!referralValidation.checking && form.referralCode.length >= 5 && !referralValidation.valid && (
+                    <Ionicons name="close-circle" size={24} color="#ef4444" style={styles.referralIcon} />
+                  )}
+                </View>
+                {referralValidation.message && (
+                  <View style={[
+                    styles.referralMessage,
+                    referralValidation.valid ? styles.referralMessageSuccess : styles.referralMessageError
+                  ]}>
+                    <Ionicons
+                      name={referralValidation.valid ? "pricetag" : "alert-circle"}
+                      size={16}
+                      color={referralValidation.valid ? "#10b981" : "#ef4444"}
+                    />
+                    <Text style={[
+                      styles.referralMessageText,
+                      referralValidation.valid ? styles.referralMessageTextSuccess : styles.referralMessageTextError
+                    ]}>
+                      {referralValidation.message}
+                    </Text>
+                  </View>
+                )}
               </View>
             </View>
 
@@ -903,5 +1003,68 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 18,
     fontWeight: '600',
+  },
+  // Estilos para código de referido
+  referralSection: {
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 16,
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  referralHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  referralTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e40af',
+    marginLeft: 8,
+  },
+  referralInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  referralInput: {
+    flex: 1,
+    paddingRight: 40,
+  },
+  referralLoader: {
+    position: 'absolute',
+    right: 12,
+  },
+  referralIcon: {
+    position: 'absolute',
+    right: 12,
+  },
+  referralMessage: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginTop: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 8,
+  },
+  referralMessageSuccess: {
+    backgroundColor: '#ecfdf5',
+  },
+  referralMessageError: {
+    backgroundColor: '#fef2f2',
+  },
+  referralMessageText: {
+    fontSize: 13,
+    marginLeft: 6,
+    flex: 1,
+  },
+  referralMessageTextSuccess: {
+    color: '#059669',
+  },
+  referralMessageTextError: {
+    color: '#dc2626',
   },
 });

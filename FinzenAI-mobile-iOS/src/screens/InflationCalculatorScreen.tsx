@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
+import { logger } from '../utils/logger';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -90,7 +91,7 @@ export default function InflationCalculatorScreen() {
       }).start();
 
     } catch (error: any) {
-      console.error('Error calculating inflation:', error);
+      logger.error('Error calculating inflation:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo calcular la inflación'
