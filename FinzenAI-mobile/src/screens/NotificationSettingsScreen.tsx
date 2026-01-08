@@ -13,7 +13,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import Slider from '@react-native-community/slider';
 import notificationService, { NotificationPreferences } from '../services/notificationService';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 interface NotificationSettingsScreenProps {
   onClose?: () => void;
 }
@@ -24,6 +27,10 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
   const [preferences, setPreferences] = useState<NotificationPreferences | null>(null);
   const [isEnabled, setIsEnabled] = useState(false);
   const [token, setToken] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
+  // Subscription check for budget alerts
+  const { hasBudgetAlerts } = useSubscriptionStore();
 
   useEffect(() => {
     loadData();
@@ -58,7 +65,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
         });
       }
     } catch (error) {
-      console.error('Error cargando configuración de notificaciones:', error);
+      logger.error('Error cargando configuración de notificaciones:', error);
     } finally {
       setLoading(false);
     }
@@ -74,7 +81,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     try {
       await notificationService.updatePreferences({ [key]: value });
     } catch (error) {
-      console.error('Error guardando preferencia:', error);
+      logger.error('Error guardando preferencia:', error);
       // Revertir cambio
       setPreferences(preferences);
     } finally {
@@ -94,7 +101,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     try {
       await notificationService.updatePreferences({ budgetAlertThreshold: Math.round(value) });
     } catch (error) {
-      console.error('Error guardando umbral:', error);
+      logger.error('Error guardando umbral:', error);
     } finally {
       setSaving(false);
     }
@@ -110,7 +117,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     try {
       await notificationService.updatePreferences({ quietHoursStart: start, quietHoursEnd: end });
     } catch (error) {
-      console.error('Error guardando horas silenciosas:', error);
+      logger.error('Error guardando horas silenciosas:', error);
     } finally {
       setSaving(false);
     }
@@ -227,21 +234,44 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
 
           <View style={styles.divider} />
 
-          <View style={styles.settingRow}>
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => !hasBudgetAlerts && setShowUpgradeModal(true)}
+            activeOpacity={hasBudgetAlerts ? 1 : 0.7}
+          >
             <View style={styles.settingInfo}>
-              <Ionicons name="wallet-outline" size={22} color="#F59E0B" style={styles.settingIcon} />
-              <View>
-                <Text style={styles.settingTitle}>Alertas de presupuesto</Text>
-                <Text style={styles.settingDescription}>Cuando estás por exceder un presupuesto</Text>
+              <Ionicons name="wallet-outline" size={22} color={hasBudgetAlerts ? "#F59E0B" : "#9CA3AF"} style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <View style={styles.settingTitleRow}>
+                  <Text style={[styles.settingTitle, !hasBudgetAlerts && styles.settingTitleDisabled]}>
+                    Alertas de presupuesto
+                  </Text>
+                  {!hasBudgetAlerts && (
+                    <View style={styles.plusBadge}>
+                      <Text style={styles.plusBadgeText}>PLUS</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.settingDescription, !hasBudgetAlerts && styles.settingDescriptionDisabled]}>
+                  {hasBudgetAlerts
+                    ? 'Cuando estás por exceder un presupuesto'
+                    : 'Disponible con plan PLUS o superior'}
+                </Text>
               </View>
             </View>
-            <Switch
-              value={preferences?.budgetAlertsEnabled ?? true}
-              onValueChange={(value) => handleToggle('budgetAlertsEnabled', value)}
-              trackColor={{ false: '#D1D5DB', true: '#FDE68A' }}
-              thumbColor={preferences?.budgetAlertsEnabled ? '#F59E0B' : '#9CA3AF'}
-            />
-          </View>
+            {hasBudgetAlerts ? (
+              <Switch
+                value={preferences?.budgetAlertsEnabled ?? true}
+                onValueChange={(value) => handleToggle('budgetAlertsEnabled', value)}
+                trackColor={{ false: '#D1D5DB', true: '#FDE68A' }}
+                thumbColor={preferences?.budgetAlertsEnabled ? '#F59E0B' : '#9CA3AF'}
+              />
+            ) : (
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed" size={18} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.divider} />
 
@@ -265,7 +295,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
 
           <View style={styles.settingRow}>
             <View style={styles.settingInfo}>
-              <Ionicons name="bar-chart-outline" size={22} color="#8B5CF6" style={styles.settingIcon} />
+              <Ionicons name="bar-chart-outline" size={22} color="#1E40AF" style={styles.settingIcon} />
               <View>
                 <Text style={styles.settingTitle}>Reporte semanal</Text>
                 <Text style={styles.settingDescription}>Resumen de tus finanzas</Text>
@@ -275,7 +305,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
               value={preferences?.weeklyReportEnabled ?? true}
               onValueChange={(value) => handleToggle('weeklyReportEnabled', value)}
               trackColor={{ false: '#D1D5DB', true: '#DDD6FE' }}
-              thumbColor={preferences?.weeklyReportEnabled ? '#8B5CF6' : '#9CA3AF'}
+              thumbColor={preferences?.weeklyReportEnabled ? '#1E40AF' : '#9CA3AF'}
             />
           </View>
 
@@ -299,11 +329,25 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
         </View>
 
         {/* Umbral de alerta de presupuesto */}
-        <Text style={styles.sectionTitle}>Umbral de alerta</Text>
-        <View style={styles.settingsCard}>
-          <Text style={styles.thresholdLabel}>
+        <View style={styles.sectionTitleRow}>
+          <Text style={styles.sectionTitle}>Umbral de alerta</Text>
+          {!hasBudgetAlerts && (
+            <View style={styles.plusBadgeSmall}>
+              <Text style={styles.plusBadgeSmallText}>PLUS</Text>
+            </View>
+          )}
+        </View>
+        <TouchableOpacity
+          style={[styles.settingsCard, !hasBudgetAlerts && styles.settingsCardDisabled]}
+          onPress={() => !hasBudgetAlerts && setShowUpgradeModal(true)}
+          activeOpacity={hasBudgetAlerts ? 1 : 0.7}
+          disabled={hasBudgetAlerts}
+        >
+          <Text style={[styles.thresholdLabel, !hasBudgetAlerts && styles.thresholdLabelDisabled]}>
             Alertar cuando el presupuesto llegue al{' '}
-            <Text style={styles.thresholdValue}>{Math.round(preferences?.budgetAlertThreshold ?? 80)}%</Text>
+            <Text style={[styles.thresholdValue, !hasBudgetAlerts && styles.thresholdValueDisabled]}>
+              {Math.round(preferences?.budgetAlertThreshold ?? 80)}%
+            </Text>
           </Text>
           <Slider
             style={styles.slider}
@@ -313,15 +357,22 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
             value={preferences?.budgetAlertThreshold ?? 80}
             onValueChange={handleThresholdChange}
             onSlidingComplete={handleThresholdComplete}
-            minimumTrackTintColor="#F59E0B"
+            minimumTrackTintColor={hasBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
             maximumTrackTintColor="#E5E7EB"
-            thumbTintColor="#F59E0B"
+            thumbTintColor={hasBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
+            disabled={!hasBudgetAlerts}
           />
           <View style={styles.sliderLabels}>
-            <Text style={styles.sliderLabel}>50%</Text>
-            <Text style={styles.sliderLabel}>95%</Text>
+            <Text style={[styles.sliderLabel, !hasBudgetAlerts && styles.sliderLabelDisabled]}>50%</Text>
+            <Text style={[styles.sliderLabel, !hasBudgetAlerts && styles.sliderLabelDisabled]}>95%</Text>
           </View>
-        </View>
+          {!hasBudgetAlerts && (
+            <View style={styles.upgradeHint}>
+              <Ionicons name="sparkles" size={14} color="#F59E0B" />
+              <Text style={styles.upgradeHintText}>Mejora a PLUS para personalizar alertas</Text>
+            </View>
+          )}
+        </TouchableOpacity>
 
         {/* Horas silenciosas */}
         <Text style={styles.sectionTitle}>Horas silenciosas</Text>
@@ -406,6 +457,13 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
 
         <View style={{ height: 40 }} />
       </ScrollView>
+
+      {/* Upgrade Modal for Budget Alerts */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="budgetAlerts"
+      />
     </SafeAreaView>
   );
 }
@@ -505,6 +563,24 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
+  sectionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  plusBadgeSmall: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  plusBadgeSmallText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.3,
+  },
   settingsCard: {
     backgroundColor: 'white',
     borderRadius: 12,
@@ -515,6 +591,12 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
+  },
+  settingsCardDisabled: {
+    opacity: 0.7,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
   },
   settingRow: {
     flexDirection: 'row',
@@ -537,9 +619,43 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     marginBottom: 2,
   },
+  settingTitleDisabled: {
+    color: '#9CA3AF',
+  },
   settingDescription: {
     fontSize: 12,
     color: '#64748b',
+  },
+  settingDescriptionDisabled: {
+    color: '#D1D5DB',
+  },
+  settingTextContainer: {
+    flex: 1,
+  },
+  settingTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  plusBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 6,
+  },
+  plusBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
+  lockIcon: {
+    width: 36,
+    height: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 18,
   },
   divider: {
     height: 1,
@@ -552,9 +668,15 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingTop: 12,
   },
+  thresholdLabelDisabled: {
+    color: '#9CA3AF',
+  },
   thresholdValue: {
     fontWeight: '700',
     color: '#F59E0B',
+  },
+  thresholdValueDisabled: {
+    color: '#D1D5DB',
   },
   slider: {
     marginHorizontal: 8,
@@ -569,6 +691,25 @@ const styles = StyleSheet.create({
   sliderLabel: {
     fontSize: 12,
     color: '#94a3b8',
+  },
+  sliderLabelDisabled: {
+    color: '#D1D5DB',
+  },
+  upgradeHint: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#F3F4F6',
+    marginTop: 4,
+  },
+  upgradeHintText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#D97706',
   },
   quietHoursInfo: {
     fontSize: 13,

@@ -12,6 +12,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 
+import { logger } from '../../utils/logger';
 interface VibeData {
   volatilityLevel: 'zen' | 'chill' | 'wild' | 'caos';
   burnRateLevel: 'ahorro' | 'normal' | 'fast' | 'millionaire';
@@ -179,7 +180,7 @@ const VibeCard: React.FC = () => {
         setVibeData(calculatedVibeData);
       }
     } catch (error: any) {
-      console.error('Error loading vibe data:', error);
+      logger.error('Error loading vibe data:', error);
       setError('No se pudieron cargar los datos del vibe');
     } finally {
       setLoading(false);

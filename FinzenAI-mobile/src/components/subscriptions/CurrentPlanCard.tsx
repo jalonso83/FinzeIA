@@ -24,7 +24,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   const isFree = subscription.plan === 'FREE';
 
   const getColors = () => {
-    if (isPro) return { primary: '#8B5CF6', secondary: '#F3EEFF', icon: '💎' };
+    if (isPro) return { primary: '#1E40AF', secondary: '#DBEAFE', icon: '💎' };
     if (isPremium) return { primary: '#F59E0B', secondary: '#FEF3C7', icon: '👑' };
     return { primary: '#6B7280', secondary: '#F3F4F6', icon: '🆓' };
   };

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { authAPI } from '../utils/api';
 import { formatCurrency as baseCurrencyFormatter, getCurrencyByCode, DEFAULT_CURRENCY } from '../utils/currency';
 
+import { logger } from '../utils/logger';
 interface UserProfile {
   id: string;
   name: string;
@@ -35,7 +36,7 @@ export const useUserCurrency = () => {
         const response = await authAPI.getProfile();
         setUserProfile(response.data);
       } catch (err: any) {
-        console.error('Error fetching user profile:', err);
+        logger.error('Error fetching user profile:', err);
         setError(err.response?.data?.message || 'Error al obtener el perfil del usuario');
       } finally {
         setIsLoading(false);

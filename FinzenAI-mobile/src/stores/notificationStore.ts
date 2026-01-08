@@ -4,6 +4,7 @@
 import { create } from 'zustand';
 import { notificationsAPI } from '../utils/api';
 
+import { logger } from '../utils/logger';
 export interface NotificationItem {
   id: string;
   type: string;
@@ -61,7 +62,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         loading: false
       });
     } catch (error: any) {
-      console.error('[NotificationStore] Error fetching notifications:', error);
+      logger.error('[NotificationStore] Error fetching notifications:', error);
       set({
         error: error.message || 'Error cargando notificaciones',
         loading: false
@@ -81,7 +82,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       set({ unreadCount });
     } catch (error: any) {
-      console.error('[NotificationStore] Error fetching unread count:', error);
+      logger.error('[NotificationStore] Error fetching unread count:', error);
     }
   },
 
@@ -97,7 +98,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: Math.max(0, state.unreadCount - 1),
       }));
     } catch (error: any) {
-      console.error('[NotificationStore] Error marking as read:', error);
+      logger.error('[NotificationStore] Error marking as read:', error);
     }
   },
 
@@ -113,7 +114,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       try {
         await notificationsAPI.markAsRead(id);
       } catch (error) {
-        console.error('[NotificationStore] Error marking notification as read:', id);
+        logger.error('[NotificationStore] Error marking notification as read:', id);
       }
     }
 
@@ -152,7 +153,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
 
       return true;
     } catch (error: any) {
-      console.error('[NotificationStore] Error deleting notification:', error);
+      logger.error('[NotificationStore] Error deleting notification:', error);
       return false;
     }
   },
@@ -167,7 +168,7 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
         unreadCount: 0,
       });
     } catch (error: any) {
-      console.error('[NotificationStore] Error deleting all notifications:', error);
+      logger.error('[NotificationStore] Error deleting all notifications:', error);
     }
   },
 

@@ -7,6 +7,7 @@ import CustomModal from '../modals/CustomModal';
 import { useBiometric } from '../../hooks/useBiometric';
 import { useAuthStore } from '../../stores/auth';
 
+import { logger } from '../../utils/logger';
 interface ProfileFormProps {
   visible: boolean;
   user: any;
@@ -118,7 +119,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   // Actualizar formulario cuando cambien los datos del usuario
   useEffect(() => {
     if (user) {
-      console.log('ProfileForm - Usuario recibido:', user);
+      logger.log('ProfileForm - Usuario recibido:', user);
       const backendDate = user?.birthDate ? user.birthDate.slice(0, 10) : ''; // YYYY-MM-DD
       const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
 
@@ -208,7 +209,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
         );
       }
     } catch (error) {
-      console.error('Error manejando biometría:', error);
+      logger.error('Error manejando biometría:', error);
       Alert.alert(
         'Error',
         'No se pudo cambiar la configuración de biometría. Intenta nuevamente.',
@@ -237,15 +238,15 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
 
       await api.put('/auth/profile', profileData);
 
-      console.log('✅ Perfil actualizado exitosamente');
+      logger.log('✅ Perfil actualizado exitosamente');
 
       const message = 'Tu información ha sido guardada correctamente.';
 
       // Llamar callback con mensaje - el modal se maneja en AppNavigator
       onProfileUpdated(message);
-      console.log('🟢 onProfileUpdated llamado con mensaje:', message);
+      logger.log('🟢 onProfileUpdated llamado con mensaje:', message);
     } catch (error: any) {
-      console.error('Error al actualizar perfil:', error);
+      logger.error('Error al actualizar perfil:', error);
       const errMsg = error?.response?.data?.message || 'Error al actualizar perfil';
       setErrorMessage(errMsg);
       setShowErrorModal(true);

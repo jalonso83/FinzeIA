@@ -19,6 +19,7 @@ import { goalsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface Goal {
   id: string;
   name: string;
@@ -86,20 +87,20 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
         amount: contributionAmount
       });
 
-      console.log('✅ Contribución guardada exitosamente');
+      logger.log('✅ Contribución guardada exitosamente');
 
       // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
       onSuccess();
 
       const message = 'Contribución añadida correctamente';
       setSuccessMessage(message);
-      console.log('📝 Mensaje de éxito:', message);
+      logger.log('📝 Mensaje de éxito:', message);
 
       // Mostrar modal de éxito
       setShowSuccessModal(true);
-      console.log('🟢 showSuccessModal activado');
+      logger.log('🟢 showSuccessModal activado');
     } catch (error: any) {
-      console.error('Error al añadir contribución:', error);
+      logger.error('Error al añadir contribución:', error);
       const errMsg = error.response?.data?.message || 'Error al añadir la contribución';
       setErrorMessage(errMsg);
       setShowErrorModal(true);
@@ -268,7 +269,7 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
             message={successMessage}
             buttonText="Continuar"
             onClose={() => {
-              console.log('👆 Usuario presionó Continuar en modal de éxito');
+              logger.log('👆 Usuario presionó Continuar en modal de éxito');
               setShowSuccessModal(false);
               // Los callbacks ya se ejecutaron después de guardar
               // Cerrar el formulario

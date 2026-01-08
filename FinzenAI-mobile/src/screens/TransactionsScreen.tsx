@@ -18,7 +18,11 @@ import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
 import { useDashboardStore } from '../stores/dashboard';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
 
+import { logger } from '../utils/logger';
 type FilterType = 'all' | 'INCOME' | 'EXPENSE';
 
 export default function TransactionsScreen() {
@@ -43,6 +47,14 @@ export default function TransactionsScreen() {
 
   // Dashboard store para refresh automático
   const { refreshTrigger, transactionChangeTrigger, onTransactionChange } = useDashboardStore();
+
+  // Subscription store para exportación
+  const { canExportData } = useSubscriptionStore();
+
+  // Estados para exportación
+  const [isExporting, setIsExporting] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -77,7 +89,7 @@ export default function TransactionsScreen() {
   // Refresh cuando Zenio crea/modifica transacciones
   useEffect(() => {
     if (transactionChangeTrigger > 0) {
-      console.log('[TransactionsScreen] Transaction change detected, reloading...');
+      logger.log('[TransactionsScreen] Transaction change detected, reloading...');
       loadTransactions();
     }
   }, [transactionChangeTrigger]);
@@ -91,13 +103,13 @@ export default function TransactionsScreen() {
     try {
       setLoading(true);
       const response = await transactionsAPI.getAll({ limit: 5000 }); // Cargar todas las transacciones como la web
-      console.log('Transactions response:', response.data);
+      logger.log('Transactions response:', response.data);
       
       // El backend puede devolver { data: [...] } o directamente [...]
       const transactionsData = response.data.transactions || response.data || [];
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
     } catch (error: any) {
-      console.error('Error loading transactions:', error);
+      logger.error('Error loading transactions:', error);
 
       // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
@@ -202,7 +214,7 @@ export default function TransactionsScreen() {
       // Actualizar dashboard
       onTransactionChange();
     } catch (error) {
-      console.error('Error eliminando transacción:', error);
+      logger.error('Error eliminando transacción:', error);
       setShowDeleteConfirmModal(false);
       setTransactionToDelete(null);
       setErrorMessage('No se pudo eliminar la transacción');
@@ -279,6 +291,147 @@ export default function TransactionsScreen() {
     }));
   };
 
+  // Función para obtener el período del reporte
+  const getReportPeriod = (): string => {
+    if (startDate && endDate) {
+      if (startDate === endDate) {
+        return formatDate(convertToBackendFormat(startDate));
+      }
+      return `${formatDate(convertToBackendFormat(startDate))} - ${formatDate(convertToBackendFormat(endDate))}`;
+    } else if (startDate) {
+      return `Desde ${formatDate(convertToBackendFormat(startDate))}`;
+    } else if (endDate) {
+      return `Hasta ${formatDate(convertToBackendFormat(endDate))}`;
+    }
+    return 'Todas las transacciones';
+  };
+
+  // Función para manejar exportación
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportOptions(false);
+
+    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    if (!canExportData()) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (filteredTransactions.length === 0) {
+      setErrorMessage('No hay transacciones para exportar');
+      setShowErrorModal(true);
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      // Calcular totales
+      const totalIncome = filteredTransactions
+        .filter(t => t.type === 'INCOME')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const totalExpense = filteredTransactions
+        .filter(t => t.type === 'EXPENSE')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      const balance = totalIncome - totalExpense;
+
+      // Preparar columnas para la tabla
+      const columns: TableColumn[] = [
+        {
+          header: 'Fecha',
+          key: 'date',
+          align: 'left',
+          width: '15%',
+          format: (v) => formatDate(v)
+        },
+        {
+          header: 'Descripción',
+          key: 'description',
+          align: 'left',
+          width: '30%'
+        },
+        {
+          header: 'Categoría',
+          key: 'category',
+          align: 'left',
+          width: '20%',
+          format: (v) => v?.name || 'Sin categoría'
+        },
+        {
+          header: 'Tipo',
+          key: 'type',
+          align: 'center',
+          width: '12%',
+          format: (v) => v === 'INCOME' ? 'Ingreso' : 'Gasto'
+        },
+        {
+          header: 'Monto',
+          key: 'amount',
+          align: 'right',
+          width: '23%',
+          format: (v, row) => {
+            const formattedAmount = formatCurrency(v);
+            return row?.type === 'INCOME' ? `+${formattedAmount}` : `-${formattedAmount}`;
+          }
+        },
+      ];
+
+      // Preparar filas ordenadas por fecha (más reciente primero)
+      const sortedTransactions = [...filteredTransactions].sort(
+        (a, b) => createSafeDate(b.date).getTime() - createSafeDate(a.date).getTime()
+      );
+
+      // Preparar resumen
+      const summary = [
+        { label: 'Período', value: getReportPeriod() },
+        { label: 'Total de transacciones', value: `${filteredTransactions.length}` },
+        { label: 'Total Ingresos', value: `+${formatCurrency(totalIncome)}` },
+        { label: 'Total Gastos', value: `-${formatCurrency(totalExpense)}` },
+        { label: 'Balance', value: `${balance >= 0 ? '+' : ''}${formatCurrency(balance)}` },
+      ];
+
+      // Filtro activo para subtítulo
+      const filterInfo = filterType !== 'all'
+        ? `(${filterType === 'INCOME' ? 'Solo Ingresos' : 'Solo Gastos'})`
+        : '';
+
+      const result = await ExportService.exportData(
+        {
+          title: 'Reporte de Transacciones',
+          subtitle: `${getReportPeriod()} ${filterInfo}`.trim(),
+          filename: `transacciones_${new Date().getTime()}`,
+          format,
+        },
+        {
+          columns,
+          rows: sortedTransactions,
+          summary,
+        }
+      );
+
+      if (!result.success) {
+        setErrorMessage(result.message);
+        setShowErrorModal(true);
+      }
+    } catch (error: any) {
+      logger.error('Error exportando:', error);
+      setErrorMessage('No se pudo exportar el documento');
+      setShowErrorModal(true);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Función para mostrar opciones de exportación
+  const handleExportPress = () => {
+    if (!canExportData()) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowExportOptions(true);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -295,13 +448,32 @@ export default function TransactionsScreen() {
       <View style={styles.header}>
         <Text style={styles.title}>Transacciones</Text>
         <View style={styles.headerButtons}>
-          <TouchableOpacity 
+          {/* Botón de exportar */}
+          <TouchableOpacity
+            style={styles.exportHeaderButton}
+            onPress={handleExportPress}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color="#2563EB" />
+                {!canExportData() && (
+                  <View style={styles.plusBadgeSmall}>
+                    <Text style={styles.plusBadgeSmallText}>+</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
             style={[styles.filterButton, (filterType !== 'all' || startDate || endDate) && styles.filterButtonActive]}
             onPress={() => setShowFilters(true)}
           >
             <Ionicons name="filter" size={20} color={(filterType !== 'all' || startDate || endDate) ? "white" : "#64748b"} />
           </TouchableOpacity>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.addButton}
             onPress={() => setShowForm(true)}
           >
@@ -571,6 +743,44 @@ export default function TransactionsScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Modal de upgrade para exportación */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="export"
+      />
+
+      {/* Modal de opciones de exportación */}
+      <CustomModal
+        visible={showExportOptions}
+        type="info"
+        title="Exportar Transacciones"
+        message=""
+        onClose={() => setShowExportOptions(false)}
+        hideDefaultButton={true}
+        customContent={
+          <View style={styles.exportOptionsContainer}>
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('pdf')}
+            >
+              <Ionicons name="document-text" size={32} color="#dc2626" />
+              <Text style={styles.exportOptionText}>PDF</Text>
+              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('csv')}
+            >
+              <Ionicons name="grid" size={32} color="#059669" />
+              <Text style={styles.exportOptionText}>CSV</Text>
+              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -919,5 +1129,63 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 2,
     elevation: 2,
+  },
+  // Estilos de exportación
+  exportHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    position: 'relative',
+  },
+  plusBadgeSmall: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#fbbf24',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  plusBadgeSmallText: {
+    color: '#1e293b',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  exportOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    gap: 16,
+  },
+  exportOptionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 120,
+  },
+  exportOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 8,
+  },
+  exportOptionSubtext: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
   },
 });

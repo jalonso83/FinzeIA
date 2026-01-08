@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
+import { logger } from '../utils/logger';
 const { width } = Dimensions.get('window');
 
 interface InvestmentResult {
@@ -109,7 +110,7 @@ export default function InvestmentSimulatorScreen() {
       // Usar el promedio de la tasa de retorno del nivel de riesgo seleccionado
       const annualInterestRate = (selectedRisk.minReturn + selectedRisk.maxReturn) / 2;
       
-      console.log('Calculating investment with:', {
+      logger.log('Calculating investment with:', {
         monthlyAmount,
         years: selectedYears,
         annualInterestRate,
@@ -123,7 +124,7 @@ export default function InvestmentSimulatorScreen() {
         riskLevel: selectedRisk.key
       });
 
-      console.log('Investment calculation result:', response.data);
+      logger.log('Investment calculation result:', response.data);
       setResult(response.data);
       
       // Animar la aparición de resultados
@@ -134,7 +135,7 @@ export default function InvestmentSimulatorScreen() {
       }).start();
 
     } catch (error: any) {
-      console.error('Error calculating investment:', error);
+      logger.error('Error calculating investment:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo calcular la inversión'

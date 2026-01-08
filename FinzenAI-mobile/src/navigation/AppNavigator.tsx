@@ -1,13 +1,13 @@
 // Navegación principal de la app móvil FinZen
 // Configuración multiplataforma (Android + iOS)
 
-import React from 'react';
-import { NavigationContainer } from '@react-navigation/native';
+import React, { useState, useEffect, useRef } from 'react';
+import { NavigationContainer, NavigationContainerRef } from '@react-navigation/native';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform } from 'react-native';
+import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform, Linking } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
@@ -28,6 +28,9 @@ import GoalCalculatorScreen from '../screens/GoalCalculatorScreen';
 import SkipVsSaveScreen from '../screens/SkipVsSaveScreen';
 import InflationCalculatorScreen from '../screens/InflationCalculatorScreen';
 import AntExpenseDetectiveScreen from '../screens/AntExpenseDetectiveScreen';
+import RemindersScreen from '../screens/RemindersScreen';
+import AddReminderScreen from '../screens/AddReminderScreen';
+import ReferralsScreen from '../screens/ReferralsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import EmailSyncScreen from '../screens/EmailSyncScreen';
@@ -48,10 +51,10 @@ import { useAuthStore } from '../stores/auth';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useDashboardStore } from '../stores/dashboard';
 import { useBiometric } from '../hooks/useBiometric';
-import { useState, useEffect } from 'react';
 import notificationService from '../services/notificationService';
 import { useNotificationStore } from '../stores/notificationStore';
 
+import { logger } from '../utils/logger';
 const Tab = createBottomTabNavigator();
 const Stack = createNativeStackNavigator();
 
@@ -73,6 +76,9 @@ function ToolsStackNavigator() {
   return (
     <Stack.Navigator screenOptions={{ headerShown: false }}>
       <Stack.Screen name="ToolsHome" component={ToolsScreen} />
+      <Stack.Screen name="Reminders" component={RemindersScreen} />
+      <Stack.Screen name="AddReminder" component={AddReminderScreen} />
+      <Stack.Screen name="Referrals" component={ReferralsScreen} />
       <Stack.Screen name="LoanCalculator" component={LoanCalculatorScreen} />
       <Stack.Screen name="InvestmentSimulator" component={InvestmentSimulatorScreen} />
       <Stack.Screen name="GoalCalculator" component={GoalCalculatorScreen} />
@@ -309,29 +315,29 @@ function MainNavigator({ route }: any) {
   React.useEffect(() => {
     const checkOpenHelpCenter = async () => {
       try {
-        console.log('🔍 MainNavigator montado, verificando flag de HelpCenter...');
+        logger.log('🔍 MainNavigator montado, verificando flag de HelpCenter...');
         const shouldOpen = await AsyncStorage.getItem('openHelpCenterAfterOnboarding');
-        console.log('🔍 Flag de HelpCenter leído:', shouldOpen);
+        logger.log('🔍 Flag de HelpCenter leído:', shouldOpen);
 
         if (shouldOpen === 'true') {
-          console.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
+          logger.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
 
           // Marcar que viene del tutorial para mostrar planes después
           setCameFromTutorial(true);
 
           // Limpiar el flag PRIMERO
           await AsyncStorage.removeItem('openHelpCenterAfterOnboarding');
-          console.log('🗑️ Flag limpiado de AsyncStorage');
+          logger.log('🗑️ Flag limpiado de AsyncStorage');
 
           // Abrir el HelpCenter INMEDIATAMENTE
-          console.log('🚀 Llamando setShowHelpCenter(true)...');
+          logger.log('🚀 Llamando setShowHelpCenter(true)...');
           setShowHelpCenter(true);
-          console.log('✅ HelpCenter modal debería estar visible ahora');
+          logger.log('✅ HelpCenter modal debería estar visible ahora');
         } else {
-          console.log('ℹ️ Flag no es "true", no se abre HelpCenter');
+          logger.log('ℹ️ Flag no es "true", no se abre HelpCenter');
         }
       } catch (error) {
-        console.error('❌ Error checking HelpCenter flag:', error);
+        logger.error('❌ Error checking HelpCenter flag:', error);
       }
     };
 
@@ -339,12 +345,12 @@ function MainNavigator({ route }: any) {
   }, []);
 
   const handleCloseHelpCenter = () => {
-    console.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
+    logger.log('🔚 Cerrando HelpCenter, cameFromTutorial:', cameFromTutorial);
     setShowHelpCenter(false);
 
     // Si viene del tutorial, mostrar modal de planes
     if (cameFromTutorial) {
-      console.log('🎁 Mostrando modal de planes después del tutorial');
+      logger.log('🎁 Mostrando modal de planes después del tutorial');
       setTimeout(() => {
         setShowPlansModal(true);
       }, 500); // Pequeño delay para mejor UX
@@ -410,13 +416,13 @@ function MainNavigator({ route }: any) {
               onPress={async () => {
                 setShowUserMenu(false);
                 try {
-                  console.log('Cargando perfil del usuario...');
+                  logger.log('Cargando perfil del usuario...');
                   const res = await api.get('/auth/profile');
-                  console.log('Perfil cargado:', res.data);
+                  logger.log('Perfil cargado:', res.data);
                   setProfileData(res.data);
                   setShowProfileModal(true);
                 } catch (error) {
-                  console.error('Error cargando perfil:', error);
+                  logger.error('Error cargando perfil:', error);
                   Alert.alert('Error', 'No se pudo cargar el perfil');
                 }
               }}
@@ -557,7 +563,7 @@ function MainNavigator({ route }: any) {
               const res = await api.get('/auth/profile');
               updateUser(res.data);
             } catch (e) {
-              console.error('Error updating user profile:', e);
+              logger.error('Error updating user profile:', e);
             }
 
             // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
@@ -717,29 +723,106 @@ function MainStackNavigator() {
   );
 }
 
+// Configuración de Deep Links / App Links
+const BACKEND_DOMAIN = 'finzenai-backend-production.up.railway.app';
+
+const linking = {
+  prefixes: [
+    `https://${BACKEND_DOMAIN}`,
+    'finzenai://',
+  ],
+  config: {
+    screens: {
+      // Rutas de checkout manejadas globalmente
+      CheckoutSuccess: 'checkout/success',
+      CheckoutCancel: 'checkout/cancel',
+    },
+  },
+};
+
 // Navegador principal de la app
 export default function AppNavigator() {
   const { isAuthenticated, user, saveBiometricCredentials } = useAuthStore();
+  const { fetchSubscription, syncCheckoutSession } = useSubscriptionStore();
   const { enable, refresh, biometricType } = useBiometric();
   const { fetchUnreadCount } = useNotificationStore();
+  const navigationRef = useRef<NavigationContainerRef<any>>(null);
   const [showBiometricModal, setShowBiometricModal] = useState(false);
   const [storedBiometricType, setStoredBiometricType] = useState('');
+  const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
+  const [showPaymentCancelModal, setShowPaymentCancelModal] = useState(false);
+  const [processingPayment, setProcessingPayment] = useState(false);
+
+  // Manejar URLs entrantes (Deep Links / App Links)
+  useEffect(() => {
+    const handleDeepLink = async (event: { url: string }) => {
+      const url = event.url;
+      logger.log('🔗 Deep link recibido:', url);
+
+      // Checkout Success
+      if (url.includes('/checkout/success')) {
+        logger.log('✅ Checkout exitoso detectado');
+        setProcessingPayment(true);
+
+        try {
+          // Extraer session_id de la URL
+          const urlObj = new URL(url);
+          const sessionId = urlObj.searchParams.get('session_id');
+
+          if (sessionId) {
+            logger.log('🔄 Sincronizando sesión:', sessionId);
+            await syncCheckoutSession(sessionId);
+          }
+
+          // Actualizar suscripción
+          await fetchSubscription();
+          setShowPaymentSuccessModal(true);
+        } catch (error) {
+          logger.error('Error sincronizando pago:', error);
+          // Aún así mostrar éxito si el pago se procesó
+          setShowPaymentSuccessModal(true);
+        } finally {
+          setProcessingPayment(false);
+        }
+      }
+      // Checkout Cancel
+      else if (url.includes('/checkout/cancel')) {
+        logger.log('❌ Checkout cancelado');
+        setShowPaymentCancelModal(true);
+      }
+    };
+
+    // Listener para URLs mientras la app está abierta
+    const subscription = Linking.addEventListener('url', handleDeepLink);
+
+    // Verificar si la app se abrió con una URL
+    Linking.getInitialURL().then((url) => {
+      if (url) {
+        logger.log('🚀 App abierta con URL:', url);
+        handleDeepLink({ url });
+      }
+    });
+
+    return () => {
+      subscription.remove();
+    };
+  }, [fetchSubscription, syncCheckoutSession]);
 
   // Inicializar notificaciones cuando el usuario está autenticado
   useEffect(() => {
     if (isAuthenticated && user) {
       const initNotifications = async () => {
         try {
-          console.log('[AppNavigator] Inicializando notificaciones para usuario autenticado...');
+          logger.log('[AppNavigator] Inicializando notificaciones para usuario autenticado...');
           const token = await notificationService.initialize();
           if (token) {
             await notificationService.registerDevice();
-            console.log('[AppNavigator] Dispositivo registrado para notificaciones');
+            logger.log('[AppNavigator] Dispositivo registrado para notificaciones');
           }
           // Cargar contador de notificaciones no leídas
           await fetchUnreadCount();
         } catch (error) {
-          console.error('[AppNavigator] Error inicializando notificaciones:', error);
+          logger.error('[AppNavigator] Error inicializando notificaciones:', error);
         }
       };
 
@@ -765,28 +848,28 @@ export default function AppNavigator() {
       const bioType = await AsyncStorage.getItem('biometricType');
 
       if (pending === 'true') {
-        console.log('🔔 Detectado setup pendiente de biometría');
+        logger.log('🔔 Detectado setup pendiente de biometría');
         setStoredBiometricType(bioType || biometricType);
         setShowBiometricModal(true);
         // Limpiar el flag
         await AsyncStorage.removeItem('pendingBiometricSetup');
       }
     } catch (error) {
-      console.error('Error verificando pending biometric setup:', error);
+      logger.error('Error verificando pending biometric setup:', error);
     }
   };
 
   const handleEnableBiometric = async () => {
     try {
-      console.log('🔐 Usuario aceptó configurar biometría desde AppNavigator');
+      logger.log('🔐 Usuario aceptó configurar biometría desde AppNavigator');
       await enable();
-      console.log('✅ Biometría habilitada exitosamente');
+      logger.log('✅ Biometría habilitada exitosamente');
 
       if (user) {
         const token = await AsyncStorage.getItem('token');
         if (token) {
           await saveBiometricCredentials(user, token);
-          console.log('🔐 Credenciales guardadas en SecureStore');
+          logger.log('🔐 Credenciales guardadas en SecureStore');
         }
       }
 
@@ -799,7 +882,7 @@ export default function AppNavigator() {
         `${storedBiometricType} configurado exitosamente. La próxima vez podrás iniciar sesión más rápido.`
       );
     } catch (error) {
-      console.error('❌ Error configurando biometría:', error);
+      logger.error('❌ Error configurando biometría:', error);
       Alert.alert(
         'Error',
         'No se pudo configurar la biometría. Intenta desde tu perfil.'
@@ -808,13 +891,15 @@ export default function AppNavigator() {
   };
 
   return (
-    <NavigationContainer>
-      {isAuthenticated ? (
-        // Si está autenticado pero no completó onboarding, mostrar onboarding
-        user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
-      ) : (
-        <AuthNavigator />
-      )}
+    <>
+      <NavigationContainer ref={navigationRef} linking={linking}>
+        {isAuthenticated ? (
+          // Si está autenticado pero no completó onboarding, mostrar onboarding
+          user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
+        ) : (
+          <AuthNavigator />
+        )}
+      </NavigationContainer>
 
       {/* Modal de configuración biométrica */}
       <CustomModal
@@ -828,7 +913,51 @@ export default function AppNavigator() {
         onSecondaryPress={() => setShowBiometricModal(false)}
         onClose={handleEnableBiometric}
       />
-    </NavigationContainer>
+
+      {/* Payment Success Modal */}
+      <CustomModal
+        visible={showPaymentSuccessModal}
+        type="success"
+        title="¡Pago Exitoso!"
+        message="¡Ahora eres miembro Premium! Disfruta del acceso ilimitado a todas las funciones."
+        buttonText="¡Genial!"
+        onClose={() => setShowPaymentSuccessModal(false)}
+      />
+
+      {/* Payment Cancel Modal */}
+      <CustomModal
+        visible={showPaymentCancelModal}
+        type="info"
+        title="Pago Cancelado"
+        message="No te preocupes, puedes completar tu suscripción en cualquier momento."
+        buttonText="Entendido"
+        onClose={() => setShowPaymentCancelModal(false)}
+      />
+
+      {/* Processing Payment Overlay */}
+      {processingPayment && (
+        <Modal visible={true} transparent animationType="fade">
+          <View style={{
+            flex: 1,
+            backgroundColor: 'rgba(0,0,0,0.7)',
+            justifyContent: 'center',
+            alignItems: 'center',
+          }}>
+            <View style={{
+              backgroundColor: 'white',
+              padding: 24,
+              borderRadius: 16,
+              alignItems: 'center',
+            }}>
+              <Ionicons name="sync" size={40} color="#2563EB" />
+              <Text style={{ marginTop: 12, fontSize: 16, color: '#374151' }}>
+                Procesando pago...
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      )}
+    </>
   );
 }
 

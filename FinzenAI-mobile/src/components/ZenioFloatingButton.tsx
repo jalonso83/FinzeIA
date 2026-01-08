@@ -21,10 +21,13 @@ import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import { useAuthStore } from '../stores/auth';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
+import UpgradeModal from './subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
 interface Message {
@@ -68,8 +71,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const [showTipsModal, setShowTipsModal] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   const { user } = useAuthStore();
+  const { updateZenioUsage, canUseTextToSpeech } = useSubscriptionStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -95,6 +100,19 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
+    // Verificar si el usuario tiene acceso a TTS según su plan
+    if (!canUseTextToSpeech()) {
+      Alert.alert(
+        'Función Premium',
+        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Ver Planes', onPress: () => setShowUpgradeModal(true) }
+        ]
+      );
+      return;
+    }
+
     if (speech.isSpeaking && currentlyPlayingId === messageId) {
       speech.stopSpeaking();
       setCurrentlyPlayingId(null);
@@ -135,7 +153,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };
@@ -179,16 +197,36 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           if (response.data.threadId) {
             setThreadId(response.data.threadId);
           }
-          
+
+          // Actualizar uso de Zenio si viene en la respuesta
+          if (response.data.zenioUsage) {
+            updateZenioUsage(response.data.zenioUsage);
+          }
+
           setHasSentFirst(true);
-        } catch (error) {
-          console.error('Error al inicializar conversación:', error);
-          setMessages([{
-            id: '1',
-            text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
-            isUser: false,
-            timestamp: new Date(),
-          }]);
+        } catch (error: any) {
+          logger.error('Error al inicializar conversación:', error);
+          logger.log('Error status:', error.response?.status);
+
+          // Detectar error 403 - límite de Zenio alcanzado
+          if (error.response?.status === 403) {
+            setMessages([{
+              id: '1',
+              text: '¡Hola! Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+            setShowUpgradeModal(true);
+          } else {
+            setMessages([{
+              id: '1',
+              text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+          }
+          // IMPORTANTE: Siempre marcar como enviado para evitar loop infinito
+          setHasSentFirst(true);
         } finally {
           setLoading(false);
         }
@@ -251,8 +289,9 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         setMessages(prev => [...prev, zenioMessage]);
 
         // Auto-reproducir si está habilitado o si el mensaje original fue por voz
-        if ((autoPlay || isVoiceMessage) && !speech.isSpeaking) {
-          console.log('🔊 Zenio va a responder hablando...');
+        // Solo si el usuario tiene acceso a TTS según su plan
+        if ((autoPlay || isVoiceMessage) && !speech.isSpeaking && canUseTextToSpeech()) {
+          logger.log('🔊 Zenio va a responder hablando...');
           setCurrentlyPlayingId(messageId);
           const cleanText = cleanMarkdownForSpeech(response.data.message);
           await speech.speakResponse(cleanText);
@@ -262,11 +301,16 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
       // Log para debugging de acciones ejecutadas
       if (response.data.executedActions) {
-        console.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
+        logger.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
       }
 
       if (response.data.threadId && !threadId) {
         setThreadId(response.data.threadId);
+      }
+
+      // Actualizar uso de Zenio si viene en la respuesta
+      if (response.data.zenioUsage) {
+        updateZenioUsage(response.data.zenioUsage);
       }
 
       // Trigger callbacks if needed
@@ -308,18 +352,42 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             onGoalDeleted?.();
             onGoalChange(); // Refresh dashboard AND goal module
             break;
+          case 'budget_limit_reached':
+          case 'goal_limit_reached':
+            // Mostrar modal de upgrade cuando se alcanza límite de presupuestos o metas
+            setShowUpgradeModal(true);
+            break;
         }
       }
 
-    } catch (error) {
-      console.error('Error sending message:', error);
-      const errorMessage: Message = {
-        id: (Date.now() + 1).toString(),
-        text: 'Error al enviar mensaje. Por favor intenta de nuevo.',
-        isUser: false,
-        timestamp: new Date(),
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      // También verificar si la respuesta indica que se debe hacer upgrade
+      if (response.data.upgrade === true) {
+        setShowUpgradeModal(true);
+      }
+
+    } catch (error: any) {
+      logger.error('Error sending message:', error);
+      logger.log('Error status:', error.response?.status);
+
+      // Detectar error 403 - límite de Zenio alcanzado
+      if (error.response?.status === 403) {
+        const limitMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, limitMessage]);
+        setShowUpgradeModal(true);
+      } else {
+        const errorMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Error al enviar mensaje. Por favor intenta de nuevo.',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, errorMessage]);
+      }
     } finally {
       setLoading(false);
     }
@@ -358,7 +426,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         [{ text: 'OK' }]
       );
     } catch (error) {
-      console.error('Error copying message:', error);
+      logger.error('Error copying message:', error);
       Alert.alert('Error', 'No se pudo copiar el mensaje');
     }
   };
@@ -445,7 +513,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               {/* Botón de información/tips */}
               <TouchableOpacity
                 onPress={() => {
-                  console.log('Info button pressed, showing tips modal');
+                  logger.log('Info button pressed, showing tips modal');
                   setShowTipsModal(true);
                 }}
                 style={styles.infoButton}
@@ -670,7 +738,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           style={styles.tipsModalContainer}
           activeOpacity={1}
           onPress={() => {
-            console.log('Tips modal backdrop pressed');
+            logger.log('Tips modal backdrop pressed');
             setShowTipsModal(false);
           }}
         >
@@ -686,7 +754,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               <Text style={styles.tipsModalTitle}>💡 Tips para usar Zenio</Text>
               <TouchableOpacity
                 onPress={() => {
-                  console.log('Tips modal close button pressed');
+                  logger.log('Tips modal close button pressed');
                   setShowTipsModal(false);
                 }}
                 style={styles.tipsModalClose}
@@ -758,6 +826,13 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           )}
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal de Upgrade - Para límite de Zenio alcanzado */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="zenio"
+      />
     </>
   );
 };

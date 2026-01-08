@@ -20,6 +20,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
+import { logger } from '../utils/logger';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -90,7 +91,7 @@ export default function SkipVsSaveScreen() {
       const response = await api.get('/investment/common-expenses');
       setCommonExpenses(response.data);
     } catch (error) {
-      console.error('Error loading common expenses:', error);
+      logger.error('Error loading common expenses:', error);
     }
   };
 
@@ -119,7 +120,7 @@ export default function SkipVsSaveScreen() {
       }).start();
 
     } catch (error: any) {
-      console.error('Error calculating challenge:', error);
+      logger.error('Error calculating challenge:', error);
       Alert.alert(
         'Error',
         error.response?.data?.error || 'No se pudo calcular el reto'

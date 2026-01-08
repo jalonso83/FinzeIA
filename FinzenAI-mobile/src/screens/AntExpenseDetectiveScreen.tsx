@@ -7,211 +7,621 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Alert,
-  Dimensions,
   Animated,
   Image,
+  Modal,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import Slider from '@react-native-community/slider';
 import { LinearGradient } from 'expo-linear-gradient';
-import api from '../utils/api';
+import { antExpenseAPI } from '../utils/api';
+import { useCurrency } from '../hooks/useCurrency';
+import {
+  AntExpenseAnalysisResponse,
+  AntExpenseConfigResponse,
+  AntExpenseConfig,
+  CategoryStats,
+  DEFAULT_ANT_EXPENSE_CONFIG,
+} from '../types/antExpense';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
-const { width } = Dimensions.get('window');
-
-// Tipos
-interface AntExpenseAnalysis {
-  totalAntExpenses: number;
-  analysisMessage: string;
-  topCriminals: Array<{
-    category: string;
-    amount: number;
-    count: number;
-    averageAmount: number;
-    impact: string;
-    suggestions: string[];
-  }>;
-  monthlyTrend: Array<{
-    month: string;
-    amount: number;
-  }>;
-  equivalencies: string[];
-  savingsOpportunity: number;
-  zenioInsights: string;
-}
-
+import { logger } from '../utils/logger';
 export default function AntExpenseDetectiveScreen() {
   const navigation = useNavigation();
-  const [loading, setLoading] = useState(true);
-  const [analysis, setAnalysis] = useState<AntExpenseAnalysis | null>(null);
+  const { formatCurrency } = useCurrency();
+  const [loading, setLoading] = useState(false);
+  const [configLoading, setConfigLoading] = useState(true);
+  const [analysis, setAnalysis] = useState<AntExpenseAnalysisResponse | null>(null);
+  const [configData, setConfigData] = useState<AntExpenseConfigResponse | null>(null);
   const [animatedValue] = useState(new Animated.Value(0));
 
+  // Configuración del usuario
+  const [config, setConfig] = useState<AntExpenseConfig>(DEFAULT_ANT_EXPENSE_CONFIG);
+  const [showConfigModal, setShowConfigModal] = useState(false);
+  const [tempConfig, setTempConfig] = useState<AntExpenseConfig>(DEFAULT_ANT_EXPENSE_CONFIG);
+
+  // Estados temporales para sliders (evita vibraciones)
+  const [tempThreshold, setTempThreshold] = useState(DEFAULT_ANT_EXPENSE_CONFIG.antThreshold);
+  const [tempFrequency, setTempFrequency] = useState(DEFAULT_ANT_EXPENSE_CONFIG.minFrequency);
+  const [tempMonths, setTempMonths] = useState(DEFAULT_ANT_EXPENSE_CONFIG.monthsToAnalyze);
+
+  // Upgrade modal for premium features
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   useEffect(() => {
-    loadAntExpenseAnalysis();
+    loadInitialData();
   }, []);
 
-  const loadAntExpenseAnalysis = async () => {
+  // Debounce para los sliders
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setTempConfig({
+        antThreshold: tempThreshold,
+        minFrequency: tempFrequency,
+        monthsToAnalyze: tempMonths,
+      });
+    }, 150);
+    return () => clearTimeout(timeoutId);
+  }, [tempThreshold, tempFrequency, tempMonths]);
+
+  const loadInitialData = async () => {
+    try {
+      setConfigLoading(true);
+      const configResponse = await antExpenseAPI.getConfig();
+
+      if (configResponse.data.success) {
+        setConfigData(configResponse.data);
+        const recommendedConfig: AntExpenseConfig = {
+          antThreshold: configResponse.data.recommendations.antThreshold.value,
+          minFrequency: configResponse.data.recommendations.minFrequency.value,
+          monthsToAnalyze: configResponse.data.recommendations.monthsToAnalyze.value,
+        };
+        setConfig(recommendedConfig);
+        setTempConfig(recommendedConfig);
+        setTempThreshold(recommendedConfig.antThreshold);
+        setTempFrequency(recommendedConfig.minFrequency);
+        setTempMonths(recommendedConfig.monthsToAnalyze);
+      }
+    } catch (error) {
+      logger.error('Error loading config:', error);
+    } finally {
+      setConfigLoading(false);
+    }
+  };
+
+  const loadAntExpenseAnalysis = async (customConfig?: AntExpenseConfig) => {
     try {
       setLoading(true);
-      
-      // Loading message simulation
-      setTimeout(() => {
-        Animated.timing(animatedValue, {
-          toValue: 1,
-          duration: 500,
-          useNativeDriver: true,
-        }).start();
-      }, 1000);
 
-      const response = await api.get('/zenio/ant-expense-analysis');
+      const configToUse = customConfig || config;
+      const response = await antExpenseAPI.analyze({
+        antThreshold: configToUse.antThreshold,
+        minFrequency: configToUse.minFrequency,
+        monthsToAnalyze: configToUse.monthsToAnalyze,
+        useAI: true,
+      });
+
+      logger.log('[AntExpense] Respuesta del backend:', JSON.stringify(response.data, null, 2));
+
       setAnalysis(response.data);
-      
+
+      Animated.timing(animatedValue, {
+        toValue: 1,
+        duration: 800,
+        useNativeDriver: true,
+      }).start();
+
     } catch (error: any) {
-      console.error('Error loading ant expense analysis:', error);
+      logger.error('Error loading ant expense analysis:', error);
       Alert.alert(
         'Error',
-        'No se pudo cargar el análisis de gastos hormiga'
+        error.response?.data?.error || 'No se pudo cargar el análisis de gastos hormiga'
       );
     } finally {
       setLoading(false);
     }
   };
 
-  const formatCurrency = (amount: number) => {
-    return `RD$${amount.toLocaleString('es-DO')}`;
+  const handleApplyConfig = () => {
+    setConfig(tempConfig);
+    setShowConfigModal(false);
+    loadAntExpenseAnalysis(tempConfig);
+  };
+
+  const resetAnalysis = () => {
+    setAnalysis(null);
+    animatedValue.setValue(0);
+  };
+
+  const getTrendIcon = (trend: string) => {
+    switch (trend) {
+      case 'up': return '📈';
+      case 'down': return '📉';
+      default: return '➡️';
+    }
+  };
+
+  const getSeverityColor = (level: number) => {
+    if (level <= 2) return '#059669';
+    if (level <= 3) return '#d97706';
+    return '#dc2626';
+  };
+
+  const getSeverityEmoji = (level: number) => {
+    if (level <= 1) return '🌟';
+    if (level <= 2) return '👍';
+    if (level <= 3) return '⚠️';
+    if (level <= 4) return '🚨';
+    return '🔥';
   };
 
   const renderLoadingState = () => (
     <View style={styles.loadingContainer}>
-      <Animated.View style={[styles.zenioAnalyzing, { opacity: animatedValue }]}>
-        <Image 
-          source={require('../assets/isotipo.png')} 
-          style={styles.zenioIcon}
-          resizeMode="contain"
-        />
-        <Text style={styles.zenioText}>Zenio está analizando tus gastos...</Text>
-        <Text style={styles.zenioSubtext}>Revisando últimos 3 meses 🕵️</Text>
-      </Animated.View>
+      <Image
+        source={require('../assets/isotipo.png')}
+        style={styles.zenioIcon}
+        resizeMode="contain"
+      />
+      <Text style={styles.loadingText}>Zenio está analizando tus gastos...</Text>
+      <Text style={styles.loadingSubtext}>
+        Revisando últimos {config.monthsToAnalyze} meses 🕵️
+      </Text>
       <ActivityIndicator size="large" color="#2563EB" style={{ marginTop: 20 }} />
     </View>
   );
 
-  const renderAnalysis = () => analysis && (
-    <ScrollView 
-      style={styles.analysisContainer}
-      contentContainerStyle={styles.scrollContent}
-      showsVerticalScrollIndicator={false}
-    >
-      {/* Header con mensaje de Zenio */}
-      <View style={styles.zenioHeaderCard}>
-        <Text style={styles.zenioHeaderIcon}>🕵️</Text>
-        <Text style={styles.zenioHeaderTitle}>Detective Zenio Reporta:</Text>
-        <Text style={styles.zenioMessage}>{analysis.zenioInsights}</Text>
-      </View>
+  const renderCannotAnalyze = () => (
+    <View style={styles.cannotAnalyzeContainer}>
+      <Text style={styles.cannotAnalyzeIcon}>📊</Text>
+      <Text style={styles.cannotAnalyzeTitle}>No hay suficientes datos</Text>
+      <Text style={styles.cannotAnalyzeMessage}>
+        {analysis?.cannotAnalyzeReason || 'Necesitas más transacciones para detectar patrones de gastos hormiga.'}
+      </Text>
 
-      {/* Resumen principal */}
-      <View style={styles.summaryCard}>
-        <Text style={styles.summaryTitle}>🐜 Tus Gastos Hormiga</Text>
-        <Text style={styles.summaryAmount}>{formatCurrency(analysis.totalAntExpenses)}</Text>
-        <Text style={styles.summaryPeriod}>Últimos 3 meses</Text>
-        
-        {analysis.savingsOpportunity > 0 && (
-          <View style={styles.opportunityBadge}>
-            <Text style={styles.opportunityText}>
-              💡 Oportunidad de ahorro: {formatCurrency(analysis.savingsOpportunity)}/mes
-            </Text>
-          </View>
-        )}
-      </View>
-
-      {/* Top 3 Criminales */}
-      <View style={styles.criminalsCard}>
-        <Text style={styles.criminalsTitle}>🚨 Top 3 Criminales Financieros</Text>
-        {analysis.topCriminals.map((criminal, index) => (
-          <View key={index} style={styles.criminalItem}>
-            <View style={styles.criminalHeader}>
-              <Text style={styles.criminalRank}>#{index + 1}</Text>
-              <View style={styles.criminalInfo}>
-                <Text style={styles.criminalCategory}>{criminal.category}</Text>
-                <Text style={styles.criminalAmount}>{formatCurrency(criminal.amount)}</Text>
-              </View>
-              <View style={styles.criminalStats}>
-                <Text style={styles.criminalCount}>{criminal.count} veces</Text>
-                <Text style={styles.criminalAverage}>~{formatCurrency(criminal.averageAmount)} c/u</Text>
-              </View>
-            </View>
-            <Text style={styles.criminalImpact}>{criminal.impact}</Text>
-            
-            {/* Sugerencias */}
-            <View style={styles.suggestionsContainer}>
-              <Text style={styles.suggestionsTitle}>💡 Sugerencias:</Text>
-              {criminal.suggestions.map((suggestion, idx) => (
-                <Text key={idx} style={styles.suggestionItem}>• {suggestion}</Text>
-              ))}
-            </View>
-          </View>
-        ))}
-      </View>
-
-      {/* Tendencia mensual */}
-      <View style={styles.trendCard}>
-        <Text style={styles.trendTitle}>📊 Tendencia Mensual</Text>
-        <View style={styles.trendChart}>
-          {analysis.monthlyTrend.map((month, index) => {
-            const maxAmount = Math.max(...analysis.monthlyTrend.map(m => m.amount));
-            const height = (month.amount / maxAmount) * 80;
-            
-            return (
-              <View key={index} style={styles.trendBar}>
-                <View style={[styles.trendBarFill, { height: `${height}%` }]} />
-                <Text style={styles.trendMonth}>{month.month}</Text>
-                <Text style={styles.trendAmount}>{formatCurrency(month.amount)}</Text>
-              </View>
-            );
-          })}
+      <View style={styles.requirementsCard}>
+        <Text style={styles.requirementsTitle}>Para analizar necesitas:</Text>
+        <View style={styles.requirementItem}>
+          <Ionicons name="receipt-outline" size={22} color="#2563EB" />
+          <Text style={styles.requirementText}>Mínimo 5 gastos registrados</Text>
         </View>
-      </View>
-
-      {/* Equivalencias */}
-      {analysis.equivalencies.length > 0 && (
-        <View style={styles.equivalenciesCard}>
-          <Text style={styles.equivalenciesTitle}>😱 Con lo que gastas en hormigas podrías tener:</Text>
-          {analysis.equivalencies.map((equiv, index) => (
-            <Text key={index} style={styles.equivalencyItem}>• {equiv}</Text>
-          ))}
+        <View style={styles.requirementItem}>
+          <Ionicons name="calendar-outline" size={22} color="#2563EB" />
+          <Text style={styles.requirementText}>En los últimos {config.monthsToAnalyze} meses</Text>
         </View>
-      )}
-
-      {/* Call to action */}
-      <View style={styles.ctaCard}>
-        <Text style={styles.ctaTitle}>🎯 Plan de Acción</Text>
-        <Text style={styles.ctaText}>
-          1. Usa nuestras calculadoras para planificar mejor{'\n'}
-          2. Configura presupuestos para controlar gastos{'\n'}
-          3. Convierte gastos hormiga en inversiones automáticas
-        </Text>
-        
-        <TouchableOpacity style={styles.ctaButton}>
-          <Text style={styles.ctaButtonText}>📈 Ver Simulador de Inversión</Text>
-        </TouchableOpacity>
+        <View style={styles.requirementItem}>
+          <Ionicons name="cash-outline" size={22} color="#2563EB" />
+          <Text style={styles.requirementText}>Montos ≤ {formatCurrency(config.antThreshold)}</Text>
+        </View>
       </View>
 
       <TouchableOpacity
-        style={styles.refreshButton}
-        onPress={loadAntExpenseAnalysis}
+        style={styles.backButtonLarge}
+        onPress={() => navigation.goBack()}
       >
-        <Text style={styles.refreshButtonText}>🔄 Actualizar Análisis</Text>
+        <Text style={styles.backButtonLargeText}>Volver</Text>
       </TouchableOpacity>
-    </ScrollView>
+    </View>
   );
+
+  const renderConfigModal = () => (
+    <Modal
+      visible={showConfigModal}
+      animationType="slide"
+      transparent={true}
+      onRequestClose={() => setShowConfigModal(false)}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <View style={styles.modalHeader}>
+            <Text style={styles.modalTitle}>⚙️ Configurar Análisis</Text>
+            <TouchableOpacity onPress={() => setShowConfigModal(false)}>
+              <Ionicons name="close" size={24} color="#64748b" />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.configSection}>
+            <Text style={styles.configLabel}>
+              💵 Monto máximo a considerar "hormiga"
+            </Text>
+            <View style={styles.sliderContainer}>
+              <Slider
+                style={styles.slider}
+                minimumValue={configData?.configOptions.antThreshold.min || 100}
+                maximumValue={configData?.configOptions.antThreshold.max || 2000}
+                step={50}
+                value={tempThreshold}
+                onValueChange={setTempThreshold}
+                minimumTrackTintColor="#2563EB"
+                maximumTrackTintColor="#e2e8f0"
+              />
+              <Text style={styles.sliderValue}>
+                {formatCurrency(tempConfig.antThreshold)}
+              </Text>
+            </View>
+            <Text style={styles.configHint}>
+              Gastos menores a este monto serán considerados "hormiga"
+            </Text>
+          </View>
+
+          <View style={styles.configSection}>
+            <Text style={styles.configLabel}>
+              🔄 Frecuencia mínima de repetición
+            </Text>
+            <View style={styles.sliderContainer}>
+              <Slider
+                style={styles.slider}
+                minimumValue={configData?.configOptions.minFrequency.min || 2}
+                maximumValue={configData?.configOptions.minFrequency.max || 10}
+                step={1}
+                value={tempFrequency}
+                onValueChange={setTempFrequency}
+                minimumTrackTintColor="#2563EB"
+                maximumTrackTintColor="#e2e8f0"
+              />
+              <Text style={styles.sliderValue}>
+                {tempConfig.minFrequency} veces
+              </Text>
+            </View>
+            <Text style={styles.configHint}>
+              Solo patrones que se repitan al menos esta cantidad
+            </Text>
+          </View>
+
+          <View style={styles.configSection}>
+            <Text style={styles.configLabel}>
+              📅 Período de análisis
+            </Text>
+            <View style={styles.sliderContainer}>
+              <Slider
+                style={styles.slider}
+                minimumValue={configData?.configOptions.monthsToAnalyze.min || 1}
+                maximumValue={Math.min(
+                  configData?.configOptions.monthsToAnalyze.max || 12,
+                  configData?.userHistory.monthsWithData || 3
+                )}
+                step={1}
+                value={tempMonths}
+                onValueChange={setTempMonths}
+                minimumTrackTintColor="#2563EB"
+                maximumTrackTintColor="#e2e8f0"
+              />
+              <Text style={styles.sliderValue}>
+                {tempConfig.monthsToAnalyze} {tempConfig.monthsToAnalyze === 1 ? 'mes' : 'meses'}
+              </Text>
+            </View>
+            {configData?.userHistory.monthsWithData && (
+              <Text style={styles.configHint}>
+                Tienes {configData.userHistory.monthsWithData} meses de historial disponible
+              </Text>
+            )}
+          </View>
+
+          <View style={styles.modalButtons}>
+            <TouchableOpacity
+              style={styles.modalButtonSecondary}
+              onPress={() => {
+                const defaults = DEFAULT_ANT_EXPENSE_CONFIG;
+                setTempThreshold(defaults.antThreshold);
+                setTempFrequency(defaults.minFrequency);
+                setTempMonths(defaults.monthsToAnalyze);
+              }}
+            >
+              <Text style={styles.modalButtonSecondaryText}>Restablecer</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.modalButtonPrimary}
+              onPress={handleApplyConfig}
+            >
+              <LinearGradient
+                colors={['#2563EB', '#1d4ed8']}
+                style={styles.modalButtonGradient}
+              >
+                <Text style={styles.modalButtonPrimaryText}>Aplicar</Text>
+              </LinearGradient>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </View>
+    </Modal>
+  );
+
+  const renderForm = () => (
+    <View style={styles.form}>
+      <Text style={styles.welcomeText}>
+        🕵️ ¡Descubre tus gastos hormiga!
+      </Text>
+      <Text style={styles.welcomeSubtext}>
+        Esos pequeños gastos que pasan desapercibidos pero que suman mucho al final del mes
+      </Text>
+
+      <View style={styles.inputSection}>
+        <Text style={styles.inputLabel}>📊 Configuración del análisis</Text>
+
+        <View style={styles.configPreview}>
+          <View style={styles.configPreviewItem}>
+            <Text style={styles.configPreviewLabel}>Monto máximo</Text>
+            <Text style={styles.configPreviewValue}>{formatCurrency(config.antThreshold)}</Text>
+          </View>
+          <View style={styles.configPreviewItem}>
+            <Text style={styles.configPreviewLabel}>Frecuencia mín.</Text>
+            <Text style={styles.configPreviewValue}>{config.minFrequency} veces</Text>
+          </View>
+          <View style={styles.configPreviewItem}>
+            <Text style={styles.configPreviewLabel}>Período</Text>
+            <Text style={styles.configPreviewValue}>{config.monthsToAnalyze} meses</Text>
+          </View>
+        </View>
+
+        <TouchableOpacity
+          style={styles.configEditButton}
+          onPress={() => {
+            setTempThreshold(config.antThreshold);
+            setTempFrequency(config.minFrequency);
+            setTempMonths(config.monthsToAnalyze);
+            setShowConfigModal(true);
+          }}
+        >
+          <Ionicons name="settings-outline" size={18} color="#2563EB" />
+          <Text style={styles.configEditButtonText}>Ajustar parámetros</Text>
+        </TouchableOpacity>
+      </View>
+
+      <View style={styles.infoCard}>
+        <Text style={styles.infoCardTitle}>💡 ¿Qué son los gastos hormiga?</Text>
+        <Text style={styles.infoCardText}>
+          Son gastos pequeños y frecuentes que pasan desapercibidos: el café diario, snacks,
+          suscripciones que no usas... Juntos pueden representar una fuga importante de dinero.
+        </Text>
+      </View>
+
+      <TouchableOpacity
+        style={styles.analyzeButton}
+        onPress={() => loadAntExpenseAnalysis()}
+        disabled={loading || configLoading}
+      >
+        <LinearGradient
+          colors={['#2563EB', '#1d4ed8']}
+          style={styles.analyzeButtonGradient}
+        >
+          {loading ? (
+            <ActivityIndicator color="white" size="small" />
+          ) : (
+            <Text style={styles.analyzeButtonText}>ANALIZAR MIS GASTOS</Text>
+          )}
+        </LinearGradient>
+      </TouchableOpacity>
+    </View>
+  );
+
+  const renderAnalysis = () => {
+    if (!analysis || !analysis.canAnalyze || !analysis.calculations || !analysis.insights) {
+      return renderCannotAnalyze();
+    }
+
+    const { calculations, insights, planInfo } = analysis;
+    const isLimited = planInfo?.isLimited === true;
+
+    return (
+      <Animated.View style={[styles.results, { opacity: animatedValue }]}>
+        <Text style={styles.resultTitle}>
+          {getSeverityEmoji(insights.severityLevel)} Detective Zenio Reporta
+        </Text>
+
+        {analysis.warnings && analysis.warnings.length > 0 && (
+          <View style={styles.warningsContainer}>
+            {analysis.warnings.map((warning, index) => (
+              <View key={index} style={[
+                styles.warningItem,
+                warning.type === 'error' && styles.warningError,
+                warning.type === 'info' && styles.warningInfo,
+              ]}>
+                <Text style={styles.warningText}>
+                  {warning.type === 'error' ? '⚠️' : 'ℹ️'} {warning.message}
+                </Text>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={[styles.impactCard, { borderColor: getSeverityColor(insights.severityLevel) }]}>
+          <Text style={styles.impactMessage}>{insights.impactMessage}</Text>
+        </View>
+
+        <View style={styles.mainResults}>
+          <View style={styles.totalCard}>
+            <Text style={styles.totalLabel}>🐜 Tus Gastos Hormiga</Text>
+            <Text style={styles.totalAmount}>
+              {formatCurrency(calculations.totalAntExpenses)}
+            </Text>
+            <Text style={styles.totalPeriod}>
+              Últimos {calculations.metadata.actualMonthsAnalyzed} meses ({calculations.percentageOfTotal.toFixed(1)}% del total)
+            </Text>
+            {calculations.savingsOpportunityPerMonth > 0 && (
+              <View style={styles.opportunityBadge}>
+                <Text style={styles.opportunityText}>
+                  💡 Podrías ahorrar {formatCurrency(calculations.savingsOpportunityPerMonth)}/mes
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+
+        {isLimited && (
+          <TouchableOpacity
+            style={styles.limitedBanner}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.8}
+          >
+            <View style={styles.limitedBannerContent}>
+              <View style={styles.limitedBannerIcon}>
+                <Ionicons name="sparkles" size={20} color="#D97706" />
+              </View>
+              <View style={styles.limitedBannerText}>
+                <Text style={styles.limitedBannerTitle}>Análisis Básico</Text>
+                <Text style={styles.limitedBannerSubtitle}>
+                  {planInfo?.upgradeMessage || 'Mejora a PLUS para ver el análisis completo con IA'}
+                </Text>
+              </View>
+              <View style={styles.limitedBannerBadge}>
+                <Text style={styles.limitedBannerBadgeText}>PLUS</Text>
+              </View>
+            </View>
+            <View style={styles.limitedBannerAction}>
+              <Text style={styles.limitedBannerActionText}>Desbloquear análisis completo</Text>
+              <Ionicons name="chevron-forward" size={16} color="#D97706" />
+            </View>
+          </TouchableOpacity>
+        )}
+
+        {calculations.topCriminals.length > 0 && (
+          <View style={styles.criminalsSection}>
+            <Text style={styles.sectionTitle}>🔍 Principales Fugas de Dinero</Text>
+            {calculations.topCriminals.map((criminal: CategoryStats, index: number) => (
+              <View key={index} style={styles.criminalItem}>
+                <View style={styles.criminalHeader}>
+                  <View style={styles.criminalRankContainer}>
+                    <Text style={styles.criminalRank}>#{index + 1}</Text>
+                  </View>
+                  <Text style={styles.criminalIcon}>{criminal.icon}</Text>
+                  <View style={styles.criminalInfo}>
+                    <Text style={styles.criminalCategory}>{criminal.category}</Text>
+                    <Text style={styles.criminalDetails}>
+                      {criminal.count}x | Promedio: {formatCurrency(criminal.average)}
+                    </Text>
+                  </View>
+                  <View style={styles.criminalStats}>
+                    <Text style={styles.criminalAmount}>{formatCurrency(criminal.total)}</Text>
+                    <Text style={styles.criminalTrend}>
+                      {getTrendIcon(criminal.trend)} {criminal.trendPercentage > 0 ? '+' : ''}{criminal.trendPercentage.toFixed(0)}%
+                    </Text>
+                  </View>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {insights.categorySuggestions.length > 0 ? (
+          <View style={styles.suggestionsSection}>
+            <Text style={styles.sectionTitle}>💡 Sugerencias de Zenio</Text>
+            {insights.categorySuggestions.map((catSuggestion, index) => (
+              <View key={index} style={styles.categorySuggestion}>
+                <Text style={styles.categorySuggestionTitle}>{catSuggestion.category}</Text>
+                {catSuggestion.suggestions.map((suggestion, idx) => (
+                  <Text key={idx} style={styles.suggestionItem}>• {suggestion}</Text>
+                ))}
+              </View>
+            ))}
+          </View>
+        ) : isLimited && (
+          <TouchableOpacity
+            style={styles.lockedSection}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.lockedSectionHeader}>
+              <View style={styles.lockedIconContainer}>
+                <Ionicons name="lock-closed" size={16} color="#9CA3AF" />
+              </View>
+              <Text style={styles.lockedSectionTitle}>💡 Sugerencias personalizadas</Text>
+              <View style={styles.plusBadgeSmall}>
+                <Text style={styles.plusBadgeSmallText}>PLUS</Text>
+              </View>
+            </View>
+            <Text style={styles.lockedSectionDescription}>
+              Zenio IA te dará consejos específicos para reducir cada categoría
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        {calculations.monthlyTrend.length > 0 && (
+          <View style={styles.trendSection}>
+            <Text style={styles.sectionTitle}>📊 Tendencia Mensual</Text>
+            <View style={styles.trendChart}>
+              {calculations.monthlyTrend.map((month, index) => {
+                const maxAmount = Math.max(...calculations.monthlyTrend.map(m => m.total));
+                const height = maxAmount > 0 ? (month.total / maxAmount) * 80 : 0;
+
+                return (
+                  <View key={index} style={styles.trendBar}>
+                    <View style={[styles.trendBarFill, { height: `${height}%` }]} />
+                    <Text style={styles.trendMonth}>{month.monthName}</Text>
+                    <Text style={styles.trendAmount}>{formatCurrency(month.total)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {calculations.mostExpensiveDay && (
+          <View style={styles.daySection}>
+            <Text style={styles.sectionTitle}>📅 Día más costoso</Text>
+            <View style={styles.dayContent}>
+              <Text style={styles.dayName}>{calculations.mostExpensiveDay.dayName}</Text>
+              <Text style={styles.dayAmount}>
+                Promedio: {formatCurrency(calculations.mostExpensiveDay.average)}
+              </Text>
+            </View>
+          </View>
+        )}
+
+        {insights.equivalencies.length > 0 ? (
+          <View style={styles.equivalenciesSection}>
+            <Text style={styles.sectionTitle}>
+              🏆 Con {formatCurrency(calculations.totalAntExpenses)} podrías:
+            </Text>
+            {insights.equivalencies.map((equiv, index) => (
+              <View key={index} style={styles.equivalencyItem}>
+                <Text style={styles.equivalencyText}>• {equiv}</Text>
+              </View>
+            ))}
+          </View>
+        ) : isLimited && (
+          <TouchableOpacity
+            style={styles.lockedSection}
+            onPress={() => setShowUpgradeModal(true)}
+            activeOpacity={0.7}
+          >
+            <View style={styles.lockedSectionHeader}>
+              <View style={styles.lockedIconContainer}>
+                <Ionicons name="lock-closed" size={16} color="#9CA3AF" />
+              </View>
+              <Text style={styles.lockedSectionTitle}>🏆 Equivalencias de ahorro</Text>
+              <View style={styles.plusBadgeSmall}>
+                <Text style={styles.plusBadgeSmallText}>PLUS</Text>
+              </View>
+            </View>
+            <Text style={styles.lockedSectionDescription}>
+              Descubre qué podrías comprar con el dinero que gastas en hormiga
+            </Text>
+          </TouchableOpacity>
+        )}
+
+        <View style={styles.motivationalCard}>
+          <Text style={styles.motivationalText}>{insights.motivationalMessage}</Text>
+        </View>
+
+        <View style={styles.actionButtons}>
+          <TouchableOpacity
+            style={styles.resetButton}
+            onPress={resetAnalysis}
+          >
+            <Text style={styles.resetButtonText}>🔄 Analizar de nuevo</Text>
+          </TouchableOpacity>
+        </View>
+      </Animated.View>
+    );
+  };
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
-          style={styles.headerBackButton}
+          style={styles.backButton}
         >
           <Ionicons name="arrow-back" size={24} color="#1e293b" />
         </TouchableOpacity>
@@ -219,7 +629,29 @@ export default function AntExpenseDetectiveScreen() {
         <View style={styles.placeholder} />
       </View>
 
-      {loading ? renderLoadingState() : renderAnalysis()}
+      <ScrollView
+        style={styles.content}
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+      >
+        {configLoading ? (
+          renderLoadingState()
+        ) : loading ? (
+          renderLoadingState()
+        ) : analysis ? (
+          renderAnalysis()
+        ) : (
+          renderForm()
+        )}
+      </ScrollView>
+
+      {renderConfigModal()}
+
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="antExpenseAnalysis"
+      />
     </SafeAreaView>
   );
 }
@@ -239,7 +671,7 @@ const styles = StyleSheet.create({
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
-  headerBackButton: {
+  backButton: {
     padding: 8,
   },
   title: {
@@ -250,94 +682,274 @@ const styles = StyleSheet.create({
   placeholder: {
     width: 40,
   },
+  content: {
+    flex: 1,
+  },
+  scrollContent: {
+    padding: 20,
+    paddingBottom: 40,
+  },
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-  },
-  zenioAnalyzing: {
-    alignItems: 'center',
-    marginBottom: 20,
+    paddingVertical: 60,
   },
   zenioIcon: {
     width: 60,
     height: 60,
     marginBottom: 16,
   },
-  zenioText: {
+  loadingText: {
     fontSize: 18,
     fontWeight: 'bold',
     color: '#1e293b',
     textAlign: 'center',
     marginBottom: 8,
   },
-  zenioSubtext: {
+  loadingSubtext: {
     fontSize: 14,
     color: '#64748b',
     textAlign: 'center',
   },
-  analysisContainer: {
+  cannotAnalyzeContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingVertical: 60,
+  },
+  cannotAnalyzeIcon: {
+    fontSize: 60,
+    marginBottom: 16,
+  },
+  cannotAnalyzeTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    marginBottom: 12,
+    textAlign: 'center',
+  },
+  cannotAnalyzeMessage: {
+    fontSize: 16,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 24,
+    marginBottom: 20,
+    paddingHorizontal: 20,
+  },
+  requirementsCard: {
+    backgroundColor: '#f8fafc',
+    borderRadius: 16,
+    padding: 20,
+    marginHorizontal: 16,
+    marginBottom: 24,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    width: '100%',
+    alignSelf: 'center',
+    maxWidth: 340,
+  },
+  requirementsTitle: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 16,
+    textAlign: 'center',
+  },
+  requirementItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    paddingVertical: 4,
+  },
+  requirementText: {
+    fontSize: 15,
+    color: '#475569',
+    marginLeft: 12,
     flex: 1,
   },
-  scrollContent: {
-    padding: 20,
-    paddingBottom: 40,
-    gap: 20,
+  backButtonLarge: {
+    backgroundColor: '#2563EB',
+    paddingVertical: 12,
+    paddingHorizontal: 32,
+    borderRadius: 12,
   },
-  zenioHeaderCard: {
+  backButtonLargeText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  form: {
+    gap: 24,
+  },
+  welcomeText: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+  },
+  welcomeSubtext: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    marginTop: -12,
+    lineHeight: 20,
+  },
+  inputSection: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
-    borderWidth: 2,
-    borderColor: '#2563EB',
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  zenioHeaderIcon: {
-    fontSize: 40,
-    marginBottom: 12,
+  inputLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 16,
   },
-  zenioHeaderTitle: {
-    fontSize: 18,
+  configPreview: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+  },
+  configPreviewItem: {
+    alignItems: 'center',
+    flex: 1,
+  },
+  configPreviewLabel: {
+    fontSize: 12,
+    color: '#64748b',
+    marginBottom: 4,
+  },
+  configPreviewValue: {
+    fontSize: 14,
     fontWeight: 'bold',
-    color: '#2563EB',
-    marginBottom: 12,
+    color: '#1e293b',
   },
-  zenioMessage: {
+  configEditButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    backgroundColor: '#f1f5f9',
+    borderRadius: 12,
+    gap: 8,
+  },
+  configEditButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#2563EB',
+  },
+  infoCard: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  infoCardTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#0c4a6e',
+    marginBottom: 8,
+  },
+  infoCardText: {
+    fontSize: 14,
+    color: '#075985',
+    lineHeight: 20,
+  },
+  analyzeButton: {
+    marginTop: 8,
+  },
+  analyzeButtonGradient: {
+    paddingVertical: 16,
+    paddingHorizontal: 24,
+    borderRadius: 16,
+    alignItems: 'center',
+  },
+  analyzeButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  results: {
+    gap: 20,
+  },
+  resultTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 8,
+  },
+  warningsContainer: {
+    gap: 8,
+  },
+  warningItem: {
+    backgroundColor: '#fef3c7',
+    borderRadius: 8,
+    padding: 12,
+    borderLeftWidth: 4,
+    borderLeftColor: '#f59e0b',
+  },
+  warningError: {
+    backgroundColor: '#fee2e2',
+    borderLeftColor: '#ef4444',
+  },
+  warningInfo: {
+    backgroundColor: '#dbeafe',
+    borderLeftColor: '#3b82f6',
+  },
+  warningText: {
+    fontSize: 14,
+    color: '#374151',
+  },
+  impactCard: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  impactMessage: {
     fontSize: 16,
     color: '#374151',
     textAlign: 'center',
-    lineHeight: 22,
+    lineHeight: 24,
   },
-  summaryCard: {
+  mainResults: {
     backgroundColor: 'white',
     borderRadius: 16,
-    padding: 24,
-    alignItems: 'center',
+    padding: 20,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
   },
-  summaryTitle: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#374151',
-    marginBottom: 12,
+  totalCard: {
+    alignItems: 'center',
   },
-  summaryAmount: {
+  totalLabel: {
+    fontSize: 14,
+    color: '#64748b',
+    marginBottom: 8,
+  },
+  totalAmount: {
     fontSize: 32,
     fontWeight: 'bold',
     color: '#ef4444',
     marginBottom: 8,
   },
-  summaryPeriod: {
+  totalPeriod: {
     fontSize: 14,
     color: '#64748b',
     marginBottom: 16,
@@ -355,7 +967,7 @@ const styles = StyleSheet.create({
     color: '#047857',
     textAlign: 'center',
   },
-  criminalsCard: {
+  criminalsSection: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
@@ -365,79 +977,87 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  criminalsTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
     marginBottom: 16,
   },
   criminalItem: {
-    marginBottom: 20,
-    paddingBottom: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#f1f5f9',
   },
   criminalHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 8,
+  },
+  criminalRankContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#fef2f2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
   },
   criminalRank: {
-    fontSize: 16,
+    fontSize: 12,
     fontWeight: 'bold',
     color: '#ef4444',
-    width: 30,
+  },
+  criminalIcon: {
+    fontSize: 24,
+    marginRight: 12,
   },
   criminalInfo: {
     flex: 1,
-    marginLeft: 12,
   },
   criminalCategory: {
-    fontSize: 16,
-    fontWeight: 'bold',
+    fontSize: 14,
+    fontWeight: '600',
     color: '#1e293b',
     marginBottom: 2,
   },
-  criminalAmount: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#ef4444',
+  criminalDetails: {
+    fontSize: 12,
+    color: '#64748b',
   },
   criminalStats: {
     alignItems: 'flex-end',
   },
-  criminalCount: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 2,
-  },
-  criminalAverage: {
-    fontSize: 12,
-    color: '#64748b',
-  },
-  criminalImpact: {
+  criminalAmount: {
     fontSize: 14,
-    color: '#374151',
-    marginBottom: 12,
-    fontStyle: 'italic',
+    fontWeight: 'bold',
+    color: '#ef4444',
   },
-  suggestionsContainer: {
-    backgroundColor: '#f8fafc',
-    borderRadius: 8,
-    padding: 12,
-  },
-  suggestionsTitle: {
+  criminalTrend: {
     fontSize: 12,
+    color: '#64748b',
+  },
+  suggestionsSection: {
+    backgroundColor: '#f0f9ff',
+    borderRadius: 16,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: '#bae6fd',
+  },
+  categorySuggestion: {
+    marginBottom: 16,
+  },
+  categorySuggestionTitle: {
+    fontSize: 14,
     fontWeight: '600',
-    color: '#475569',
-    marginBottom: 6,
+    color: '#075985',
+    marginBottom: 8,
   },
   suggestionItem: {
-    fontSize: 12,
-    color: '#64748b',
-    marginBottom: 2,
+    fontSize: 14,
+    color: '#0369a1',
+    marginBottom: 4,
+    paddingLeft: 8,
   },
-  trendCard: {
+  trendSection: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
@@ -446,12 +1066,6 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 3.84,
     elevation: 5,
-  },
-  trendTitle: {
-    fontSize: 18,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 16,
   },
   trendChart: {
     flexDirection: 'row',
@@ -481,7 +1095,7 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontWeight: '500',
   },
-  equivalenciesCard: {
+  daySection: {
     backgroundColor: 'white',
     borderRadius: 16,
     padding: 20,
@@ -491,60 +1105,257 @@ const styles = StyleSheet.create({
     shadowRadius: 3.84,
     elevation: 5,
   },
-  equivalenciesTitle: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    color: '#1e293b',
-    marginBottom: 12,
+  dayContent: {
+    alignItems: 'center',
   },
-  equivalencyItem: {
+  dayName: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2563EB',
+    marginBottom: 4,
+  },
+  dayAmount: {
     fontSize: 14,
     color: '#64748b',
-    marginBottom: 6,
-    paddingLeft: 8,
   },
-  ctaCard: {
-    backgroundColor: '#f0f9ff',
+  equivalenciesSection: {
+    backgroundColor: 'white',
+    borderRadius: 16,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 3.84,
+    elevation: 5,
+  },
+  equivalencyItem: {
+    marginBottom: 8,
+  },
+  equivalencyText: {
+    fontSize: 14,
+    color: '#1e293b',
+    lineHeight: 20,
+  },
+  motivationalCard: {
+    backgroundColor: '#f0fdf4',
     borderRadius: 16,
     padding: 20,
     borderWidth: 1,
-    borderColor: '#bae6fd',
+    borderColor: '#bbf7d0',
   },
-  ctaTitle: {
+  motivationalText: {
     fontSize: 16,
-    fontWeight: 'bold',
-    color: '#0c4a6e',
-    marginBottom: 12,
+    color: '#047857',
+    textAlign: 'center',
+    fontWeight: '500',
   },
-  ctaText: {
-    fontSize: 14,
-    color: '#075985',
-    lineHeight: 20,
-    marginBottom: 16,
+  actionButtons: {
+    gap: 12,
+    marginTop: 8,
   },
-  ctaButton: {
-    backgroundColor: '#0ea5e9',
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  ctaButtonText: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: 'white',
-  },
-  refreshButton: {
+  resetButton: {
     backgroundColor: '#f1f5f9',
     paddingVertical: 16,
     paddingHorizontal: 24,
     borderRadius: 16,
     alignItems: 'center',
-    marginTop: 20,
   },
-  refreshButtonText: {
+  resetButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#64748b',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    padding: 24,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 24,
+  },
+  modalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#1e293b',
+  },
+  configSection: {
+    marginBottom: 24,
+  },
+  configLabel: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#374151',
+    marginBottom: 12,
+  },
+  sliderContainer: {
+    alignItems: 'center',
+  },
+  slider: {
+    width: '100%',
+    height: 40,
+  },
+  sliderValue: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#2563EB',
+    marginTop: 8,
+  },
+  configHint: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 8,
+    textAlign: 'center',
+  },
+  modalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 8,
+  },
+  modalButtonSecondary: {
+    flex: 1,
+    backgroundColor: '#f1f5f9',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonSecondaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#64748b',
+  },
+  modalButtonPrimary: {
+    flex: 1,
+  },
+  modalButtonGradient: {
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modalButtonPrimaryText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: 'white',
+  },
+  limitedBanner: {
+    backgroundColor: '#FFFBEB',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#FDE68A',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3.84,
+    elevation: 3,
+  },
+  limitedBannerContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  limitedBannerIcon: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FEF3C7',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 12,
+  },
+  limitedBannerText: {
+    flex: 1,
+  },
+  limitedBannerTitle: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#92400E',
+    marginBottom: 2,
+  },
+  limitedBannerSubtitle: {
+    fontSize: 12,
+    color: '#B45309',
+    lineHeight: 16,
+  },
+  limitedBannerBadge: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  limitedBannerBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.5,
+  },
+  limitedBannerAction: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#FDE68A',
+  },
+  limitedBannerActionText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#D97706',
+  },
+  lockedSection: {
+    backgroundColor: '#F9FAFB',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    borderStyle: 'dashed',
+  },
+  lockedSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 8,
+  },
+  lockedIconContainer: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#F3F4F6',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 10,
+  },
+  lockedSectionTitle: {
+    flex: 1,
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#6B7280',
+  },
+  plusBadgeSmall: {
+    backgroundColor: '#FEF3C7',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  plusBadgeSmallText: {
+    fontSize: 9,
+    fontWeight: '700',
+    color: '#D97706',
+    letterSpacing: 0.3,
+  },
+  lockedSectionDescription: {
+    fontSize: 13,
+    color: '#9CA3AF',
+    marginLeft: 38,
+    lineHeight: 18,
   },
 });

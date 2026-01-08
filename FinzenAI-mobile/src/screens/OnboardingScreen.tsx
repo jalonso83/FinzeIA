@@ -19,6 +19,7 @@ import HelpCenterScreen from './HelpCenterScreen';
 import api from '../utils/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
+import { logger } from '../utils/logger';
 export default function OnboardingScreen() {
   const navigation = useNavigation<any>();
   const { user, updateUser } = useAuthStore();
@@ -31,8 +32,8 @@ export default function OnboardingScreen() {
     const lowerMsg = msg.toLowerCase();
 
     // Log para debugging - ver qué mensaje recibe (MENSAJE COMPLETO)
-    console.log('📨 [OnboardingScreen] Mensaje COMPLETO de Zenio:', msg);
-    console.log('📨 [OnboardingScreen] Mensaje en minúsculas:', lowerMsg);
+    logger.log('📨 [OnboardingScreen] Mensaje COMPLETO de Zenio:', msg);
+    logger.log('📨 [OnboardingScreen] Mensaje en minúsculas:', lowerMsg);
 
     if (msg && (
       // Frases del mensaje EXACTO del backend (zenio.ts línea 580)
@@ -65,7 +66,7 @@ export default function OnboardingScreen() {
       lowerMsg.includes('cuando estés listo') ||
       lowerMsg.includes('planificación financiera plena')
     )) {
-      console.log('🎉 [OnboardingScreen] Onboarding detectado como completado!');
+      logger.log('🎉 [OnboardingScreen] Onboarding detectado como completado!');
 
       // Cerrar el teclado inmediatamente para que aparezca el botón "Continuar"
       Keyboard.dismiss();
@@ -74,7 +75,7 @@ export default function OnboardingScreen() {
 
       // Guardar en el backend que el onboarding está completo
       try {
-        console.log('📝 [OnboardingScreen] Marcando onboarding como completado en el backend...');
+        logger.log('📝 [OnboardingScreen] Marcando onboarding como completado en el backend...');
 
         // Obtener el perfil completo del usuario desde el backend
         const profileResponse = await api.get('/auth/profile');
@@ -86,14 +87,14 @@ export default function OnboardingScreen() {
           onboardingCompleted: true
         });
 
-        console.log('✅ [OnboardingScreen] Onboarding marcado como completado en el backend');
+        logger.log('✅ [OnboardingScreen] Onboarding marcado como completado en el backend');
 
         // NO ACTUALIZAR EL STORE AQUÍ - esperar a que el usuario presione "Continuar"
         // Si actualizamos el store aquí, el AppNavigator detecta el cambio y navega automáticamente
         // antes de que aparezca el botón "Continuar"
       } catch (error: any) {
-        console.error('❌ [OnboardingScreen] Error marcando onboarding como completado:', error);
-        console.error('Error response:', error.response?.data);
+        logger.error('❌ [OnboardingScreen] Error marcando onboarding como completado:', error);
+        logger.error('Error response:', error.response?.data);
         Alert.alert(
           'Advertencia',
           'No se pudo guardar tu progreso. Por favor verifica tu conexión.',
@@ -104,11 +105,11 @@ export default function OnboardingScreen() {
   };
 
   const handleContinue = async () => {
-    console.log('🚀 [OnboardingScreen] Botón Continuar presionado, guardando flag para HelpCenter...');
+    logger.log('🚀 [OnboardingScreen] Botón Continuar presionado, guardando flag para HelpCenter...');
 
     // Guardar flag en AsyncStorage ANTES de actualizar el store
     await AsyncStorage.setItem('openHelpCenterAfterOnboarding', 'true');
-    console.log('✅ [OnboardingScreen] Flag guardado en AsyncStorage');
+    logger.log('✅ [OnboardingScreen] Flag guardado en AsyncStorage');
 
     // Actualizar el store para que el AppNavigator cambie a MainNavigator
     // El MainNavigator detectará el flag y abrirá el HelpCenter automáticamente
@@ -116,11 +117,11 @@ export default function OnboardingScreen() {
       updateUser({ ...user, onboardingCompleted: true });
     }
 
-    console.log('🔄 [OnboardingScreen] Store actualizado, AppNavigator debería cambiar a MainNavigator');
+    logger.log('🔄 [OnboardingScreen] Store actualizado, AppNavigator debería cambiar a MainNavigator');
   };
 
   const handleCloseHelpCenter = () => {
-    console.log('🚀 [OnboardingScreen] HelpCenter cerrado, actualizando store y yendo al Dashboard...');
+    logger.log('🚀 [OnboardingScreen] HelpCenter cerrado, actualizando store y yendo al Dashboard...');
 
     setShowHelpCenter(false);
 

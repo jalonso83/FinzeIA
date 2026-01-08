@@ -20,6 +20,7 @@ import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
+import { logger } from '../../utils/logger';
 interface BudgetFormProps {
   visible: boolean;
   onClose: () => void;
@@ -85,7 +86,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       );
       setCategories(expenseCategories);
     } catch (error) {
-      console.error('Error loading categories:', error);
+      logger.error('Error loading categories:', error);
       Alert.alert('Error', 'No se pudieron cargar las categorías');
     } finally {
       setLoadingCategories(false);
@@ -141,8 +142,8 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         message = 'Presupuesto creado correctamente';
       }
 
-      console.log('✅ Presupuesto guardado exitosamente');
-      console.log('📝 Mensaje de éxito:', message);
+      logger.log('✅ Presupuesto guardado exitosamente');
+      logger.log('📝 Mensaje de éxito:', message);
 
       // EJECUTAR CALLBACKS INMEDIATAMENTE
       onBudgetChange();
@@ -152,9 +153,9 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
       // Pasar mensaje al Screen (que mostrará el modal sin anidar)
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
+      logger.log('🟢 onSuccess llamado con mensaje:', message);
     } catch (error: any) {
-      console.error('Error saving budget:', error);
+      logger.error('Error saving budget:', error);
 
       // Detectar error de presupuesto duplicado (409)
       if (error.response?.status === 409 && error.response?.data?.existingBudget) {
@@ -184,7 +185,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         amount: newAmount
       });
 
-      console.log('✅ Presupuesto duplicado actualizado exitosamente');
+      logger.log('✅ Presupuesto duplicado actualizado exitosamente');
 
       // EJECUTAR CALLBACKS INMEDIATAMENTE
       onBudgetChange();
@@ -196,11 +197,11 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
       // Pasar mensaje al Screen
       onSuccess(message);
-      console.log('🟢 onSuccess llamado con mensaje:', message);
+      logger.log('🟢 onSuccess llamado con mensaje:', message);
 
       setDuplicateInfo(null);
     } catch (error: any) {
-      console.error('Error updating budget:', error);
+      logger.error('Error updating budget:', error);
       Alert.alert('Error', 'No se pudo actualizar el presupuesto');
     } finally {
       setLoading(false);

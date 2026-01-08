@@ -63,19 +63,22 @@ export const getCurrencyByCode = (code: string): Currency | undefined => {
 };
 
 // Función para formatear moneda usando la información de la moneda y país
-export const formatCurrency = (amount: number, currencyCode: string = 'DOP', userCountry?: string): string => {
+export const formatCurrency = (amount: number | undefined | null, currencyCode: string = 'DOP', userCountry?: string): string => {
+  // Manejar valores undefined o null
+  const safeAmount = amount ?? 0;
+
   const currency = getCurrencyByCode(currencyCode);
   if (!currency) {
     // Fallback usando locale neutro
-    return `${DEFAULT_CURRENCY.symbol}${amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+    return `${DEFAULT_CURRENCY.symbol}${safeAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
   }
 
   const decimalPlaces = currency.decimalPlaces ?? 2;
   const locale = (userCountry && countryToLocale[userCountry]) || 'en-US'; // Fallback neutro
-  
-  const formattedAmount = amount.toLocaleString(locale, { 
-    minimumFractionDigits: decimalPlaces, 
-    maximumFractionDigits: decimalPlaces 
+
+  const formattedAmount = safeAmount.toLocaleString(locale, {
+    minimumFractionDigits: decimalPlaces,
+    maximumFractionDigits: decimalPlaces
   });
 
   return `${currency.symbol}${formattedAmount}`;

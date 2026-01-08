@@ -20,6 +20,8 @@ interface CustomModalProps {
   showSecondaryButton?: boolean;
   secondaryButtonText?: string;
   onSecondaryPress?: () => void;
+  customContent?: React.ReactNode;
+  hideDefaultButton?: boolean;
 }
 
 const CustomModal: React.FC<CustomModalProps> = ({
@@ -32,6 +34,8 @@ const CustomModal: React.FC<CustomModalProps> = ({
   showSecondaryButton = false,
   secondaryButtonText = 'Cancelar',
   onSecondaryPress,
+  customContent,
+  hideDefaultButton = false,
 }) => {
   // Configuración de colores e iconos según el tipo
   const getConfig = () => {
@@ -112,9 +116,13 @@ const CustomModal: React.FC<CustomModalProps> = ({
           <Text style={styles.title}>{title}</Text>
 
           {/* Mensaje */}
-          <Text style={styles.message}>{message}</Text>
+          {message ? <Text style={styles.message}>{message}</Text> : null}
+
+          {/* Contenido personalizado */}
+          {customContent}
 
           {/* Botones */}
+          {!hideDefaultButton && (
           <View style={styles.buttonsContainer}>
             {showSecondaryButton && (
               <TouchableOpacity
@@ -144,6 +152,7 @@ const CustomModal: React.FC<CustomModalProps> = ({
               )}
             </TouchableOpacity>
           </View>
+          )}
         </View>
       </View>
     </Modal>

@@ -9,13 +9,18 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
+import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
 
+import { logger } from '../utils/logger';
 interface AmortizationRow {
   payment: number;
   paymentAmount: number;
@@ -27,6 +32,7 @@ interface AmortizationRow {
 export default function LoanCalculatorScreen() {
   const navigation = useNavigation();
   const { formatCurrency } = useCurrency();
+  const { canExportData } = useSubscriptionStore();
 
   const [loanAmount, setLoanAmount] = useState('');
   const [loanType, setLoanType] = useState('hipotecario');
@@ -42,6 +48,11 @@ export default function LoanCalculatorScreen() {
   const [itemsPerPage] = useState(12);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+
+  // Estados para exportación
+  const [isExporting, setIsExporting] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
 
   const loanTypes = [
     { value: 'hipotecario', label: 'Hipotecario' },
@@ -155,6 +166,80 @@ export default function LoanCalculatorScreen() {
     if (page >= 1 && page <= totalPages) {
       setCurrentPage(page);
     }
+  };
+
+  // Función para manejar exportación
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportOptions(false);
+
+    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    if (!canExportData()) {
+      setShowUpgradeModal(true);
+      return;
+    }
+
+    if (amortizationTable.length === 0) {
+      Alert.alert('Error', 'No hay datos para exportar. Calcula un préstamo primero.');
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      // Preparar columnas para la tabla
+      const columns: TableColumn[] = [
+        { header: '#', key: 'payment', align: 'center', width: '8%' },
+        { header: 'Cuota', key: 'paymentAmount', align: 'right', width: '23%', format: (v) => formatCurrency(v) },
+        { header: 'Capital', key: 'principal', align: 'right', width: '23%', format: (v) => formatCurrency(v) },
+        { header: 'Interés', key: 'interest', align: 'right', width: '23%', format: (v) => formatCurrency(v) },
+        { header: 'Balance', key: 'remainingBalance', align: 'right', width: '23%', format: (v) => formatCurrency(v) },
+      ];
+
+      // Preparar resumen
+      const summary = [
+        { label: 'Monto del préstamo', value: formatCurrency(parseFloat(loanAmount)) },
+        { label: 'Tasa de interés', value: `${interestRate}% anual` },
+        { label: 'Plazo', value: `${term} ${termUnit}` },
+        { label: 'Cuota mensual', value: formatCurrency(monthlyPayment || 0) },
+        { label: 'Total a pagar', value: formatCurrency(totalPayment || 0) },
+        { label: 'Total intereses', value: formatCurrency(totalInterest || 0) },
+      ];
+
+      // Obtener nombre del tipo de préstamo
+      const loanTypeName = loanTypes.find(lt => lt.value === loanType)?.label || loanType;
+
+      const result = await ExportService.exportData(
+        {
+          title: 'Tabla de Amortización',
+          subtitle: `Préstamo ${loanTypeName} - ${formatCurrency(parseFloat(loanAmount))}`,
+          filename: `amortizacion_${loanType}_${new Date().getTime()}`,
+          format,
+        },
+        {
+          columns,
+          rows: amortizationTable,
+          summary,
+        }
+      );
+
+      if (!result.success) {
+        Alert.alert('Error', result.message);
+      }
+    } catch (error: any) {
+      Alert.alert('Error', 'No se pudo exportar el documento');
+      logger.error('Error exportando:', error);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Función para mostrar opciones de exportación
+  const handleExportPress = () => {
+    if (!canExportData()) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowExportOptions(true);
   };
 
   return (
@@ -413,6 +498,27 @@ export default function LoanCalculatorScreen() {
                 </TouchableOpacity>
               </View>
             )}
+
+            {/* Botón de exportar */}
+            <TouchableOpacity
+              style={styles.exportButton}
+              onPress={handleExportPress}
+              disabled={isExporting}
+            >
+              {isExporting ? (
+                <ActivityIndicator size="small" color="white" />
+              ) : (
+                <>
+                  <Ionicons name="download-outline" size={20} color="white" />
+                  <Text style={styles.exportButtonText}>Exportar Tabla</Text>
+                  {!canExportData() && (
+                    <View style={styles.premiumBadge}>
+                      <Text style={styles.premiumBadgeText}>PLUS</Text>
+                    </View>
+                  )}
+                </>
+              )}
+            </TouchableOpacity>
           </View>
         )}
         </ScrollView>
@@ -426,6 +532,44 @@ export default function LoanCalculatorScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Modal de upgrade para exportación */}
+      <UpgradeModal
+        visible={showUpgradeModal}
+        onClose={() => setShowUpgradeModal(false)}
+        limitType="export"
+      />
+
+      {/* Modal de opciones de exportación */}
+      <CustomModal
+        visible={showExportOptions}
+        type="info"
+        title="Exportar Tabla"
+        message=""
+        onClose={() => setShowExportOptions(false)}
+        hideDefaultButton={true}
+        customContent={
+          <View style={styles.exportOptionsContainer}>
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('pdf')}
+            >
+              <Ionicons name="document-text" size={32} color="#dc2626" />
+              <Text style={styles.exportOptionText}>PDF</Text>
+              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('csv')}
+            >
+              <Ionicons name="grid" size={32} color="#059669" />
+              <Text style={styles.exportOptionText}>CSV</Text>
+              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -744,5 +888,62 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     fontWeight: '500',
+  },
+  // Estilos de exportación
+  exportButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#2563EB',
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
+    marginTop: 16,
+    gap: 8,
+  },
+  exportButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  premiumBadge: {
+    backgroundColor: '#fbbf24',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginLeft: 4,
+  },
+  premiumBadgeText: {
+    color: '#1e293b',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  exportOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    gap: 16,
+  },
+  exportOptionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 120,
+  },
+  exportOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 8,
+  },
+  exportOptionSubtext: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
   },
 });

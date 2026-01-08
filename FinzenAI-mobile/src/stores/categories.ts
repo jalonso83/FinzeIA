@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import api from '../utils/api';
 
+import { logger } from '../utils/logger';
 export interface Category {
   id: string;
   name: string;
@@ -48,7 +49,7 @@ export const useCategoriesStore = create<CategoriesState>((set, get) => ({
         lastFetched: now
       });
     } catch (error: any) {
-      console.error('Error fetching categories:', error);
+      logger.error('Error fetching categories:', error);
       set({ 
         error: error.response?.data?.error || 'Error al cargar categorías', 
         loading: false 

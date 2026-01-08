@@ -19,7 +19,9 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
 
+import { logger } from '../utils/logger';
 const { width } = Dimensions.get('window');
 
 export default function BudgetsScreen() {
@@ -38,11 +40,16 @@ export default function BudgetsScreen() {
   // Dashboard store para notificar cambios
   const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger} = useDashboardStore();
 
-  // Subscription store para validar límites
-  const { canCreateBudget, fetchSubscription } = useSubscriptionStore();
+  // Subscription store para validar límites y exportación
+  const { canCreateBudget, canExportData, fetchSubscription } = useSubscriptionStore();
 
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
+
+  // Estados para exportación
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [exportUpgradeModal, setExportUpgradeModal] = useState(false);
 
   // Calcular resumen dinámicamente con análisis de rendimiento y proyecciones
   const stats = useMemo(() => {
@@ -134,7 +141,6 @@ export default function BudgetsScreen() {
       projectionAlerts
     };
 
-    console.log('[BudgetsScreen] Stats calculados:', result);
     return result;
   }, [budgets]);
 
@@ -146,7 +152,6 @@ export default function BudgetsScreen() {
   // Listener para cambios de presupuestos desde Zenio
   useEffect(() => {
     if (budgetChangeTrigger > 0) {
-      console.log('[BudgetsScreen] Budget change detected, reloading...');
       loadBudgets();
     }
   }, [budgetChangeTrigger]);
@@ -154,7 +159,6 @@ export default function BudgetsScreen() {
   // Listener para cambios de transacciones (actualizar spent en budgets)
   useEffect(() => {
     if (transactionChangeTrigger > 0) {
-      console.log('[BudgetsScreen] Transaction change detected, reloading budgets...');
       loadBudgets();
     }
   }, [transactionChangeTrigger]);
@@ -175,28 +179,11 @@ export default function BudgetsScreen() {
   const loadBudgets = async () => {
     try {
       setLoading(true);
-      // Obtener TODOS los presupuestos (activos e inactivos) para debugging
-      // TODO: Cambiar a { is_active: true } cuando se arregle el problema de renovación
       const response = await budgetsAPI.getAll();
-
-      console.log('🔍 [BudgetsScreen] Raw API Response:', JSON.stringify(response.data, null, 2));
-
       const budgetsData = response.data.budgets || response.data || [];
-      console.log('🔍 [BudgetsScreen] Budgets data:', budgetsData);
-
-      // Log individual de cada presupuesto
-      budgetsData.forEach((budget: Budget, index: number) => {
-        console.log(`🔍 [Budget ${index}] ID: ${budget.id}`);
-        console.log(`🔍 [Budget ${index}] Name: ${budget.name}`);
-        console.log(`🔍 [Budget ${index}] Amount: ${budget.amount} (type: ${typeof budget.amount})`);
-        console.log(`🔍 [Budget ${index}] Spent: ${budget.spent} (type: ${typeof budget.spent})`);
-        console.log(`🔍 [Budget ${index}] Spent value:`, budget.spent);
-      });
-
-      // Usar la estructura correcta de la API
       setBudgets(budgetsData);
     } catch (error: any) {
-      console.error('Error loading budgets:', error);
+      logger.error('Error loading budgets:', error);
 
       // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
@@ -231,7 +218,7 @@ export default function BudgetsScreen() {
       setSuccessMessage('Presupuesto eliminado correctamente');
       setShowSuccessModal(true);
     } catch (error) {
-      console.error('Error deleting budget:', error);
+      logger.error('Error deleting budget:', error);
       setShowDeleteConfirmModal(false);
       setBudgetToDelete(null);
       setErrorMessage('No se pudo eliminar el presupuesto');
@@ -271,6 +258,132 @@ export default function BudgetsScreen() {
     return formatCurrency(amount);
   };
 
+  // Obtener nombre del mes actual
+  const getCurrentMonth = (): string => {
+    const now = new Date();
+    return now.toLocaleDateString('es-ES', { month: 'long', year: 'numeric' });
+  };
+
+  // Función para manejar exportación
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportOptions(false);
+
+    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    if (!canExportData()) {
+      setExportUpgradeModal(true);
+      return;
+    }
+
+    if (budgets.length === 0) {
+      setErrorMessage('No hay presupuestos para exportar');
+      setShowErrorModal(true);
+      return;
+    }
+
+    setIsExporting(true);
+
+    try {
+      // Preparar columnas para la tabla
+      const columns: TableColumn[] = [
+        {
+          header: 'Presupuesto',
+          key: 'name',
+          align: 'left',
+          width: '25%',
+          format: (v, row) => `${row?.category?.icon || '💰'} ${v}`
+        },
+        {
+          header: 'Categoría',
+          key: 'category',
+          align: 'left',
+          width: '20%',
+          format: (v) => v?.name || 'General'
+        },
+        {
+          header: 'Presupuestado',
+          key: 'amount',
+          align: 'right',
+          width: '18%',
+          format: (v) => formatCurrency(v)
+        },
+        {
+          header: 'Gastado',
+          key: 'spent',
+          align: 'right',
+          width: '18%',
+          format: (v) => formatCurrency(v)
+        },
+        {
+          header: 'Restante',
+          key: 'remaining',
+          align: 'right',
+          width: '19%',
+          format: (v, row) => {
+            const remaining = (row?.amount || 0) - (row?.spent || 0);
+            const prefix = remaining >= 0 ? '' : '-';
+            return `${prefix}${formatCurrency(Math.abs(remaining))}`;
+          }
+        },
+      ];
+
+      // Preparar filas con datos calculados
+      const rows = budgets.map(b => ({
+        ...b,
+        remaining: b.amount - b.spent,
+        progress: b.amount > 0 ? ((b.spent / b.amount) * 100).toFixed(1) + '%' : '0%'
+      }));
+
+      // Calcular estadísticas para resumen
+      const activeBudgets = budgets.filter(b => b.is_active);
+      const exceededBudgets = budgets.filter(b => b.spent > b.amount);
+
+      // Preparar resumen
+      const summary = [
+        { label: 'Período', value: getCurrentMonth() },
+        { label: 'Total de presupuestos', value: `${budgets.length}` },
+        { label: 'Presupuestos activos', value: `${activeBudgets.length}` },
+        { label: 'Total presupuestado', value: formatCurrency(stats.totalBudget) },
+        { label: 'Total gastado', value: formatCurrency(stats.monthlyExpenses) },
+        { label: 'Balance', value: `${stats.remaining >= 0 ? '+' : ''}${formatCurrency(stats.remaining)}` },
+        { label: 'Presupuestos excedidos', value: `${exceededBudgets.length}` },
+      ];
+
+      const result = await ExportService.exportData(
+        {
+          title: 'Reporte de Presupuestos',
+          subtitle: getCurrentMonth(),
+          filename: `presupuestos_${new Date().getTime()}`,
+          format,
+        },
+        {
+          columns,
+          rows,
+          summary,
+        }
+      );
+
+      if (!result.success) {
+        setErrorMessage(result.message);
+        setShowErrorModal(true);
+      }
+    } catch (error: any) {
+      logger.error('Error exportando:', error);
+      setErrorMessage('No se pudo exportar el documento');
+      setShowErrorModal(true);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  // Función para mostrar opciones de exportación
+  const handleExportPress = () => {
+    if (!canExportData()) {
+      setExportUpgradeModal(true);
+      return;
+    }
+    setShowExportOptions(true);
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -286,12 +399,33 @@ export default function BudgetsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Presupuestos</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={handleCreateBudget}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {/* Botón de exportar */}
+          <TouchableOpacity
+            style={styles.exportHeaderButton}
+            onPress={handleExportPress}
+            disabled={isExporting}
+          >
+            {isExporting ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color="#2563EB" />
+                {!canExportData() && (
+                  <View style={styles.plusBadgeSmall}>
+                    <Text style={styles.plusBadgeSmallText}>+</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={handleCreateBudget}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView}>
@@ -500,7 +634,7 @@ export default function BudgetsScreen() {
         onClose={() => setShowErrorModal(false)}
       />
 
-      {/* Upgrade Modal */}
+      {/* Upgrade Modal para límite de presupuestos */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => {
@@ -509,6 +643,44 @@ export default function BudgetsScreen() {
           fetchSubscription();
         }}
         limitType="budgets"
+      />
+
+      {/* Upgrade Modal para exportación */}
+      <UpgradeModal
+        visible={exportUpgradeModal}
+        onClose={() => setExportUpgradeModal(false)}
+        limitType="export"
+      />
+
+      {/* Modal de opciones de exportación */}
+      <CustomModal
+        visible={showExportOptions}
+        type="info"
+        title="Exportar Presupuestos"
+        message=""
+        onClose={() => setShowExportOptions(false)}
+        hideDefaultButton={true}
+        customContent={
+          <View style={styles.exportOptionsContainer}>
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('pdf')}
+            >
+              <Ionicons name="document-text" size={32} color="#dc2626" />
+              <Text style={styles.exportOptionText}>PDF</Text>
+              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('csv')}
+            >
+              <Ionicons name="grid" size={32} color="#059669" />
+              <Text style={styles.exportOptionText}>CSV</Text>
+              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -830,5 +1002,68 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#d97706',
     fontWeight: '500',
+  },
+  // Estilos de exportación
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  exportHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    position: 'relative',
+  },
+  plusBadgeSmall: {
+    position: 'absolute',
+    top: -2,
+    right: -2,
+    backgroundColor: '#fbbf24',
+    width: 16,
+    height: 16,
+    borderRadius: 8,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 2,
+    borderColor: 'white',
+  },
+  plusBadgeSmallText: {
+    color: '#1e293b',
+    fontSize: 10,
+    fontWeight: 'bold',
+  },
+  exportOptionsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    gap: 16,
+  },
+  exportOptionButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#f8fafc',
+    paddingVertical: 20,
+    paddingHorizontal: 24,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
+    minWidth: 120,
+  },
+  exportOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginTop: 8,
+  },
+  exportOptionSubtext: {
+    fontSize: 12,
+    color: '#64748b',
+    marginTop: 4,
   },
 });

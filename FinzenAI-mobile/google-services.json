@@ -1,0 +1,39 @@
+{
+  "project_info": {
+    "project_number": "736460729278",
+    "project_id": "finzen-ai",
+    "storage_bucket": "finzen-ai.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:736460729278:android:692f7bfc87ef44f7ab27ef",
+        "android_client_info": {
+          "package_name": "com.jl.alonso.finzenaimobile"
+        }
+      },
+      "oauth_client": [
+        {
+          "client_id": "736460729278-e5hk2dvr5fu6vtp2mv4mt16aiqqicabc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCDxDJoSE90EC8mJj2TlmeC0kGDtTUiqtc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": [
+            {
+              "client_id": "736460729278-e5hk2dvr5fu6vtp2mv4mt16aiqqicabc.apps.googleusercontent.com",
+              "client_type": 3
+            }
+          ]
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

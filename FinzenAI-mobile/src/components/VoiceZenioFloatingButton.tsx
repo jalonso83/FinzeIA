@@ -12,6 +12,7 @@ import { useAuthStore } from '../stores/auth';
 import { categoriesAPI } from '../utils/api';
 import VoiceZenioChat from './VoiceZenioChat';
 
+import { logger } from '../utils/logger';
 interface VoiceZenioFloatingButtonProps {
   onTransactionCreated?: () => void;
   onTransactionUpdated?: () => void;
@@ -41,7 +42,7 @@ const VoiceZenioFloatingButton: React.FC<VoiceZenioFloatingButtonProps> = () => 
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };

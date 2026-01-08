@@ -23,6 +23,7 @@ import type {
 } from '../types/gamification';
 import { EventType } from '../types/gamification';
 
+import { logger } from '../utils/logger';
 // ===== INTERFACES DEL STORE =====
 
 interface GamificationStore extends GamificationState, GamificationActions {
@@ -103,7 +104,7 @@ export const useGamificationStore = create<GamificationStore>()(
               set({ error: errorMessage, isLoading: false });
               
               if (!(error instanceof APIError && error.statusCode === 401)) {
-                console.error(errorMessage);
+                logger.error(errorMessage);
               }
             }
           },
@@ -113,7 +114,7 @@ export const useGamificationStore = create<GamificationStore>()(
               const history = await gamificationService.getFinScoreHistory();
               set({ finScoreHistory: history });
             } catch (error) {
-              console.error('Error obteniendo historial de FinScore:', error);
+              logger.error('Error obteniendo historial de FinScore:', error);
               // No mostrar toast para historial, es información secundaria
             }
           },
@@ -132,7 +133,7 @@ export const useGamificationStore = create<GamificationStore>()(
                 lastUpdated: new Date().toISOString()
               });
               
-              console.log('FinScore recalculado exitosamente');
+              logger.log('FinScore recalculado exitosamente');
               
               // Recargar stats también
               get().fetchGamificationStats();
@@ -142,7 +143,7 @@ export const useGamificationStore = create<GamificationStore>()(
                 : 'Error recalculando FinScore';
               
               set({ error: errorMessage, isLoading: false });
-              console.error(errorMessage);
+              logger.error(errorMessage);
             }
           },
 
@@ -152,9 +153,9 @@ export const useGamificationStore = create<GamificationStore>()(
               const badges = await gamificationService.getUserBadges();
               set({ badges });
             } catch (error) {
-              console.error('Error obteniendo badges del usuario:', error);
+              logger.error('Error obteniendo badges del usuario:', error);
               if (error instanceof APIError && error.statusCode !== 404) {
-                console.error('Error cargando badges');
+                logger.error('Error cargando badges');
               }
             }
           },
@@ -164,7 +165,7 @@ export const useGamificationStore = create<GamificationStore>()(
               const availableBadges = await gamificationService.getAvailableBadges();
               set({ availableBadges });
             } catch (error) {
-              console.error('Error obteniendo badges disponibles:', error);
+              logger.error('Error obteniendo badges disponibles:', error);
               // Los badges disponibles no son críticos para la UX
             }
           },
@@ -175,7 +176,7 @@ export const useGamificationStore = create<GamificationStore>()(
               const streak = await gamificationService.getUserStreak();
               set({ streak });
             } catch (error) {
-              console.error('Error obteniendo racha:', error);
+              logger.error('Error obteniendo racha:', error);
               // Las rachas pueden no existir, no es un error
               set({ streak: null });
             }
@@ -187,9 +188,9 @@ export const useGamificationStore = create<GamificationStore>()(
               const stats = await gamificationService.getGamificationStats();
               set({ stats });
             } catch (error) {
-              console.error('Error obteniendo estadísticas:', error);
+              logger.error('Error obteniendo estadísticas:', error);
               if (error instanceof APIError && error.statusCode !== 404) {
-                console.error('Error cargando estadísticas');
+                logger.error('Error cargando estadísticas');
               }
             }
           },
@@ -200,7 +201,7 @@ export const useGamificationStore = create<GamificationStore>()(
               const leaderboard = await gamificationService.getLeaderboard();
               set({ leaderboard });
             } catch (error) {
-              console.error('Error obteniendo leaderboard:', error);
+              logger.error('Error obteniendo leaderboard:', error);
               // El leaderboard es opcional
             }
           },
@@ -211,7 +212,7 @@ export const useGamificationStore = create<GamificationStore>()(
               const challenges = await gamificationService.getUserChallenges();
               set({ challenges });
             } catch (error) {
-              console.error('Error obteniendo desafíos:', error);
+              logger.error('Error obteniendo desafíos:', error);
               // Los desafíos son opcionales
               set({ challenges: [] });
             }
@@ -321,7 +322,7 @@ export const useGamificationInit = () => {
         
         store._setInitialized(true);
       } catch (error) {
-        console.error('Error inicializando gamificación:', error);
+        logger.error('Error inicializando gamificación:', error);
         store._setError('Error inicializando sistema de gamificación');
       } finally {
         store._setLoading(false);
@@ -355,7 +356,7 @@ export const useGamificationSync = (enabled: boolean = true) => {
           store.fetchGamificationStats()
         ]);
       } catch (error) {
-        console.error('Error en sync automático:', error);
+        logger.error('Error en sync automático:', error);
       } finally {
         store._setSyncStatus(false);
       }

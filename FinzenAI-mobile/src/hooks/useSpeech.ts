@@ -5,6 +5,7 @@ import * as FileSystem from 'expo-file-system';
 import { Platform, AppState } from 'react-native';
 import { useAuthStore } from '../stores/auth';
 
+import { logger } from '../utils/logger';
 export interface SpeechHookState {
   isListening: boolean;
   isSpeaking: boolean;
@@ -31,8 +32,8 @@ export const useSpeech = () => {
       if (nextAppState === 'background' || nextAppState === 'inactive') {
         // Si la app va a background mientras graba, detener grabación
         if (state.isListening && recordingRef.current) {
-          console.log('[Speech] App en background, deteniendo grabación...');
-          stopListening().catch(console.error);
+          logger.log('[Speech] App en background, deteniendo grabación...');
+          stopListening().catch(logger.error);
         }
       }
     };
@@ -67,10 +68,10 @@ export const useSpeech = () => {
 
       recordingRef.current = recording;
       setState(prev => ({ ...prev, isListening: true, isLoading: false }));
-      console.log('🎤 Iniciando grabación de audio...');
+      logger.log('🎤 Iniciando grabación de audio...');
 
     } catch (error) {
-      console.error('❌ Error iniciando grabación:', error);
+      logger.error('❌ Error iniciando grabación:', error);
 
       let errorMessage = 'Error iniciando grabación de audio';
 
@@ -111,7 +112,7 @@ export const useSpeech = () => {
         throw new Error('No se pudo obtener el archivo de audio');
       }
 
-      console.log('🎤 Grabación detenida, enviando a Whisper API...');
+      logger.log('🎤 Grabación detenida, enviando a Whisper API...');
 
       // Crear FormData para envío
       const formData = new FormData();
@@ -145,7 +146,7 @@ export const useSpeech = () => {
       }
 
       const transcript = result.transcription || '';
-      console.log('🎤 Transcripción completada:', transcript);
+      logger.log('🎤 Transcripción completada:', transcript);
 
       setState(prev => ({
         ...prev,
@@ -156,7 +157,7 @@ export const useSpeech = () => {
       return transcript;
 
     } catch (error) {
-      console.error('❌ Error procesando audio:', error);
+      logger.error('❌ Error procesando audio:', error);
       setState(prev => ({
         ...prev,
         isListening: false,
@@ -181,7 +182,7 @@ export const useSpeech = () => {
 
       // Obtener voces disponibles
       const availableVoices = await Speech.getAvailableVoicesAsync();
-      console.log('🔊 Voces disponibles:', availableVoices.map(v => `${v.name} (${v.language})`));
+      logger.log('🔊 Voces disponibles:', availableVoices.map(v => `${v.name} (${v.language})`));
 
       // Buscar la mejor voz española disponible (priorizando calidad sobre género)
       const bestSpanishVoice = availableVoices.find(voice =>
@@ -196,23 +197,23 @@ export const useSpeech = () => {
 
       if (spanishVoice) {
         speechOptions.voice = spanishVoice.identifier;
-        console.log('🔊 Usando voz española de calidad:', spanishVoice.name, '- Calidad:', spanishVoice.quality);
+        logger.log('🔊 Usando voz española de calidad:', spanishVoice.name, '- Calidad:', spanishVoice.quality);
       } else {
-        console.log('🔊 Usando voz por defecto del sistema');
+        logger.log('🔊 Usando voz por defecto del sistema');
       }
 
-      console.log('🔊 Zenio hablando:', text);
+      logger.log('🔊 Zenio hablando:', text);
 
       return new Promise<void>((resolve) => {
         Speech.speak(text, {
           ...speechOptions,
           onDone: () => {
             setState(prev => ({ ...prev, isSpeaking: false }));
-            console.log('🔊 Zenio terminó de hablar');
+            logger.log('🔊 Zenio terminó de hablar');
             resolve();
           },
           onError: (error) => {
-            console.error('Error en speech:', error);
+            logger.error('Error en speech:', error);
             setState(prev => ({ 
               ...prev, 
               isSpeaking: false, 
@@ -223,7 +224,7 @@ export const useSpeech = () => {
         });
       });
     } catch (error) {
-      console.error('Error speaking response:', error);
+      logger.error('Error speaking response:', error);
       setState(prev => ({ 
         ...prev, 
         isSpeaking: false, 

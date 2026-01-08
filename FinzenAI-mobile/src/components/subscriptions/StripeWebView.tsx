@@ -11,6 +11,7 @@ import {
 import { WebView } from 'react-native-webview';
 import { Ionicons } from '@expo/vector-icons';
 
+import { logger } from '../../utils/logger';
 interface StripeWebViewProps {
   visible: boolean;
   checkoutUrl: string;
@@ -31,21 +32,21 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
   const handleNavigationStateChange = (navState: any) => {
     const { url } = navState;
 
-    console.log('🔍 Navigation state changed:', url);
+    logger.log('🔍 Navigation state changed:', url);
 
     // Detectar redirección a success Y extraer sessionId
     if (url.includes('/subscription/success')) {
-      console.log('✅ Payment successful detected');
+      logger.log('✅ Payment successful detected');
 
       // Extraer sessionId de la URL
       const sessionIdMatch = url.match(/session_id=([^&]+)/);
       if (sessionIdMatch && sessionIdMatch[1]) {
         const sessionId = sessionIdMatch[1];
-        console.log('📝 SessionId extraído:', sessionId);
+        logger.log('📝 SessionId extraído:', sessionId);
         setLoading(false);
         onSuccess(sessionId); // Pasar sessionId al callback
       } else {
-        console.log('⚠️ No se pudo extraer sessionId de la URL');
+        logger.log('⚠️ No se pudo extraer sessionId de la URL');
         setLoading(false);
         onSuccess(); // Llamar sin sessionId como fallback
       }
@@ -54,7 +55,7 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
 
     // Detectar redirección a canceled
     if (url.includes('/subscription/canceled')) {
-      console.log('❌ Payment canceled by user');
+      logger.log('❌ Payment canceled by user');
       setLoading(false);
       onCancel();
       return;
@@ -63,7 +64,7 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
     // Detectar cuando Stripe cierra la ventana (X dentro del checkout)
     // Stripe redirige a la URL base o a about:blank cuando se cierra
     if (url === 'about:blank' || url.includes('checkout.stripe.com/canceled')) {
-      console.log('❌ Stripe checkout closed by user');
+      logger.log('❌ Stripe checkout closed by user');
       setLoading(false);
       onCancel();
       return;
@@ -74,10 +75,10 @@ const StripeWebView: React.FC<StripeWebViewProps> = ({
   const handleMessage = (event: any) => {
     try {
       const data = JSON.parse(event.nativeEvent.data);
-      console.log('📩 Message from WebView:', data);
+      logger.log('📩 Message from WebView:', data);
 
       if (data.type === 'checkout_closed' || data.action === 'close') {
-        console.log('❌ Checkout closed via message');
+        logger.log('❌ Checkout closed via message');
         setLoading(false);
         onCancel();
       }

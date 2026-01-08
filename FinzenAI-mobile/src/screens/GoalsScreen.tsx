@@ -18,7 +18,9 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
 
+import { logger } from '../utils/logger';
 interface Goal {
   id: string;
   name: string;
@@ -59,11 +61,16 @@ export default function GoalsScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // Export states
+  const [isExporting, setIsExporting] = useState(false);
+  const [showExportOptions, setShowExportOptions] = useState(false);
+  const [showExportUpgradeModal, setShowExportUpgradeModal] = useState(false);
+
   // Dashboard store para notificar cambios
   const { onGoalChange, goalChangeTrigger} = useDashboardStore();
 
   // Subscription store para validar límites
-  const { canCreateGoal, fetchSubscription } = useSubscriptionStore();
+  const { canCreateGoal, canExportData, fetchSubscription, currentPlan } = useSubscriptionStore();
 
   useEffect(() => {
     loadGoals();
@@ -73,7 +80,7 @@ export default function GoalsScreen() {
   // Listener para cambios de metas desde Zenio
   useEffect(() => {
     if (goalChangeTrigger > 0) {
-      console.log('[GoalsScreen] Goal change detected, reloading...');
+      logger.log('[GoalsScreen] Goal change detected, reloading...');
       loadGoals();
     }
   }, [goalChangeTrigger]);
@@ -97,10 +104,10 @@ export default function GoalsScreen() {
       const response = await goalsAPI.getAll();
       // Obtener datos de la estructura correcta
       const goalsData = response.data.goals || response.data || [];
-      console.log('Goals loaded:', goalsData);
+      logger.log('Goals loaded:', goalsData);
       setGoals(goalsData);
     } catch (error) {
-      console.error('Error loading goals:', error);
+      logger.error('Error loading goals:', error);
       setErrorMessage('No se pudieron cargar las metas');
       setShowErrorModal(true);
     } finally {
@@ -140,7 +147,7 @@ export default function GoalsScreen() {
       setSuccessMessage('Meta eliminada correctamente');
       setShowSuccessModal(true);
     } catch (error) {
-      console.error('Error deleting goal:', error);
+      logger.error('Error deleting goal:', error);
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
       setErrorMessage('No se pudo eliminar la meta');
@@ -185,6 +192,121 @@ export default function GoalsScreen() {
     }
   };
 
+  // Export functions
+  const getCurrentDate = (): string => {
+    return new Date().toLocaleDateString('es-ES', {
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+  };
+
+  const handleExportPress = () => {
+    if (!canExportData()) {
+      setShowExportUpgradeModal(true);
+      return;
+    }
+    setShowExportOptions(true);
+  };
+
+  const handleExport = async (format: ExportFormat) => {
+    setShowExportOptions(false);
+    setIsExporting(true);
+
+    try {
+      // Define columns for export
+      const columns: TableColumn[] = [
+        { header: 'Meta', key: 'name' },
+        { header: 'Categoría', key: 'category' },
+        { header: 'Prioridad', key: 'priority' },
+        { header: 'Meta ($)', key: 'targetAmount' },
+        { header: 'Ahorrado ($)', key: 'currentAmount' },
+        { header: 'Por Ahorrar ($)', key: 'remaining' },
+        { header: 'Progreso (%)', key: 'progress' },
+        { header: 'Estado', key: 'status' },
+        { header: 'Contribuciones', key: 'contributions' },
+      ];
+
+      // Prepare data for export
+      const exportData = goals.map(goal => {
+        const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
+        const remaining = goal.targetAmount - goal.currentAmount;
+        return {
+          name: goal.name,
+          category: `${goal.category.icon} ${goal.category.name}`,
+          priority: getPriorityText(goal.priority),
+          targetAmount: goal.targetAmount.toFixed(2),
+          currentAmount: goal.currentAmount.toFixed(2),
+          remaining: remaining.toFixed(2),
+          progress: progress.toFixed(1),
+          status: goal.isCompleted ? 'Completada' : 'En progreso',
+          contributions: goal.contributionsCount.toString(),
+        };
+      });
+
+      // Calculate summary
+      const completedGoals = goals.filter(g => g.isCompleted).length;
+      const overallProgress = totalTarget > 0 ? (totalSaved / totalTarget * 100).toFixed(1) : '0';
+
+      const summary = `
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Total Metas</div>
+            <div style="font-size: 18px; font-weight: bold; color: #2563EB;">${goals.length}</div>
+          </div>
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Completadas</div>
+            <div style="font-size: 18px; font-weight: bold; color: #10B981;">${completedGoals}</div>
+          </div>
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Progreso Total</div>
+            <div style="font-size: 18px; font-weight: bold; color: #F59E0B;">${overallProgress}%</div>
+          </div>
+        </div>
+        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Meta Total</div>
+            <div style="font-size: 16px; font-weight: bold; color: #2563EB;">${formatCurrency(totalTarget)}</div>
+          </div>
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Total Ahorrado</div>
+            <div style="font-size: 16px; font-weight: bold; color: #10B981;">${formatCurrency(totalSaved)}</div>
+          </div>
+          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
+            <div style="font-size: 11px; color: #64748b;">Por Ahorrar</div>
+            <div style="font-size: 16px; font-weight: bold; color: #3B82F6;">${formatCurrency(totalToSave)}</div>
+          </div>
+        </div>
+      `;
+
+      if (format === 'PDF') {
+        await ExportService.exportToPDF({
+          title: 'Metas de Ahorro',
+          subtitle: `Reporte generado el ${getCurrentDate()}`,
+          columns,
+          data: exportData,
+          summary,
+          fileName: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
+        });
+      } else {
+        await ExportService.exportToCSV({
+          columns,
+          data: exportData,
+          fileName: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
+        });
+      }
+
+      setSuccessMessage(`Metas exportadas correctamente en formato ${format}`);
+      setShowSuccessModal(true);
+    } catch (error) {
+      logger.error('Error exporting goals:', error);
+      setErrorMessage('Error al exportar las metas');
+      setShowErrorModal(true);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <SafeAreaView style={styles.container}>
@@ -200,15 +322,37 @@ export default function GoalsScreen() {
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
         <Text style={styles.title}>Metas de Ahorro</Text>
-        <TouchableOpacity
-          style={styles.addButton}
-          onPress={() => {
-            setEditingGoal(null);
-            handleCreateGoal();
-          }}
-        >
-          <Ionicons name="add" size={24} color="white" />
-        </TouchableOpacity>
+        <View style={styles.headerButtons}>
+          {/* Export Button */}
+          <TouchableOpacity
+            style={styles.exportButton}
+            onPress={handleExportPress}
+            disabled={isExporting || goals.length === 0}
+          >
+            {isExporting ? (
+              <ActivityIndicator size="small" color="#2563EB" />
+            ) : (
+              <>
+                <Ionicons name="download-outline" size={20} color="#2563EB" />
+                {currentPlan === 'FREE' && (
+                  <View style={styles.plusBadge}>
+                    <Text style={styles.plusBadgeText}>PLUS</Text>
+                  </View>
+                )}
+              </>
+            )}
+          </TouchableOpacity>
+          {/* Add Button */}
+          <TouchableOpacity
+            style={styles.addButton}
+            onPress={() => {
+              setEditingGoal(null);
+              handleCreateGoal();
+            }}
+          >
+            <Ionicons name="add" size={24} color="white" />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -476,6 +620,53 @@ export default function GoalsScreen() {
           fetchSubscription();
         }}
         limitType="goals"
+      />
+
+      {/* Export Upgrade Modal */}
+      <UpgradeModal
+        visible={showExportUpgradeModal}
+        onClose={() => {
+          setShowExportUpgradeModal(false);
+          fetchSubscription();
+        }}
+        limitType="export"
+      />
+
+      {/* Export Options Modal */}
+      <CustomModal
+        visible={showExportOptions}
+        type="info"
+        title="Exportar Metas"
+        message="Selecciona el formato de exportación"
+        buttonText=""
+        hideDefaultButton={true}
+        onClose={() => setShowExportOptions(false)}
+        customContent={
+          <View style={styles.exportOptionsContainer}>
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('PDF')}
+            >
+              <Ionicons name="document-text" size={24} color="#dc2626" />
+              <Text style={styles.exportOptionText}>PDF</Text>
+              <Text style={styles.exportOptionSubtext}>Documento formateado</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.exportOptionButton}
+              onPress={() => handleExport('CSV')}
+            >
+              <Ionicons name="grid" size={24} color="#16a34a" />
+              <Text style={styles.exportOptionText}>CSV</Text>
+              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.cancelExportButton}
+              onPress={() => setShowExportOptions(false)}
+            >
+              <Text style={styles.cancelExportText}>Cancelar</Text>
+            </TouchableOpacity>
+          </View>
+        }
       />
     </SafeAreaView>
   );
@@ -769,5 +960,67 @@ const styles = StyleSheet.create({
     color: 'white',
     fontSize: 12,
     fontWeight: '600',
+  },
+  // Export styles
+  headerButtons: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  exportButton: {
+    backgroundColor: '#EFF6FF',
+    borderRadius: 20,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+  },
+  plusBadge: {
+    position: 'absolute',
+    top: -4,
+    right: -4,
+    backgroundColor: '#F59E0B',
+    borderRadius: 6,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  plusBadgeText: {
+    color: 'white',
+    fontSize: 8,
+    fontWeight: 'bold',
+  },
+  exportOptionsContainer: {
+    width: '100%',
+    gap: 12,
+    marginTop: 8,
+  },
+  exportOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    padding: 16,
+    borderRadius: 12,
+    gap: 12,
+  },
+  exportOptionText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  exportOptionSubtext: {
+    fontSize: 12,
+    color: '#64748b',
+    marginLeft: 'auto',
+  },
+  cancelExportButton: {
+    alignItems: 'center',
+    padding: 12,
+    marginTop: 4,
+  },
+  cancelExportText: {
+    fontSize: 14,
+    color: '#64748b',
+    fontWeight: '500',
   },
 });

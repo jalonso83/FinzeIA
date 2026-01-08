@@ -15,9 +15,12 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useAuthStore } from '../stores/auth';
+import { useSubscriptionStore } from '../stores/subscriptionStore';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
+import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
+import { logger } from '../utils/logger';
 interface Message {
   id: string;
   text: string;
@@ -34,13 +37,15 @@ export default function ZenioScreen() {
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [showTips, setShowTips] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
   // Debug: monitorear cambios en showTips
   useEffect(() => {
-    console.log('🔵 showTips cambió a:', showTips);
+    logger.log('🔵 showTips cambió a:', showTips);
   }, [showTips]);
 
   const { user } = useAuthStore();
+  const { updateZenioUsage, fetchSubscription } = useSubscriptionStore();
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -51,7 +56,7 @@ export default function ZenioScreen() {
         const response = await categoriesAPI.getAll();
         setCategories(response.data || []);
       } catch (error) {
-        console.error('Error loading categories:', error);
+        logger.error('Error loading categories:', error);
         setCategories([]);
       }
     };
@@ -97,16 +102,37 @@ export default function ZenioScreen() {
           if (response.data.threadId) {
             setThreadId(response.data.threadId);
           }
-          
+
+          // Actualizar uso de Zenio si viene en la respuesta
+          if (response.data.zenioUsage) {
+            updateZenioUsage(response.data.zenioUsage);
+          }
+
           setHasSentFirst(true);
-        } catch (error) {
-          console.error('Error al inicializar conversación:', error);
-          setMessages([{
-            id: '1',
-            text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
-            isUser: false,
-            timestamp: new Date(),
-          }]);
+        } catch (error: any) {
+          logger.error('Error al inicializar conversación:', error);
+          logger.log('Error status:', error.response?.status);
+          logger.log('Error data:', JSON.stringify(error.response?.data));
+
+          // Detectar error 403 - límite de Zenio alcanzado
+          if (error.response?.status === 403) {
+            setMessages([{
+              id: '1',
+              text: '¡Hola! Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+            setShowUpgradeModal(true);
+          } else {
+            setMessages([{
+              id: '1',
+              text: 'Ocurrió un error al inicializar la conversación. Intenta escribir un mensaje.',
+              isUser: false,
+              timestamp: new Date(),
+            }]);
+          }
+          // IMPORTANTE: Siempre marcar como enviado para evitar loop infinito
+          setHasSentFirst(true);
         } finally {
           setLoading(false);
         }
@@ -168,18 +194,37 @@ export default function ZenioScreen() {
           isUser: false,
           timestamp: new Date(),
         };
-        
+
         setMessages(prev => [...prev, botResponse]);
       }
-      
+
       // Actualizar threadId si viene en la respuesta
       if (response.data.threadId) {
         setThreadId(response.data.threadId);
       }
-      
-    } catch (error) {
-      console.error('Error sending message:', error);
-      Alert.alert('Error', 'No se pudo enviar el mensaje');
+
+      // Actualizar uso de Zenio si viene en la respuesta
+      if (response.data.zenioUsage) {
+        updateZenioUsage(response.data.zenioUsage);
+      }
+
+    } catch (error: any) {
+      logger.error('Error sending message:', error);
+      logger.log('Error status:', error.response?.status);
+
+      // Detectar error 403 - límite de Zenio alcanzado
+      if (error.response?.status === 403) {
+        const limitMessage: Message = {
+          id: (Date.now() + 1).toString(),
+          text: 'Has alcanzado el límite de consultas de este mes. Mejora tu plan para seguir conversando conmigo sin límites. 🚀',
+          isUser: false,
+          timestamp: new Date(),
+        };
+        setMessages(prev => [...prev, limitMessage]);
+        setShowUpgradeModal(true);
+      } else {
+        Alert.alert('Error', 'No se pudo enviar el mensaje');
+      }
     } finally {
       setLoading(false);
     }
@@ -222,10 +267,10 @@ export default function ZenioScreen() {
           <TouchableOpacity
             style={styles.iconButton}
             onPress={() => {
-              console.log('🔵 Tips button pressed!');
-              console.log('🔵 showTips ANTES:', showTips);
+              logger.log('🔵 Tips button pressed!');
+              logger.log('🔵 showTips ANTES:', showTips);
               setShowTips(true);
-              console.log('🔵 setShowTips(true) ejecutado');
+              logger.log('🔵 setShowTips(true) ejecutado');
             }}
             activeOpacity={0.6}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
@@ -345,7 +390,7 @@ export default function ZenioScreen() {
         transparent={true}
         animationType="fade"
         onRequestClose={() => {
-          console.log('🔴 Modal Tips cerrado');
+          logger.log('🔴 Modal Tips cerrado');
           setShowTips(false);
         }}
         statusBarTranslucent={false}
@@ -435,6 +480,13 @@ export default function ZenioScreen() {
       </TouchableOpacity>
       </Modal>
     )}
+
+    {/* Modal de Upgrade - Para límite de Zenio alcanzado */}
+    <UpgradeModal
+      visible={showUpgradeModal}
+      onClose={() => setShowUpgradeModal(false)}
+      limitType="zenio"
+    />
     </>
   );
 }

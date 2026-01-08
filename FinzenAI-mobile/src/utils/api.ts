@@ -5,17 +5,18 @@ import axios, { AxiosInstance, AxiosResponse } from 'axios';
 import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
+import { logger } from './logger';
 // Configuración de la API - HARDCODEADA PARA DEBUGGING
 const API_BASE_URL = 'https://finzenai-backend-production.up.railway.app';
 const API_URL_WITH_PATH = `${API_BASE_URL}/api`;
 
 // Debug para verificar la URL
-console.log('=== DEBUG API CONFIG ===');
-console.log('expoConfig API_URL:', Constants.expoConfig?.extra?.API_URL);
-console.log('manifest API_URL:', Constants.manifest?.extra?.API_URL);
-console.log('Final API_BASE_URL:', API_BASE_URL);
-console.log('Final API_URL_WITH_PATH:', API_URL_WITH_PATH);
-console.log('========================');
+logger.log('=== DEBUG API CONFIG ===');
+logger.log('expoConfig API_URL:', Constants.expoConfig?.extra?.API_URL);
+logger.log('manifest API_URL:', Constants.manifest?.extra?.API_URL);
+logger.log('Final API_BASE_URL:', API_BASE_URL);
+logger.log('Final API_URL_WITH_PATH:', API_URL_WITH_PATH);
+logger.log('========================');
 
 // Clave para almacenar el token de forma segura
 const TOKEN_KEY = 'finzen_auth_token';
@@ -34,7 +35,7 @@ const getStoredToken = async (): Promise<string | null> => {
   try {
     return await SecureStore.getItemAsync(TOKEN_KEY);
   } catch (error) {
-    console.error('Error getting stored token:', error);
+    logger.error('Error getting stored token:', error);
     return null;
   }
 };
@@ -44,7 +45,7 @@ export const saveToken = async (token: string): Promise<void> => {
   try {
     await SecureStore.setItemAsync(TOKEN_KEY, token);
   } catch (error) {
-    console.error('Error saving token:', error);
+    logger.error('Error saving token:', error);
   }
 };
 
@@ -53,7 +54,7 @@ export const removeToken = async (): Promise<void> => {
   try {
     await SecureStore.deleteItemAsync(TOKEN_KEY);
   } catch (error) {
-    console.error('Error removing token:', error);
+    logger.error('Error removing token:', error);
   }
 };
 
@@ -77,20 +78,22 @@ api.interceptors.request.use(
 const SKIP_LOGOUT_ENDPOINTS = [
   '/email-sync/status',
   '/email-sync/gmail/auth-url',
+  '/notifications/',
+  '/reports/',
 ];
 
 // Interceptor para manejar respuestas
 api.interceptors.response.use(
   (response: AxiosResponse) => {
-    console.log('✅ API SUCCESS:', response.config.url, response.status);
+    logger.log('✅ API SUCCESS:', response.config.url, response.status);
     return response;
   },
   async (error) => {
     const url = error.config?.url || '';
-    console.log('❌ API ERROR:', url);
-    console.log('Error details:', error.message);
-    console.log('Response status:', error.response?.status);
-    console.log('Response data:', error.response?.data);
+    logger.log('❌ API ERROR:', url);
+    logger.log('Error details:', error.message);
+    logger.log('Response status:', error.response?.status);
+    logger.log('Response data:', error.response?.data);
 
     // Manejar errores de autenticación
     if (error.response?.status === 401) {
@@ -100,9 +103,9 @@ api.interceptors.response.use(
       if (!shouldSkipLogout) {
         // Limpiar token y forzar logout solo para endpoints críticos
         await removeToken();
-        console.log('Token inválido, limpiando almacenamiento...');
+        logger.log('Token inválido, limpiando almacenamiento...');
       } else {
-        console.log('401 en endpoint no crítico, no se hace logout');
+        logger.log('401 en endpoint no crítico, no se hace logout');
       }
     }
 
@@ -186,10 +189,10 @@ export const authAPI = {
   login: (email: string, password: string) => 
     api.post('/auth/login', { email, password }),
   
-  register: (userData: { 
-    name: string; 
+  register: (userData: {
+    name: string;
     lastName: string;
-    email: string; 
+    email: string;
     password: string;
     phone: string;
     birthDate: string;
@@ -200,7 +203,8 @@ export const authAPI = {
     preferredLanguage: string;
     occupation: string;
     company?: string;
-  }) => 
+    referralCode?: string;
+  }) =>
     api.post('/auth/register', userData),
   
   verifyEmail: (token: string) => 
@@ -288,8 +292,8 @@ export const subscriptionsAPI = {
     api.get('/subscriptions/current'),
 
   // Crear sesión de checkout para upgrade (requiere auth)
-  createCheckout: (plan: 'PREMIUM' | 'PRO') =>
-    api.post('/subscriptions/checkout', { plan }),
+  createCheckout: (plan: 'PREMIUM' | 'PRO', billingPeriod: 'monthly' | 'yearly' = 'monthly') =>
+    api.post('/subscriptions/checkout', { plan, billingPeriod }),
 
   // Cancelar suscripción al final del período (requiere auth)
   cancel: () =>
@@ -304,8 +308,8 @@ export const subscriptionsAPI = {
     api.post('/subscriptions/customer-portal'),
 
   // Cambiar de plan (requiere auth)
-  changePlan: (newPlan: 'PREMIUM' | 'PRO') =>
-    api.post('/subscriptions/change-plan', { newPlan }),
+  changePlan: (newPlan: 'PREMIUM' | 'PRO', billingPeriod: 'monthly' | 'yearly' = 'monthly') =>
+    api.post('/subscriptions/change-plan', { newPlan, billingPeriod }),
 
   // Obtener historial de pagos (requiere auth)
   getPayments: (limit: number = 10) =>
@@ -365,6 +369,245 @@ export const notificationsAPI = {
   // Enviar notificación de prueba (solo desarrollo)
   sendTest: () =>
     api.post('/notifications/test'),
+};
+
+// Interfaces para recordatorios de pago
+export interface PaymentReminder {
+  id: string;
+  userId: string;
+  name: string;
+  type: PaymentType;
+  dueDay: number;
+  cutoffDay?: number | null;
+  amount?: number | null;
+  currency: string;
+  creditLimit?: number | null;
+  isDualCurrency: boolean;
+  creditLimitUSD?: number | null;
+  reminderDays: number[];
+  notifyOnCutoff: boolean;
+  isActive: boolean;
+  lastNotifiedAt?: string | null;
+  lastDueDate?: string | null;
+  notes?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  typeInfo?: PaymentTypeInfo;
+}
+
+export type PaymentType =
+  | 'CREDIT_CARD'
+  | 'LOAN'
+  | 'MORTGAGE'
+  | 'UTILITY'
+  | 'INSURANCE'
+  | 'SUBSCRIPTION'
+  | 'OTHER';
+
+export interface PaymentTypeInfo {
+  label: string;
+  icon: string;
+}
+
+export interface UpcomingPayment {
+  id: string;
+  name: string;
+  type: PaymentType;
+  dueDate: string;
+  daysUntilDue: number;
+  amount?: number | null;
+  currency: string;
+  typeInfo?: PaymentTypeInfo;
+}
+
+export interface ReminderStats {
+  totalReminders: number;
+  activeReminders: number;
+  totalMonthlyAmount: number;
+  upcomingThisWeek: number;
+  byType: Record<PaymentType, number>;
+}
+
+// API de recordatorios de pago
+export const remindersAPI = {
+  // Obtener tipos de pago disponibles (público)
+  getPaymentTypes: () =>
+    api.get<{ success: boolean; types: { value: PaymentType; label: string; icon: string }[] }>('/reminders/types'),
+
+  // Obtener todos los recordatorios del usuario
+  getAll: (activeOnly: boolean = true) =>
+    api.get<{ success: boolean; reminders: PaymentReminder[]; total: number }>('/reminders', {
+      params: { active: activeOnly }
+    }),
+
+  // Obtener un recordatorio por ID
+  getById: (id: string) =>
+    api.get<{ success: boolean; reminder: PaymentReminder }>(`/reminders/${id}`),
+
+  // Crear nuevo recordatorio
+  create: (data: {
+    name: string;
+    type?: PaymentType;
+    dueDay: number;
+    cutoffDay?: number;
+    amount?: number;
+    currency?: string;
+    creditLimit?: number;
+    isDualCurrency?: boolean;
+    creditLimitUSD?: number;
+    reminderDays?: number[];
+    notifyOnCutoff?: boolean;
+    notes?: string;
+  }) =>
+    api.post<{ success: boolean; message: string; reminder: PaymentReminder }>('/reminders', data),
+
+  // Actualizar recordatorio
+  update: (id: string, data: {
+    name?: string;
+    type?: PaymentType;
+    dueDay?: number;
+    cutoffDay?: number | null;
+    amount?: number | null;
+    currency?: string;
+    creditLimit?: number | null;
+    isDualCurrency?: boolean;
+    creditLimitUSD?: number | null;
+    reminderDays?: number[];
+    notifyOnCutoff?: boolean;
+    notes?: string | null;
+    isActive?: boolean;
+  }) =>
+    api.put<{ success: boolean; message: string; reminder: PaymentReminder }>(`/reminders/${id}`, data),
+
+  // Eliminar recordatorio
+  delete: (id: string) =>
+    api.delete<{ success: boolean; message: string }>(`/reminders/${id}`),
+
+  // Obtener próximos pagos
+  getUpcoming: (days: number = 30) =>
+    api.get<{ success: boolean; upcoming: UpcomingPayment[]; total: number }>('/reminders/upcoming', {
+      params: { days }
+    }),
+
+  // Obtener estadísticas
+  getStats: () =>
+    api.get<{ success: boolean; stats: ReminderStats }>('/reminders/stats'),
+
+  // Activar/desactivar recordatorio
+  toggle: (id: string, isActive: boolean) =>
+    api.patch<{ success: boolean; message: string; reminder: { id: string; name: string; isActive: boolean } }>(
+      `/reminders/${id}/toggle`,
+      { isActive }
+    ),
+};
+
+// API de Detector de Gastos Hormiga
+export const antExpenseAPI = {
+  // Obtener configuración y opciones disponibles
+  getConfig: () =>
+    api.get('/zenio/ant-expense-config'),
+
+  // Analizar gastos hormiga con parámetros configurables
+  analyze: (params?: {
+    antThreshold?: number;
+    minFrequency?: number;
+    monthsToAnalyze?: number;
+    useAI?: boolean;
+  }) =>
+    api.get('/zenio/ant-expense-analysis', { params }),
+};
+
+// Interfaces para sistema de referidos
+export interface ReferralInfo {
+  enabled: boolean;
+  benefits: {
+    referee: {
+      discount: number;
+      description: string;
+    };
+    referrer: {
+      freeMonths: number;
+      description: string;
+    };
+  };
+  terms: {
+    expiryDays: number;
+    description: string;
+  };
+}
+
+export interface ReferralCodeResponse {
+  success: boolean;
+  referralCode: string;
+  shareUrl: string;
+  discount: string;
+  reward: string;
+  message: string;
+}
+
+export interface ReferralValidation {
+  valid: boolean;
+  referrerName?: string;
+  discount?: string;
+  discountMessage?: string;
+  reason?: string;
+  message?: string;
+}
+
+export interface ReferralStats {
+  referralCode: string;
+  shareUrl: string;
+  totalReferrals: number;
+  pendingReferrals: number;
+  convertedReferrals: number;
+  rewardedReferrals: number;
+  expiredReferrals: number;
+  totalRewardsEarned: number;
+  pendingRewards: number;
+  referralsList: Array<{
+    id: string;
+    refereeName: string;
+    refereeEmail: string;
+    status: 'PENDING' | 'CONVERTED' | 'REWARDED' | 'EXPIRED' | 'CANCELLED';
+    createdAt: string;
+    convertedAt: string | null;
+  }>;
+  config: {
+    discountPercent: number;
+    freeMonths: number;
+    expiryDays: number;
+  };
+}
+
+export interface ReferralReward {
+  id: string;
+  type: 'REFERRER_FREE_MONTH' | 'REFEREE_DISCOUNT';
+  value: number;
+  description: string;
+  createdAt: string;
+}
+
+// API de sistema de referidos
+export const referralsAPI = {
+  // Obtener información del sistema de referidos (público)
+  getInfo: () =>
+    api.get<ReferralInfo>('/referrals/info'),
+
+  // Validar un código de referido (público, para pre-registro)
+  validateCode: (code: string) =>
+    api.get<ReferralValidation>(`/referrals/validate/${code}`),
+
+  // Obtener o generar código de referido del usuario (requiere auth)
+  getCode: () =>
+    api.get<ReferralCodeResponse>('/referrals/code'),
+
+  // Obtener estadísticas de referidos del usuario (requiere auth)
+  getStats: () =>
+    api.get<{ success: boolean } & ReferralStats>('/referrals/stats'),
+
+  // Obtener recompensas pendientes del usuario (requiere auth)
+  getRewards: () =>
+    api.get<{ success: boolean; pendingRewards: ReferralReward[]; totalPending: number }>('/referrals/rewards'),
 };
 
 export default api;
