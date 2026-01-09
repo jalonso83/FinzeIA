@@ -64,7 +64,8 @@ export default function RemindersScreen() {
   const remindersLimit = getRemindersLimit();
   const isLimitReached = !canCreateReminder(activeRemindersCount);
 
-  const loadData = async () => {
+  // Memoizado: Carga de datos (definido antes de useEffects que lo usan)
+  const loadData = useCallback(async () => {
     try {
       const [remindersRes, upcomingRes, statsRes] = await Promise.all([
         remindersAPI.getAll(false), // Obtener todos, activos e inactivos
@@ -83,17 +84,17 @@ export default function RemindersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Recargar datos cuando la pantalla obtiene foco
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [loadData])
   );
 
   const onRefresh = () => {

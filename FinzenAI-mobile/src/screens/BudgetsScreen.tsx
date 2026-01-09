@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -144,39 +144,8 @@ export default function BudgetsScreen() {
     return result;
   }, [budgets]);
 
-  useEffect(() => {
-    loadBudgets();
-    fetchSubscription(); // Cargar suscripción para validar límites
-  }, []);
-
-  // Listener para cambios de presupuestos desde Zenio
-  useEffect(() => {
-    if (budgetChangeTrigger > 0) {
-      loadBudgets();
-    }
-  }, [budgetChangeTrigger]);
-
-  // Listener para cambios de transacciones (actualizar spent en budgets)
-  useEffect(() => {
-    if (transactionChangeTrigger > 0) {
-      loadBudgets();
-    }
-  }, [transactionChangeTrigger]);
-
-  // Función para validar límites antes de crear presupuesto
-  const handleCreateBudget = () => {
-    // Validar límite de presupuestos
-    if (!canCreateBudget(budgets.length)) {
-      // Mostrar modal de upgrade
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    // Si puede crear, mostrar el formulario
-    setShowForm(true);
-  };
-
-  const loadBudgets = async () => {
+  // Memoizado: Carga de presupuestos (definido antes de useEffects que lo usan)
+  const loadBudgets = useCallback(async () => {
     try {
       setLoading(true);
       const response = await budgetsAPI.getAll();
@@ -185,20 +154,45 @@ export default function BudgetsScreen() {
     } catch (error: any) {
       logger.error('Error loading budgets:', error);
 
-      // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
         setErrorMessage('Por favor inicia sesión nuevamente');
       } else {
         setErrorMessage('No se pudieron cargar los presupuestos');
       }
       setShowErrorModal(true);
-
-      // Mostrar lista vacía en caso de error
       setBudgets([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadBudgets();
+    fetchSubscription();
+  }, [loadBudgets, fetchSubscription]);
+
+  // Listener para cambios de presupuestos desde Zenio
+  useEffect(() => {
+    if (budgetChangeTrigger > 0) {
+      loadBudgets();
+    }
+  }, [budgetChangeTrigger, loadBudgets]);
+
+  // Listener para cambios de transacciones (actualizar spent en budgets)
+  useEffect(() => {
+    if (transactionChangeTrigger > 0) {
+      loadBudgets();
+    }
+  }, [transactionChangeTrigger, loadBudgets]);
+
+  // Memoizado: Función para validar límites antes de crear presupuesto
+  const handleCreateBudget = useCallback(() => {
+    if (!canCreateBudget(budgets.length)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowForm(true);
+  }, [canCreateBudget, budgets.length]);
 
   // Función para eliminar presupuesto (replicando la web)
   const handleDeleteBudget = (budgetId: string, budgetName: string) => {

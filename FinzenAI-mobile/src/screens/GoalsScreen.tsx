@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -72,37 +72,11 @@ export default function GoalsScreen() {
   // Subscription store para validar límites
   const { canCreateGoal, canExportData, fetchSubscription, currentPlan } = useSubscriptionStore();
 
-  useEffect(() => {
-    loadGoals();
-    fetchSubscription(); // Cargar suscripción para validar límites
-  }, []);
-
-  // Listener para cambios de metas desde Zenio
-  useEffect(() => {
-    if (goalChangeTrigger > 0) {
-      logger.log('[GoalsScreen] Goal change detected, reloading...');
-      loadGoals();
-    }
-  }, [goalChangeTrigger]);
-
-  // Función para validar límites antes de crear meta
-  const handleCreateGoal = () => {
-    // Validar límite de metas
-    if (!canCreateGoal(goals.length)) {
-      // Mostrar modal de upgrade
-      setShowUpgradeModal(true);
-      return;
-    }
-
-    // Si puede crear, mostrar el formulario
-    setShowForm(true);
-  };
-
-  const loadGoals = async () => {
+  // Memoizado: Carga de metas
+  const loadGoals = useCallback(async () => {
     try {
       setLoading(true);
       const response = await goalsAPI.getAll();
-      // Obtener datos de la estructura correcta
       const goalsData = response.data.goals || response.data || [];
       logger.log('Goals loaded:', goalsData);
       setGoals(goalsData);
@@ -113,29 +87,56 @@ export default function GoalsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditGoal = (goal: Goal) => {
+  useEffect(() => {
+    loadGoals();
+    fetchSubscription();
+  }, [loadGoals, fetchSubscription]);
+
+  // Listener para cambios de metas desde Zenio
+  useEffect(() => {
+    if (goalChangeTrigger > 0) {
+      logger.log('[GoalsScreen] Goal change detected, reloading...');
+      loadGoals();
+    }
+  }, [goalChangeTrigger, loadGoals]);
+
+  // Memoizado: Función para validar límites antes de crear meta
+  const handleCreateGoal = useCallback(() => {
+    if (!canCreateGoal(goals.length)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowForm(true);
+  }, [canCreateGoal, goals.length]);
+
+  // Memoizado: Editar meta
+  const handleEditGoal = useCallback((goal: Goal) => {
     setEditingGoal(goal);
     setShowForm(true);
-  };
+  }, []);
 
-  const handleAddContribution = (goal: Goal) => {
+  // Memoizado: Añadir contribución
+  const handleAddContribution = useCallback((goal: Goal) => {
     setSelectedGoal(goal);
     setShowContributionForm(true);
-  };
+  }, []);
 
-  const handleContributionAdded = () => {
-    loadGoals(); // Recargar metas después de añadir contribución
-    onGoalChange(); // Notificar al dashboard
-  };
+  // Memoizado: Callback cuando se añade contribución
+  const handleContributionAdded = useCallback(() => {
+    loadGoals();
+    onGoalChange();
+  }, [loadGoals, onGoalChange]);
 
-  const handleDeleteGoal = (goal: Goal) => {
+  // Memoizado: Handler para iniciar eliminación
+  const handleDeleteGoal = useCallback((goal: Goal) => {
     setGoalToDelete(goal);
     setShowDeleteConfirmModal(true);
-  };
+  }, []);
 
-  const confirmDeleteGoal = async () => {
+  // Memoizado: Confirmar eliminación
+  const confirmDeleteGoal = useCallback(async () => {
     if (!goalToDelete) return;
 
     try {
@@ -153,12 +154,23 @@ export default function GoalsScreen() {
       setErrorMessage('No se pudo eliminar la meta');
       setShowErrorModal(true);
     }
-  };
+  }, [goalToDelete, loadGoals, onGoalChange]);
 
-  // Calcular totales como en la web
-  const totalTarget = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-  const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-  const totalToSave = totalTarget - totalSaved;
+  // Memoizado: Calcular totales (operación costosa con muchas metas)
+  const { totalTarget, totalSaved, totalToSave } = useMemo(() => {
+    const target = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
+    const saved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+    return {
+      totalTarget: target,
+      totalSaved: saved,
+      totalToSave: target - saved
+    };
+  }, [goals]);
+
+  // Memoizado: Filtrar metas activas (evita doble filtrado en render)
+  const activeGoals = useMemo(() => {
+    return goals.filter(goal => !goal.isCompleted);
+  }, [goals]);
 
   // Usar hook global para formateo de moneda
   const { formatCurrency } = useCurrency();
@@ -201,15 +213,17 @@ export default function GoalsScreen() {
     });
   };
 
-  const handleExportPress = () => {
+  // Memoizado: Mostrar opciones de exportación
+  const handleExportPress = useCallback(() => {
     if (!canExportData()) {
       setShowExportUpgradeModal(true);
       return;
     }
     setShowExportOptions(true);
-  };
+  }, [canExportData]);
 
-  const handleExport = async (format: ExportFormat) => {
+  // Memoizado: Función de exportación
+  const handleExport = useCallback(async (format: ExportFormat) => {
     setShowExportOptions(false);
     setIsExporting(true);
 
@@ -305,7 +319,7 @@ export default function GoalsScreen() {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [goals, totalTarget, totalSaved, totalToSave, formatCurrency]);
 
   if (loading) {
     return (
@@ -428,7 +442,7 @@ export default function GoalsScreen() {
           </View>
         )}
 
-        {goals.filter(g => !g.isCompleted).length === 0 ? (
+        {activeGoals.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="trophy-outline" size={64} color="#9CA3AF" />
             <Text style={styles.emptyTitle}>No hay metas activas</Text>
@@ -438,9 +452,7 @@ export default function GoalsScreen() {
           </View>
         ) : (
           <View style={styles.goalsList}>
-            {goals
-              .filter(goal => !goal.isCompleted)
-              .map((goal) => {
+            {activeGoals.map((goal) => {
               const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
               const progressColor = getProgressColor(progress);
               const remaining = goal.targetAmount - goal.currentAmount;

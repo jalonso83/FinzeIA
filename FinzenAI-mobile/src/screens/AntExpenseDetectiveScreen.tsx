@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -50,23 +50,8 @@ export default function AntExpenseDetectiveScreen() {
   // Upgrade modal for premium features
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  // Debounce para los sliders
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setTempConfig({
-        antThreshold: tempThreshold,
-        minFrequency: tempFrequency,
-        monthsToAnalyze: tempMonths,
-      });
-    }, 150);
-    return () => clearTimeout(timeoutId);
-  }, [tempThreshold, tempFrequency, tempMonths]);
-
-  const loadInitialData = async () => {
+  // Memoizado: Carga inicial de datos (definido antes de useEffects que lo usan)
+  const loadInitialData = useCallback(async () => {
     try {
       setConfigLoading(true);
       const configResponse = await antExpenseAPI.getConfig();
@@ -89,7 +74,23 @@ export default function AntExpenseDetectiveScreen() {
     } finally {
       setConfigLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Debounce para los sliders
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setTempConfig({
+        antThreshold: tempThreshold,
+        minFrequency: tempFrequency,
+        monthsToAnalyze: tempMonths,
+      });
+    }, 150);
+    return () => clearTimeout(timeoutId);
+  }, [tempThreshold, tempFrequency, tempMonths]);
 
   const loadAntExpenseAnalysis = async (customConfig?: AntExpenseConfig) => {
     try {
