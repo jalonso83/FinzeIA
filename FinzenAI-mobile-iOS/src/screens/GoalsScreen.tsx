@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -72,22 +72,11 @@ export default function GoalsScreen() {
   // Subscription store para validar límites
   const { canCreateGoal, canExportData, fetchSubscription, currentPlan } = useSubscriptionStore();
 
-  useEffect(() => {
-    loadGoals();
-  }, []);
-
-  // Listener para cambios de metas desde Zenio
-  useEffect(() => {
-    if (goalChangeTrigger > 0) {
-      loadGoals();
-    }
-  }, [goalChangeTrigger]);
-
-  const loadGoals = async () => {
+  // Memoizado: Carga de metas
+  const loadGoals = useCallback(async () => {
     try {
       setLoading(true);
       const response = await goalsAPI.getAll();
-      // Obtener datos de la estructura correcta
       const goalsData = response.data.goals || response.data || [];
       setGoals(goalsData);
     } catch (error) {
@@ -97,52 +86,60 @@ export default function GoalsScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
-  const handleEditGoal = (goal: Goal) => {
+  useEffect(() => {
+    loadGoals();
+  }, [loadGoals]);
+
+  // Listener para cambios de metas desde Zenio
+  useEffect(() => {
+    if (goalChangeTrigger > 0) {
+      loadGoals();
+    }
+  }, [goalChangeTrigger, loadGoals]);
+
+  // Memoizado: Editar meta
+  const handleEditGoal = useCallback((goal: Goal) => {
     setEditingGoal(goal);
     setShowForm(true);
-  };
+  }, []);
 
-  const handleAddContribution = (goal: Goal) => {
+  // Memoizado: Añadir contribución
+  const handleAddContribution = useCallback((goal: Goal) => {
     setSelectedGoal(goal);
     setShowContributionForm(true);
-  };
+  }, []);
 
-  const handleContributionAdded = (message: string) => {
-    // 1. CERRAR FORMULARIO PRIMERO
+  // Memoizado: Callback cuando se añade contribución
+  const handleContributionAdded = useCallback((message: string) => {
     setShowContributionForm(false);
     setSelectedGoal(null);
-
-    // 2. Recargar datos
     loadGoals();
     onGoalChange();
-
-    // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
     setSuccessMessage(message);
     setShowSuccessModal(true);
-  };
+  }, [loadGoals, onGoalChange]);
 
-  const handleDeleteGoal = (goal: Goal) => {
+  // Memoizado: Handler para iniciar eliminación
+  const handleDeleteGoal = useCallback((goal: Goal) => {
     setGoalToDelete(goal);
     setShowDeleteConfirmModal(true);
-  };
+  }, []);
 
-  const confirmDeleteGoal = async () => {
+  // Memoizado: Confirmar eliminación
+  const confirmDeleteGoal = useCallback(async () => {
     if (!goalToDelete) return;
 
     try {
       await goalsAPI.delete(goalToDelete.id);
 
-      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
 
-      // Recargar datos
       loadGoals();
       onGoalChange();
 
-      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
       setTimeout(() => {
         setSuccessMessage('Meta eliminada correctamente');
         setShowSuccessModal(true);
@@ -157,12 +154,23 @@ export default function GoalsScreen() {
         setShowErrorModal(true);
       }, 300);
     }
-  };
+  }, [goalToDelete, loadGoals, onGoalChange]);
 
-  // Calcular totales como en la web
-  const totalTarget = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
-  const totalSaved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
-  const totalToSave = totalTarget - totalSaved;
+  // Memoizado: Calcular totales (operación costosa con muchas metas)
+  const { totalTarget, totalSaved, totalToSave } = useMemo(() => {
+    const target = goals.reduce((sum, goal) => sum + goal.targetAmount, 0);
+    const saved = goals.reduce((sum, goal) => sum + goal.currentAmount, 0);
+    return {
+      totalTarget: target,
+      totalSaved: saved,
+      totalToSave: target - saved
+    };
+  }, [goals]);
+
+  // Memoizado: Filtrar metas activas (evita doble filtrado en render)
+  const activeGoals = useMemo(() => {
+    return goals.filter(goal => !goal.isCompleted);
+  }, [goals]);
 
   // Usar hook global para formateo de moneda
   const { formatCurrency } = useCurrency();
@@ -205,15 +213,17 @@ export default function GoalsScreen() {
     });
   };
 
-  const handleExportPress = () => {
+  // Memoizado: Mostrar opciones de exportación
+  const handleExportPress = useCallback(() => {
     if (!canExportData()) {
       setShowExportUpgradeModal(true);
       return;
     }
     setShowExportOptions(true);
-  };
+  }, [canExportData]);
 
-  const handleExport = async (format: ExportFormat) => {
+  // Memoizado: Función de exportación
+  const handleExport = useCallback(async (format: ExportFormat) => {
     setShowExportOptions(false);
     setIsExporting(true);
 
@@ -309,7 +319,7 @@ export default function GoalsScreen() {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [goals, totalTarget, totalSaved, totalToSave, formatCurrency]);
 
   if (loading) {
     return (

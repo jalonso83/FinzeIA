@@ -64,7 +64,8 @@ export default function RemindersScreen() {
   const remindersLimit = getRemindersLimit();
   const isLimitReached = !canCreateReminder(activeRemindersCount);
 
-  const loadData = async () => {
+  // Memoizado: Carga de datos (definido antes de useEffects que lo usan)
+  const loadData = useCallback(async () => {
     try {
       const [remindersRes, upcomingRes, statsRes] = await Promise.all([
         remindersAPI.getAll(false), // Obtener todos, activos e inactivos
@@ -83,17 +84,17 @@ export default function RemindersScreen() {
       setLoading(false);
       setRefreshing(false);
     }
-  };
+  }, []);
 
   useEffect(() => {
     loadData();
-  }, []);
+  }, [loadData]);
 
   // Recargar datos cuando la pantalla obtiene foco
   useFocusEffect(
     useCallback(() => {
       loadData();
-    }, [])
+    }, [loadData])
   );
 
   const onRefresh = () => {
@@ -105,7 +106,6 @@ export default function RemindersScreen() {
   const isModalVisible = showErrorModal || showSuccessModal || showDeleteConfirmModal || showUpgradeModal;
 
   const handleAddReminder = () => {
-    // No navegar si hay modales visibles (prevenir conflictos en iOS)
     if (isModalVisible) return;
 
     // Verificar límite de plan
@@ -118,19 +118,16 @@ export default function RemindersScreen() {
   };
 
   const handleEditReminder = (reminder: PaymentReminder) => {
-    // No navegar si hay modales visibles (prevenir conflictos en iOS)
     if (isModalVisible) return;
     navigation.navigate('AddReminder', { reminder });
   };
 
   const handleGoBack = () => {
-    // No navegar si hay modales visibles (prevenir conflictos en iOS)
     if (isModalVisible) return;
     navigation.goBack();
   };
 
   const handleDeleteReminder = (reminder: PaymentReminder) => {
-    // No abrir modal si ya hay uno visible (prevenir modales anidados en iOS)
     if (showErrorModal || showSuccessModal) return;
     setReminderToDelete(reminder);
     setShowDeleteConfirmModal(true);

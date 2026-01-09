@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -32,11 +32,8 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
   // Subscription check for budget alerts
   const { hasBudgetAlerts } = useSubscriptionStore();
 
-  useEffect(() => {
-    loadData();
-  }, []);
-
-  const loadData = async () => {
+  // Memoizado: Carga de datos (definido antes de useEffects que lo usan)
+  const loadData = useCallback(async () => {
     setLoading(true);
     try {
       // Verificar estado de notificaciones
@@ -69,7 +66,11 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleToggle = async (key: keyof NotificationPreferences, value: boolean) => {
     if (!preferences) return;

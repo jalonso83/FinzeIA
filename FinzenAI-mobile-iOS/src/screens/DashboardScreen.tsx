@@ -1,7 +1,7 @@
 // Dashboard Screen - Pantalla principal móvil
 // Reutilizará la lógica del Dashboard web adaptada para móvil
 
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { View, Text, StyleSheet, ScrollView, ActivityIndicator, Alert, TouchableOpacity, AppState, Modal } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -70,63 +70,15 @@ export default function DashboardScreen() {
   const { formatCurrency } = useCurrency();
 
   // Hook para suscripción
-  const { subscription, fetchSubscription, getZenioUsage } = useSubscriptionStore();
-  const zenioUsage = getZenioUsage();
+  const { subscription, fetchSubscription } = useSubscriptionStore();
 
-  useEffect(() => {
-    loadDashboardData();
-    fetchSubscription(); // Cargar suscripción
-  }, []);
-
-  // La UI se actualiza automáticamente con los componentes reactivos
-  // NO llamamos loadDashboardData aquí porque causa loop infinito
-
-  // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
-  useEffect(() => {
-    if (refreshTrigger > 0) {
-      loadDashboardData();
-    }
-  }, [refreshTrigger]);
-
-  // Recargar dashboard automáticamente al cambiar de día/mes
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        const currentDate = new Date().toDateString();
-        
-        // Verificar si cambió el día/mes desde la última vez
-        if (lastDateRef.current !== currentDate) {
-          lastDateRef.current = currentDate;
-          loadDashboardData();
-        }
-      }
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
-    // También verificar cada 4 horas si la app está activa
-    const interval = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        const currentDate = new Date().toDateString();
-        if (lastDateRef.current !== currentDate) {
-          lastDateRef.current = currentDate;
-          loadDashboardData();
-        }
-      }
-    }, 4 * 60 * 60 * 1000); // 4 horas
-
-    return () => {
-      subscription?.remove();
-      clearInterval(interval);
-    };
-  }, []);
-
-  const loadDashboardData = async () => {
+  // Memoizado: Carga de datos del dashboard (definido antes de useEffects que lo usan)
+  const loadDashboardData = useCallback(async () => {
     let gamificationResponse: any, streakResponse: any, transactionsResponse: any, budgetsResponse: any, goalsResponse: any, categoriesResponse: any;
-    
+
     try {
       setLoading(true);
-      
+
       // Cargar datos paralelos para mejor rendimiento
       [
         gamificationResponse,
@@ -154,10 +106,12 @@ export default function DashboardScreen() {
 
       if (gamificationResponse.status === 'fulfilled') {
         const response = gamificationResponse.value.data;
+        logger.log('Gamification response:', response);
 
         // El endpoint /gamification/finscore devuelve { success: true, data: {...} }
         if (response.success && response.data) {
           const data = response.data;
+          logger.log('Gamification data extracted:', data);
           gamificationData = {
             finScore: data.currentScore || 0,
             level: data.level || 1,
@@ -177,10 +131,12 @@ export default function DashboardScreen() {
 
       if (streakResponse.status === 'fulfilled') {
         const response = streakResponse.value.data;
+        logger.log('Streak response:', response);
 
         // Verificar si viene en formato { success: true, data: {...} } o directo
         if (response.success && response.data) {
           const data = response.data;
+          logger.log('Streak data (from wrapper):', data);
           streakData = {
             currentStreak: data.currentStreak || 0,
             longestStreak: data.longestStreak || 0,
@@ -189,6 +145,7 @@ export default function DashboardScreen() {
           };
         } else if (response.currentStreak !== undefined) {
           // Los datos vienen directos sin wrapper
+          logger.log('Streak data (direct):', response);
           streakData = {
             currentStreak: response.currentStreak || 0,
             longestStreak: response.longestStreak || 0,
@@ -217,15 +174,15 @@ export default function DashboardScreen() {
             allExpenses += transaction.amount;
           }
         });
-        
+
         // Calcular totales del mes actual para mostrar desglose
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
-        
+
         transactions.forEach((transaction: any) => {
           // Crear fecha segura para evitar problemas de zona horaria
-          const transactionDate = transaction.date.includes('T') 
-            ? new Date(transaction.date) 
+          const transactionDate = transaction.date.includes('T')
+            ? new Date(transaction.date)
             : new Date(transaction.date + 'T12:00:00');
           if (transactionDate.getMonth() === currentMonth && transactionDate.getFullYear() === currentYear) {
             monthlyTransactions++; // Contar transacciones del mes actual
@@ -236,7 +193,7 @@ export default function DashboardScreen() {
             }
           }
         });
-        
+
         // BALANCE TOTAL = TODOS LOS INGRESOS - TODOS LOS GASTOS (como en la web)
         totalBalance = allIncome - allExpenses;
       }
@@ -248,22 +205,22 @@ export default function DashboardScreen() {
       let cumulativeBalance = 0;
       let previousMonthsIncome = 0;
       let previousMonthsExpenses = 0;
-      
+
       if (transactionsResponse.status === 'fulfilled') {
         const transactions = transactionsResponse.value.data.transactions || transactionsResponse.value.data || [];
-        
+
         // Calcular el balance acumulado hasta el mes actual
         const currentMonth = new Date().getMonth();
         const currentYear = new Date().getFullYear();
-        
+
         transactions.forEach((transaction: any) => {
           // Crear fecha segura para evitar problemas de zona horaria
-          const transactionDate = transaction.date.includes('T') 
-            ? new Date(transaction.date) 
+          const transactionDate = transaction.date.includes('T')
+            ? new Date(transaction.date)
             : new Date(transaction.date + 'T12:00:00');
           const transactionMonth = transactionDate.getMonth();
           const transactionYear = transactionDate.getFullYear();
-          
+
           // Solo incluir transacciones hasta el mes actual (incluyendo meses anteriores)
           if (transactionYear < currentYear || (transactionYear === currentYear && transactionMonth <= currentMonth)) {
             if (transaction.type === 'INCOME') {
@@ -280,7 +237,7 @@ export default function DashboardScreen() {
           }
         });
       }
-      
+
       const previousMonthsBalance = previousMonthsIncome - previousMonthsExpenses;
 
       // Procesar presupuestos activos
@@ -289,14 +246,14 @@ export default function DashboardScreen() {
       let totalBudget = 0;
       let totalSpent = 0;
       let remainingBudget = 0;
-      
+
       if (budgetsResponse.status === 'fulfilled') {
         budgets = budgetsResponse.value.data.budgets || budgetsResponse.value.data || [];
 
         // Filtrar presupuestos activos (como en la web)
         const activeBudgetsList = budgets.filter((budget: any) => budget.is_active);
         activeBudgets = activeBudgetsList.length;
-        
+
         // Calcular totales (como en la web)
         totalBudget = activeBudgetsList.reduce((sum, b) => sum + (b.amount || 0), 0);
         totalSpent = activeBudgetsList.reduce((sum, b) => sum + (b.spent || 0), 0);
@@ -309,15 +266,14 @@ export default function DashboardScreen() {
       let totalGoalTarget = 0;
       let totalGoalSaved = 0;
       let totalGoalRemaining = 0;
-      
+
       if (goalsResponse.status === 'fulfilled') {
-        // Usar la misma extracción que la web: goalsRes.data || []
         goals = goalsResponse.value.data || [];
-        // Filtrar metas que NO están completadas (como en la web línea 225)
+        // Filtrar metas que NO están completadas (como en la web)
         const activeGoalsList = goals.filter((goal: any) => !goal.isCompleted);
         activeGoals = activeGoalsList.length;
 
-        // Calcular totales como en la web (usando los mismos campos que la web)
+        // Calcular totales como en la web
         totalGoalTarget = activeGoalsList.reduce((sum, g) => sum + (g.targetAmount || g.target_amount || 0), 0);
         totalGoalSaved = activeGoalsList.reduce((sum, g) => sum + (g.currentAmount || g.current_amount || 0), 0);
         totalGoalRemaining = totalGoalTarget - totalGoalSaved;
@@ -330,7 +286,7 @@ export default function DashboardScreen() {
       }
 
       // Obtener transacciones para el gráfico
-      const transactions = transactionsResponse.status === 'fulfilled' 
+      const transactions = transactionsResponse.status === 'fulfilled'
         ? (transactionsResponse.value.data.transactions || transactionsResponse.value.data || [])
         : [];
 
@@ -385,16 +341,16 @@ export default function DashboardScreen() {
         status: error.response?.status,
         url: error.config?.url
       });
-      
+
       // Mostrar errores específicos por endpoint
       logger.log('Response statuses:', {
         gamification: gamificationResponse?.status,
-        streak: streakResponse?.status, 
+        streak: streakResponse?.status,
         transactions: transactionsResponse?.status,
         budgets: budgetsResponse?.status,
         goals: goalsResponse?.status
       });
-      
+
       // En caso de error, usar datos por defecto
       const fallbackData: DashboardData = {
         totalBalance: 0,
@@ -427,9 +383,9 @@ export default function DashboardScreen() {
         totalGoalSaved: 0,
         totalGoalRemaining: 0,
       };
-      
+
       setDashboardData(fallbackData);
-      
+
       if (error.response?.status === 401) {
         Alert.alert('Sesión Expirada', 'Por favor inicia sesión nuevamente');
       } else {
@@ -438,8 +394,68 @@ export default function DashboardScreen() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
+  useEffect(() => {
+    loadDashboardData();
+    fetchSubscription(); // Cargar suscripción
+  }, [loadDashboardData, fetchSubscription]);
+
+  // Log cuando subscription cambia (NO refrescar aquí para evitar loop)
+  useEffect(() => {
+    logger.log('Dashboard - Subscription state changed:', subscription);
+    // La UI se actualiza automáticamente con los componentes reactivos
+    // NO llamamos loadDashboardData aquí porque causa loop infinito
+  }, [subscription]);
+
+  // Recargar dashboard cuando hay cambios en transacciones, presupuestos o metas
+  useEffect(() => {
+    if (refreshTrigger > 0) {
+      logger.log('Dashboard: Recargando datos debido a cambios...');
+      loadDashboardData();
+    }
+  }, [refreshTrigger, loadDashboardData]);
+
+  // Recargar dashboard automáticamente al cambiar de día/mes
+  useEffect(() => {
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') {
+        const currentDate = new Date().toDateString();
+
+        // Verificar si cambió el día/mes desde la última vez
+        if (lastDateRef.current !== currentDate) {
+          logger.log('Dashboard: Fecha cambió mientras la app estaba en background, recargando datos...', {
+            from: lastDateRef.current,
+            to: currentDate
+          });
+          lastDateRef.current = currentDate;
+          loadDashboardData();
+        }
+      }
+    };
+
+    const subscription = AppState.addEventListener('change', handleAppStateChange);
+
+    // También verificar cada 4 horas si la app está activa
+    const interval = setInterval(() => {
+      if (AppState.currentState === 'active') {
+        const currentDate = new Date().toDateString();
+        if (lastDateRef.current !== currentDate) {
+          logger.log('Dashboard: Fecha cambió, recargando datos por intervalo...', {
+            from: lastDateRef.current,
+            to: currentDate
+          });
+          lastDateRef.current = currentDate;
+          loadDashboardData();
+        }
+      }
+    }, 4 * 60 * 60 * 1000); // 4 horas
+
+    return () => {
+      subscription?.remove();
+      clearInterval(interval);
+    };
+  }, [loadDashboardData]);
 
   if (loading) {
     return (
@@ -466,8 +482,6 @@ export default function DashboardScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Header - removido porque ya está en la navegación */}
-
         {/* Plan Badge - Siempre visible */}
         <TouchableOpacity
           style={styles.planBadge}
@@ -478,7 +492,7 @@ export default function DashboardScreen() {
             {!subscription || subscription.plan === 'FREE' ? '🆓' : subscription.plan === 'PREMIUM' ? '👑' : '💎'}
           </Text>
           <Text style={styles.planBadgeText}>
-            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan === 'PREMIUM' ? 'Plan Premium' : 'Plan Pro'}
+            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan}
           </Text>
           <Ionicons name="chevron-forward" size={16} color="#6B7280" />
         </TouchableOpacity>
@@ -502,24 +516,22 @@ export default function DashboardScreen() {
             <View style={styles.limitsCompactRow}>
               {/* Budgets */}
               <View style={styles.limitCompactItem}>
-                <Ionicons name="wallet" size={16} color="#6B7280" />
+                <Ionicons name="wallet" size={18} color="#6B7280" />
                 <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/3</Text>
+                <Text style={styles.limitCompactPercentage}>
+                  {Math.round((dashboardData.activeBudgets / 3) * 100)}%
+                </Text>
               </View>
 
               <View style={styles.limitDivider} />
 
               {/* Goals */}
               <View style={styles.limitCompactItem}>
-                <Ionicons name="trophy" size={16} color="#6B7280" />
+                <Ionicons name="trophy" size={18} color="#6B7280" />
                 <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/2</Text>
-              </View>
-
-              <View style={styles.limitDivider} />
-
-              {/* Zenio */}
-              <View style={styles.limitCompactItem}>
-                <Ionicons name="chatbubble-ellipses" size={16} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{zenioUsage.used}/{zenioUsage.limit}</Text>
+                <Text style={styles.limitCompactPercentage}>
+                  {Math.round((dashboardData.activeGoals / 2) * 100)}%
+                </Text>
               </View>
             </View>
           </View>
@@ -1134,7 +1146,7 @@ export default function DashboardScreen() {
         <SubscriptionsScreen
           onClose={async () => {
             setShowSubscriptions(false);
-            // Refrescar suscripción cuando se cierra el modal
+            // Refrescar suscripción cuando se cierra desde el botón
             await fetchSubscription();
           }}
         />
@@ -1152,8 +1164,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 8,
+    padding: 20,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -1877,7 +1888,7 @@ const styles = StyleSheet.create({
     color: '#d97706',
     fontWeight: '500',
   },
-  // Estilos para Plan Badge y Limits Card
+  // Estilos para Plan Badge
   planBadge: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1901,6 +1912,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#1F2937',
   },
+  // Estilos para Limits Card - Versión Compacta
   limitsCard: {
     backgroundColor: 'white',
     borderRadius: 12,

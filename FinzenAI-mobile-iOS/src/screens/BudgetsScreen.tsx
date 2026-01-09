@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -38,7 +38,7 @@ export default function BudgetsScreen() {
   const [successMessage, setSuccessMessage] = useState('');
 
   // Dashboard store para notificar cambios
-  const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger } = useDashboardStore();
+  const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger} = useDashboardStore();
 
   // Subscription store para validar límites y exportación
   const { canCreateBudget, canExportData, fetchSubscription } = useSubscriptionStore();
@@ -130,7 +130,7 @@ export default function BudgetsScreen() {
       })
       .filter(alert => alert !== null);
 
-    return {
+    const result = {
       totalBudget,
       monthlyExpenses,
       remaining,
@@ -140,53 +140,59 @@ export default function BudgetsScreen() {
       controlIcon,
       projectionAlerts
     };
+
+    return result;
   }, [budgets]);
 
-  useEffect(() => {
-    loadBudgets();
-  }, []);
-
-  // Listener para cambios de presupuestos desde Zenio
-  useEffect(() => {
-    if (budgetChangeTrigger > 0) {
-      loadBudgets();
-    }
-  }, [budgetChangeTrigger]);
-
-  // Listener para cambios de transacciones (actualizar spent en budgets)
-  useEffect(() => {
-    if (transactionChangeTrigger > 0) {
-      loadBudgets();
-    }
-  }, [transactionChangeTrigger]);
-
-  const loadBudgets = async () => {
+  // Memoizado: Carga de presupuestos (definido antes de useEffects que lo usan)
+  const loadBudgets = useCallback(async () => {
     try {
       setLoading(true);
-      // Obtener TODOS los presupuestos (activos e inactivos)
       const response = await budgetsAPI.getAll();
-
       const budgetsData = response.data.budgets || response.data || [];
-
-      // Usar la estructura correcta de la API
       setBudgets(budgetsData);
     } catch (error: any) {
       logger.error('Error loading budgets:', error);
 
-      // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
         setErrorMessage('Por favor inicia sesión nuevamente');
       } else {
         setErrorMessage('No se pudieron cargar los presupuestos');
       }
       setShowErrorModal(true);
-
-      // Mostrar lista vacía en caso de error
       setBudgets([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadBudgets();
+    fetchSubscription();
+  }, [loadBudgets, fetchSubscription]);
+
+  // Listener para cambios de presupuestos desde Zenio
+  useEffect(() => {
+    if (budgetChangeTrigger > 0) {
+      loadBudgets();
+    }
+  }, [budgetChangeTrigger, loadBudgets]);
+
+  // Listener para cambios de transacciones (actualizar spent en budgets)
+  useEffect(() => {
+    if (transactionChangeTrigger > 0) {
+      loadBudgets();
+    }
+  }, [transactionChangeTrigger, loadBudgets]);
+
+  // Memoizado: Función para validar límites antes de crear presupuesto
+  const handleCreateBudget = useCallback(() => {
+    if (!canCreateBudget(budgets.length)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowForm(true);
+  }, [canCreateBudget, budgets.length]);
 
   // Función para eliminar presupuesto (replicando la web)
   const handleDeleteBudget = (budgetId: string, budgetName: string) => {
@@ -199,29 +205,18 @@ export default function BudgetsScreen() {
 
     try {
       await budgetsAPI.delete(budgetToDelete.id);
-
-      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setBudgetToDelete(null);
-
-      // Recargar datos
       loadBudgets();
       onBudgetChange(); // Notificar al dashboard
-
-      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
-      setTimeout(() => {
-        setSuccessMessage('Presupuesto eliminado correctamente');
-        setShowSuccessModal(true);
-      }, 300);
+      setSuccessMessage('Presupuesto eliminado correctamente');
+      setShowSuccessModal(true);
     } catch (error) {
       logger.error('Error deleting budget:', error);
       setShowDeleteConfirmModal(false);
       setBudgetToDelete(null);
-
-      setTimeout(() => {
-        setErrorMessage('No se pudo eliminar el presupuesto');
-        setShowErrorModal(true);
-      }, 300);
+      setErrorMessage('No se pudo eliminar el presupuesto');
+      setShowErrorModal(true);
     }
   };
 
@@ -420,15 +415,7 @@ export default function BudgetsScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addButton}
-            onPress={() => {
-              // Validar límite de presupuestos
-              if (!canCreateBudget(budgets.length)) {
-                // Mostrar modal de upgrade
-                setShowUpgradeModal(true);
-                return;
-              }
-              setShowForm(true);
-            }}
+            onPress={handleCreateBudget}
           >
             <Ionicons name="add" size={24} color="white" />
           </TouchableOpacity>
@@ -475,16 +462,18 @@ export default function BudgetsScreen() {
           </Text>
         </View>
 
-        {budgets.length === 0 ? (
+        {budgets.filter(b => b.is_active).length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="wallet-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No hay presupuestos</Text>
+            <Text style={styles.emptyTitle}>No hay presupuestos activos</Text>
             <Text style={styles.emptySubtitle}>
               Crea tu primer presupuesto para controlar tus gastos
             </Text>
           </View>
         ) : (
-          budgets.map((budget) => {
+          budgets
+            .filter(budget => budget.is_active)
+            .map((budget) => {
             const progress = calculateProgress(budget.spent, budget.amount);
             const progressColor = getProgressColor(progress);
             const remaining = budget.amount - budget.spent;
@@ -589,17 +578,16 @@ export default function BudgetsScreen() {
           setEditingBudget(null);
         }}
         onSuccess={(message: string) => {
-          // CERRAR FORMULARIO
-          setShowForm(false);
+          loadBudgets();
+          // Notificar al dashboard que hubo cambios
+          onBudgetChange();
           setEditingBudget(null);
 
-          // Recargar datos
-          loadBudgets();
-          onBudgetChange();
-
-          // Mostrar modal de éxito
+          // Mostrar modal de éxito en el Screen (NO anidado)
           setSuccessMessage(message);
           setShowSuccessModal(true);
+
+          // NO cerrar el formulario - se queda abierto y reseteado
         }}
         editBudget={editingBudget}
       />

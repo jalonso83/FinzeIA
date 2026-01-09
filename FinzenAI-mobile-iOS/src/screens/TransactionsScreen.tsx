@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   View,
   Text,
@@ -84,47 +84,44 @@ export default function TransactionsScreen() {
     return displayDate;
   };
 
-  useEffect(() => {
-    loadTransactions();
-  }, []);
-
-  // Refresh cuando Zenio crea/modifica transacciones
-  useEffect(() => {
-    if (transactionChangeTrigger > 0) {
-      loadTransactions();
-    }
-  }, [transactionChangeTrigger]);
-
-  // Filtrar transacciones cuando cambien los filtros
-  useEffect(() => {
-    applyFilters();
-  }, [transactions, filterType, startDate, endDate]);
-
-  const loadTransactions = async () => {
+  // Memoizado: Carga de transacciones
+  const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
-      const response = await transactionsAPI.getAll({ limit: 5000 }); // Cargar todas las transacciones como la web
+      const response = await transactionsAPI.getAll({ limit: 5000 });
 
-      // El backend puede devolver { data: [...] } o directamente [...]
       const transactionsData = response.data.transactions || response.data || [];
       setTransactions(Array.isArray(transactionsData) ? transactionsData : []);
     } catch (error: any) {
       logger.error('Error loading transactions:', error);
 
-      // Si es error de autenticación, mostrar mensaje específico
       if (error.response?.status === 401) {
         setErrorMessage('Por favor inicia sesión nuevamente');
       } else {
         setErrorMessage('No se pudieron cargar las transacciones');
       }
       setShowErrorModal(true);
-
-      // Mostrar lista vacía en caso de error
       setTransactions([]);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadTransactions();
+  }, [loadTransactions]);
+
+  // Refresh cuando Zenio crea/modifica transacciones
+  useEffect(() => {
+    if (transactionChangeTrigger > 0) {
+      loadTransactions();
+    }
+  }, [transactionChangeTrigger, loadTransactions]);
+
+  // Filtrar transacciones cuando cambien los filtros
+  useEffect(() => {
+    applyFilters();
+  }, [transactions, filterType, startDate, endDate]);
 
   const applyFilters = () => {
     let filtered = [...transactions];
@@ -152,11 +149,12 @@ export default function TransactionsScreen() {
     setFilteredTransactions(filtered);
   };
 
-  const clearFilters = () => {
+  // Memoizado: Limpiar filtros
+  const clearFilters = useCallback(() => {
     setFilterType('all');
     setStartDate('');
     setEndDate('');
-  };
+  }, []);
 
   const formatDateForSummary = (dateString: string) => {
     // Usar la función createSafeDate para consistencia
@@ -197,28 +195,25 @@ export default function TransactionsScreen() {
     return type === 'INCOME' ? `+${formattedAmount}` : `-${formattedAmount}`;
   };
 
-  const handleDeleteTransaction = (transaction: Transaction) => {
+  // Memoizado: Handler para iniciar eliminación
+  const handleDeleteTransaction = useCallback((transaction: Transaction) => {
     setTransactionToDelete(transaction);
     setShowDeleteConfirmModal(true);
-  };
+  }, []);
 
-  const confirmDeleteTransaction = async () => {
+  // Memoizado: Confirmar eliminación
+  const confirmDeleteTransaction = useCallback(async () => {
     if (!transactionToDelete) return;
 
     try {
       await transactionsAPI.delete(transactionToDelete.id);
 
-      // Cerrar modal de confirmación primero
       setShowDeleteConfirmModal(false);
       setTransactionToDelete(null);
 
-      // Recargar transacciones después de eliminar
       await loadTransactions();
-
-      // Actualizar dashboard
       onTransactionChange();
 
-      // Pequeño delay antes de mostrar modal de éxito para evitar conflicto de modales
       setTimeout(() => {
         setSuccessMessage('Transacción eliminada correctamente');
         setShowSuccessModal(true);
@@ -233,7 +228,7 @@ export default function TransactionsScreen() {
         setShowErrorModal(true);
       }, 300);
     }
-  };
+  }, [transactionToDelete, loadTransactions, onTransactionChange]);
 
   // Función para crear fecha sin problemas de zona horaria
   const createSafeDate = (dateString: string) => {
@@ -281,28 +276,31 @@ export default function TransactionsScreen() {
     }
   };
 
-  const groupTransactionsByDate = (transactions: Transaction[]) => {
+  // Memoizado: Agrupa transacciones por fecha (operación costosa)
+  const groupedTransactions = useMemo(() => {
+    if (filteredTransactions.length === 0) return [];
+
     const grouped: Record<string, Transaction[]> = {};
-    
-    transactions.forEach(transaction => {
+
+    filteredTransactions.forEach(transaction => {
       const date = createSafeDate(transaction.date);
       const dateKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-      
+
       if (!grouped[dateKey]) {
         grouped[dateKey] = [];
       }
       grouped[dateKey].push(transaction);
     });
-    
+
     // Ordenar las fechas de más reciente a más antigua
     const sortedDates = Object.keys(grouped).sort((a, b) => new Date(b + 'T12:00:00').getTime() - new Date(a + 'T12:00:00').getTime());
-    
+
     return sortedDates.map(dateKey => ({
       date: dateKey,
       dateHeader: formatDateHeader(dateKey),
       transactions: grouped[dateKey].sort((a, b) => createSafeDate(b.date).getTime() - createSafeDate(a.date).getTime())
     }));
-  };
+  }, [filteredTransactions, userCountry]); // userCountry afecta formatDateHeader
 
   // Función para obtener el período del reporte
   const getReportPeriod = (): string => {
@@ -319,8 +317,8 @@ export default function TransactionsScreen() {
     return 'Todas las transacciones';
   };
 
-  // Función para manejar exportación
-  const handleExport = async (format: ExportFormat) => {
+  // Memoizado: Función para manejar exportación
+  const handleExport = useCallback(async (format: ExportFormat) => {
     setShowExportOptions(false);
 
     // Verificar si tiene permiso de exportación (PLUS/PRO)
@@ -434,16 +432,16 @@ export default function TransactionsScreen() {
     } finally {
       setIsExporting(false);
     }
-  };
+  }, [canExportData, filteredTransactions, filterType, formatCurrency]);
 
-  // Función para mostrar opciones de exportación
-  const handleExportPress = () => {
+  // Memoizado: Función para mostrar opciones de exportación
+  const handleExportPress = useCallback(() => {
     if (!canExportData()) {
       setShowUpgradeModal(true);
       return;
     }
     setShowExportOptions(true);
-  };
+  }, [canExportData]);
 
   if (loading) {
     return (
@@ -523,7 +521,7 @@ export default function TransactionsScreen() {
             </Text>
           </View>
         ) : (
-          groupTransactionsByDate(filteredTransactions).map((group, groupIndex) => (
+          groupedTransactions.map((group) => (
             <View key={group.date} style={styles.dateGroup}>
               <Text style={styles.dateHeader}>{group.dateHeader}</Text>
               {group.transactions.map((transaction) => (

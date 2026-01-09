@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -50,23 +50,8 @@ export default function AntExpenseDetectiveScreen() {
   // Upgrade modal for premium features
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
 
-  useEffect(() => {
-    loadInitialData();
-  }, []);
-
-  // Debounce para los sliders
-  useEffect(() => {
-    const timeoutId = setTimeout(() => {
-      setTempConfig({
-        antThreshold: tempThreshold,
-        minFrequency: tempFrequency,
-        monthsToAnalyze: tempMonths,
-      });
-    }, 150);
-    return () => clearTimeout(timeoutId);
-  }, [tempThreshold, tempFrequency, tempMonths]);
-
-  const loadInitialData = async () => {
+  // Memoizado: Carga inicial de datos (definido antes de useEffects que lo usan)
+  const loadInitialData = useCallback(async () => {
     try {
       setConfigLoading(true);
       const configResponse = await antExpenseAPI.getConfig();
@@ -89,7 +74,23 @@ export default function AntExpenseDetectiveScreen() {
     } finally {
       setConfigLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    loadInitialData();
+  }, [loadInitialData]);
+
+  // Debounce para los sliders
+  useEffect(() => {
+    const timeoutId = setTimeout(() => {
+      setTempConfig({
+        antThreshold: tempThreshold,
+        minFrequency: tempFrequency,
+        monthsToAnalyze: tempMonths,
+      });
+    }, 150);
+    return () => clearTimeout(timeoutId);
+  }, [tempThreshold, tempFrequency, tempMonths]);
 
   const loadAntExpenseAnalysis = async (customConfig?: AntExpenseConfig) => {
     try {
@@ -100,10 +101,9 @@ export default function AntExpenseDetectiveScreen() {
         antThreshold: configToUse.antThreshold,
         minFrequency: configToUse.minFrequency,
         monthsToAnalyze: configToUse.monthsToAnalyze,
-        useAI: true, // Habilitado - ahora con timeout y mejor manejo de errores
+        useAI: true,
       });
 
-      // DEBUG: Ver respuesta completa del backend
       logger.log('[AntExpense] Respuesta del backend:', JSON.stringify(response.data, null, 2));
 
       setAnalysis(response.data);
@@ -181,7 +181,6 @@ export default function AntExpenseDetectiveScreen() {
         {analysis?.cannotAnalyzeReason || 'Necesitas más transacciones para detectar patrones de gastos hormiga.'}
       </Text>
 
-      {/* Requisitos mínimos */}
       <View style={styles.requirementsCard}>
         <Text style={styles.requirementsTitle}>Para analizar necesitas:</Text>
         <View style={styles.requirementItem}>
@@ -223,7 +222,6 @@ export default function AntExpenseDetectiveScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Umbral de monto */}
           <View style={styles.configSection}>
             <Text style={styles.configLabel}>
               💵 Monto máximo a considerar "hormiga"
@@ -248,7 +246,6 @@ export default function AntExpenseDetectiveScreen() {
             </Text>
           </View>
 
-          {/* Frecuencia mínima */}
           <View style={styles.configSection}>
             <Text style={styles.configLabel}>
               🔄 Frecuencia mínima de repetición
@@ -273,7 +270,6 @@ export default function AntExpenseDetectiveScreen() {
             </Text>
           </View>
 
-          {/* Meses a analizar */}
           <View style={styles.configSection}>
             <Text style={styles.configLabel}>
               📅 Período de análisis
@@ -303,7 +299,6 @@ export default function AntExpenseDetectiveScreen() {
             )}
           </View>
 
-          {/* Botones */}
           <View style={styles.modalButtons}>
             <TouchableOpacity
               style={styles.modalButtonSecondary}
@@ -342,7 +337,6 @@ export default function AntExpenseDetectiveScreen() {
         Esos pequeños gastos que pasan desapercibidos pero que suman mucho al final del mes
       </Text>
 
-      {/* Configuración actual */}
       <View style={styles.inputSection}>
         <Text style={styles.inputLabel}>📊 Configuración del análisis</Text>
 
@@ -375,7 +369,6 @@ export default function AntExpenseDetectiveScreen() {
         </TouchableOpacity>
       </View>
 
-      {/* Info card */}
       <View style={styles.infoCard}>
         <Text style={styles.infoCardTitle}>💡 ¿Qué son los gastos hormiga?</Text>
         <Text style={styles.infoCardText}>
@@ -384,7 +377,6 @@ export default function AntExpenseDetectiveScreen() {
         </Text>
       </View>
 
-      {/* Botón de analizar */}
       <TouchableOpacity
         style={styles.analyzeButton}
         onPress={() => loadAntExpenseAnalysis()}
@@ -418,7 +410,6 @@ export default function AntExpenseDetectiveScreen() {
           {getSeverityEmoji(insights.severityLevel)} Detective Zenio Reporta
         </Text>
 
-        {/* Warnings si hay */}
         {analysis.warnings && analysis.warnings.length > 0 && (
           <View style={styles.warningsContainer}>
             {analysis.warnings.map((warning, index) => (
@@ -435,12 +426,10 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         )}
 
-        {/* Mensaje de impacto */}
         <View style={[styles.impactCard, { borderColor: getSeverityColor(insights.severityLevel) }]}>
           <Text style={styles.impactMessage}>{insights.impactMessage}</Text>
         </View>
 
-        {/* Resumen principal */}
         <View style={styles.mainResults}>
           <View style={styles.totalCard}>
             <Text style={styles.totalLabel}>🐜 Tus Gastos Hormiga</Text>
@@ -460,7 +449,6 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         </View>
 
-        {/* Banner de análisis limitado para FREE */}
         {isLimited && (
           <TouchableOpacity
             style={styles.limitedBanner}
@@ -488,7 +476,6 @@ export default function AntExpenseDetectiveScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Top Criminales */}
         {calculations.topCriminals.length > 0 && (
           <View style={styles.criminalsSection}>
             <Text style={styles.sectionTitle}>🔍 Principales Fugas de Dinero</Text>
@@ -517,7 +504,6 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         )}
 
-        {/* Sugerencias por categoría */}
         {insights.categorySuggestions.length > 0 ? (
           <View style={styles.suggestionsSection}>
             <Text style={styles.sectionTitle}>💡 Sugerencias de Zenio</Text>
@@ -551,7 +537,6 @@ export default function AntExpenseDetectiveScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Tendencia mensual */}
         {calculations.monthlyTrend.length > 0 && (
           <View style={styles.trendSection}>
             <Text style={styles.sectionTitle}>📊 Tendencia Mensual</Text>
@@ -572,7 +557,6 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         )}
 
-        {/* Día más costoso */}
         {calculations.mostExpensiveDay && (
           <View style={styles.daySection}>
             <Text style={styles.sectionTitle}>📅 Día más costoso</Text>
@@ -585,7 +569,6 @@ export default function AntExpenseDetectiveScreen() {
           </View>
         )}
 
-        {/* Equivalencias */}
         {insights.equivalencies.length > 0 ? (
           <View style={styles.equivalenciesSection}>
             <Text style={styles.sectionTitle}>
@@ -618,12 +601,10 @@ export default function AntExpenseDetectiveScreen() {
           </TouchableOpacity>
         )}
 
-        {/* Mensaje motivacional */}
         <View style={styles.motivationalCard}>
           <Text style={styles.motivationalText}>{insights.motivationalMessage}</Text>
         </View>
 
-        {/* Botones de acción */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
             style={styles.resetButton}
@@ -638,7 +619,6 @@ export default function AntExpenseDetectiveScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Header */}
       <View style={styles.header}>
         <TouchableOpacity
           onPress={() => navigation.goBack()}
@@ -668,7 +648,6 @@ export default function AntExpenseDetectiveScreen() {
 
       {renderConfigModal()}
 
-      {/* Upgrade Modal for Premium Features */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
@@ -711,7 +690,6 @@ const styles = StyleSheet.create({
     padding: 20,
     paddingBottom: 40,
   },
-  // Loading
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -735,7 +713,6 @@ const styles = StyleSheet.create({
     color: '#64748b',
     textAlign: 'center',
   },
-  // Cannot analyze
   cannotAnalyzeContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -803,7 +780,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
   },
-  // Form
   form: {
     gap: 24,
   },
@@ -901,7 +877,6 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: 'bold',
   },
-  // Results
   results: {
     gap: 20,
   },
@@ -993,7 +968,6 @@ const styles = StyleSheet.create({
     color: '#047857',
     textAlign: 'center',
   },
-  // Criminals
   criminalsSection: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -1062,7 +1036,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
   },
-  // Suggestions
   suggestionsSection: {
     backgroundColor: '#f0f9ff',
     borderRadius: 16,
@@ -1085,7 +1058,6 @@ const styles = StyleSheet.create({
     marginBottom: 4,
     paddingLeft: 8,
   },
-  // Trend
   trendSection: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -1124,7 +1096,6 @@ const styles = StyleSheet.create({
     color: '#374151',
     fontWeight: '500',
   },
-  // Day
   daySection: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -1148,7 +1119,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
-  // Equivalencies
   equivalenciesSection: {
     backgroundColor: 'white',
     borderRadius: 16,
@@ -1167,7 +1137,6 @@ const styles = StyleSheet.create({
     color: '#1e293b',
     lineHeight: 20,
   },
-  // Motivational
   motivationalCard: {
     backgroundColor: '#f0fdf4',
     borderRadius: 16,
@@ -1181,7 +1150,6 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
-  // Action buttons
   actionButtons: {
     gap: 12,
     marginTop: 8,
@@ -1198,7 +1166,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#64748b',
   },
-  // Modal
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -1280,7 +1247,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: 'white',
   },
-  // Limited Analysis Banner (FREE users)
   limitedBanner: {
     backgroundColor: '#FFFBEB',
     borderRadius: 16,
@@ -1347,7 +1313,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#D97706',
   },
-  // Locked Section (for premium-only content)
   lockedSection: {
     backgroundColor: '#F9FAFB',
     borderRadius: 16,
