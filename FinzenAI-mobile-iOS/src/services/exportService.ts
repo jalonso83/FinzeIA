@@ -5,10 +5,101 @@
 
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
-import { Platform } from 'react-native';
+import * as FileSystem from 'expo-file-system/legacy';
+import { Platform, Image } from 'react-native';
+import { Asset } from 'expo-asset';
 
 import { logger } from '../utils/logger';
+
+// Cache del logo en base64
+let logoBase64Cache: string | null = null;
+
+// Referencia al logo para que Metro lo incluya en el bundle
+const logoSource = require('../assets/logo.png');
+
+const getLogoBase64 = async (): Promise<string> => {
+  if (logoBase64Cache) return logoBase64Cache;
+
+  try {
+    // Método 1: Usar Asset.loadAsync
+    const [asset] = await Asset.loadAsync(logoSource);
+
+    logger.log('[ExportService] Asset cargado:', {
+      localUri: asset?.localUri,
+      uri: asset?.uri,
+      downloaded: asset?.downloaded,
+      name: asset?.name
+    });
+
+    // En Android, a veces localUri es null pero uri está disponible
+    let assetUri = asset?.localUri || asset?.uri;
+
+    // Si no hay URI, intentar con Image.resolveAssetSource
+    if (!assetUri) {
+      const resolved = Image.resolveAssetSource(logoSource);
+      logger.log('[ExportService] Resolved asset source:', resolved);
+      assetUri = resolved?.uri;
+    }
+
+    if (assetUri) {
+      // Si es una URI de archivo local, leer directamente
+      if (assetUri.startsWith('file://') || assetUri.startsWith('/')) {
+        const base64 = await FileSystem.readAsStringAsync(assetUri, {
+          encoding: 'base64',
+        });
+        logoBase64Cache = `data:image/png;base64,${base64}`;
+        logger.log('[ExportService] Logo cargado desde archivo local');
+        return logoBase64Cache;
+      }
+
+      // Si es una URI remota (http/https), descargar primero
+      if (assetUri.startsWith('http')) {
+        const localPath = FileSystem.cacheDirectory + 'logo_temp_' + Date.now() + '.png';
+        const downloadResult = await FileSystem.downloadAsync(assetUri, localPath);
+
+        if (downloadResult.status === 200) {
+          const base64 = await FileSystem.readAsStringAsync(downloadResult.uri, {
+            encoding: 'base64',
+          });
+          logoBase64Cache = `data:image/png;base64,${base64}`;
+          logger.log('[ExportService] Logo descargado y convertido a base64');
+          return logoBase64Cache;
+        } else {
+          logger.warn('[ExportService] Error descargando logo, status:', downloadResult.status);
+        }
+      }
+
+      // Si es un asset bundled (asset://)
+      if (assetUri.startsWith('asset://') || assetUri.includes('asset_')) {
+        // Intentar descargar del bundle
+        const localPath = FileSystem.cacheDirectory + 'logo_bundle_' + Date.now() + '.png';
+        try {
+          await asset.downloadAsync();
+          const downloadedUri = asset.localUri;
+          if (downloadedUri) {
+            const base64 = await FileSystem.readAsStringAsync(downloadedUri, {
+              encoding: 'base64',
+            });
+            logoBase64Cache = `data:image/png;base64,${base64}`;
+            logger.log('[ExportService] Logo cargado desde bundle');
+            return logoBase64Cache;
+          }
+        } catch (bundleError) {
+          logger.warn('[ExportService] Error cargando desde bundle:', bundleError);
+        }
+      }
+    }
+
+    logger.warn('[ExportService] No se pudo obtener URI del asset del logo, URI:', assetUri);
+  } catch (error) {
+    logger.error('[ExportService] Error cargando logo para PDF:', error);
+  }
+
+  return '';
+};
+
+// Tipo de acción de exportación
+export type ExportAction = 'share' | 'save';
 // ============================================
 // TIPOS
 // ============================================
@@ -27,7 +118,7 @@ export interface TableColumn {
   key: string;
   width?: string;
   align?: 'left' | 'center' | 'right';
-  format?: (value: any) => string;
+  format?: (value: any, row?: Record<string, any>) => string;
 }
 
 export interface ExportTableData {
@@ -46,6 +137,9 @@ export interface ExportResult {
 // TEMPLATES HTML PARA PDF
 // ============================================
 
+// Color de marca FinZen AI (azul marino del logo)
+const BRAND_COLOR = '#2B4C7E';
+
 const getBaseStyles = (): string => `
   <style>
     * {
@@ -63,13 +157,30 @@ const getBaseStyles = (): string => `
       text-align: center;
       margin-bottom: 30px;
       padding-bottom: 20px;
-      border-bottom: 2px solid #2563EB;
+      border-bottom: 2px solid ${BRAND_COLOR};
     }
-    .logo {
-      font-size: 24px;
+    .logo-img {
+      width: 120px;
+      height: auto;
+      margin-bottom: 10px;
+    }
+    .logo-text {
+      font-size: 28px;
       font-weight: bold;
-      color: #2563EB;
-      margin-bottom: 5px;
+      margin-bottom: 8px;
+      font-family: 'Georgia', serif;
+    }
+    .logo-fin {
+      color: ${BRAND_COLOR};
+    }
+    .logo-zen {
+      color: #6B9E78;
+      font-style: italic;
+    }
+    .logo-ai {
+      color: ${BRAND_COLOR};
+      font-size: 20px;
+      margin-left: 4px;
     }
     .title {
       font-size: 18px;
@@ -92,7 +203,7 @@ const getBaseStyles = (): string => `
       margin-top: 20px;
     }
     th {
-      background-color: #2563EB;
+      background-color: ${BRAND_COLOR};
       color: white;
       padding: 10px 8px;
       text-align: left;
@@ -174,8 +285,11 @@ const generateTableHTML = (data: ExportTableData): string => {
       const cells = data.columns
         .map(col => {
           const value = row[col.key];
-          const formattedValue = col.format ? col.format(value) : value;
-          return `<td class="text-${col.align || 'left'}">${formattedValue}</td>`;
+          // Pasar el row completo a la función format
+          const formattedValue = col.format ? col.format(value, row) : value;
+          // Manejar null/undefined
+          const displayValue = formattedValue === null || formattedValue === undefined ? '' : formattedValue;
+          return `<td class="text-${col.align || 'left'}">${displayValue}</td>`;
         })
         .join('');
       return `<tr>${cells}</tr>`;
@@ -216,7 +330,8 @@ const generateSummaryHTML = (summary: { label: string; value: string }[]): strin
 
 const generatePDFHTML = (
   options: ExportOptions,
-  tableData: ExportTableData
+  tableData: ExportTableData,
+  logoBase64?: string
 ): string => {
   const currentDate = new Date().toLocaleDateString('es-ES', {
     year: 'numeric',
@@ -225,6 +340,11 @@ const generatePDFHTML = (
     hour: '2-digit',
     minute: '2-digit',
   });
+
+  // Si hay logo base64, usar imagen; sino usar texto estilizado
+  const logoHTML = logoBase64
+    ? `<img src="${logoBase64}" class="logo-img" alt="FinZen AI" />`
+    : `<div class="logo-text"><span class="logo-fin">Fin</span><span class="logo-zen">Zen</span><span class="logo-ai">AI</span></div>`;
 
   return `
     <!DOCTYPE html>
@@ -236,7 +356,7 @@ const generatePDFHTML = (
       </head>
       <body>
         <div class="header">
-          <div class="logo">FinZen AI</div>
+          ${logoHTML}
           <div class="title">${options.title}</div>
           ${options.subtitle ? `<div class="subtitle">${options.subtitle}</div>` : ''}
           <div class="date">Generado el ${currentDate}</div>
@@ -246,8 +366,6 @@ const generatePDFHTML = (
         ${generateSummaryHTML(tableData.summary || [])}
 
         <div class="footer">
-          <p>Documento generado por FinZen AI - Tu asistente financiero inteligente</p>
-          <p>Este documento es solo para fines informativos</p>
         </div>
       </body>
     </html>
@@ -259,6 +377,9 @@ const generatePDFHTML = (
 // ============================================
 
 const generateCSV = (tableData: ExportTableData): string => {
+  // UTF-8 BOM para que Excel reconozca los acentos correctamente
+  const BOM = '\uFEFF';
+
   // Header row
   const headers = tableData.columns.map(col => `"${col.header}"`).join(',');
 
@@ -267,7 +388,20 @@ const generateCSV = (tableData: ExportTableData): string => {
     return tableData.columns
       .map(col => {
         const value = row[col.key];
-        const formattedValue = col.format ? col.format(value) : value;
+
+        // Manejar null/undefined
+        if (value === null || value === undefined) {
+          return '""';
+        }
+
+        // Aplicar formato pasando el valor Y la fila completa
+        const formattedValue = col.format ? col.format(value, row) : value;
+
+        // Manejar null/undefined del valor formateado
+        if (formattedValue === null || formattedValue === undefined) {
+          return '""';
+        }
+
         // Escape quotes and wrap in quotes
         return `"${String(formattedValue).replace(/"/g, '""')}"`;
       })
@@ -282,7 +416,7 @@ const generateCSV = (tableData: ExportTableData): string => {
       .join('\n');
   }
 
-  return headers + '\n' + rows.join('\n') + summarySection;
+  return BOM + headers + '\n' + rows.join('\n') + summarySection;
 };
 
 // ============================================
@@ -297,14 +431,53 @@ export const canShare = async (): Promise<boolean> => {
 };
 
 /**
- * Exporta datos a PDF y abre el diálogo de compartir
+ * Comparte archivo para que el usuario pueda guardarlo
+ */
+const shareFile = async (
+  sourceUri: string,
+  filename: string,
+  mimeType: string
+): Promise<ExportResult> => {
+  try {
+    const sharingAvailable = await Sharing.isAvailableAsync();
+
+    if (sharingAvailable) {
+      await Sharing.shareAsync(sourceUri, {
+        mimeType,
+        dialogTitle: `Guardar ${filename}`,
+      });
+      return {
+        success: true,
+        message: 'Selecciona "Guardar en archivos" para guardar',
+        filePath: sourceUri,
+      };
+    } else {
+      return {
+        success: false,
+        message: 'No es posible compartir archivos en este dispositivo',
+      };
+    }
+  } catch (error: any) {
+    logger.error('Error compartiendo archivo:', error);
+    return {
+      success: false,
+      message: 'No se pudo compartir el archivo',
+    };
+  }
+};
+
+/**
+ * Exporta datos a PDF
  */
 export const exportToPDF = async (
   options: ExportOptions,
-  tableData: ExportTableData
+  tableData: ExportTableData,
+  action: ExportAction = 'share'
 ): Promise<ExportResult> => {
   try {
-    const html = generatePDFHTML(options, tableData);
+    // Intentar cargar el logo
+    const logo = await getLogoBase64();
+    const html = generatePDFHTML(options, tableData, logo);
 
     // Generar PDF
     const { uri } = await Print.printToFileAsync({
@@ -312,35 +485,30 @@ export const exportToPDF = async (
       base64: false,
     });
 
-    // Renombrar archivo con nombre personalizado
-    const pdfDir = FileSystem.documentDirectory;
-    const newUri = `${pdfDir}${options.filename}.pdf`;
-
-    await FileSystem.moveAsync({
-      from: uri,
-      to: newUri,
-    });
-
-    // Verificar si se puede compartir
-    const sharingAvailable = await Sharing.isAvailableAsync();
-
-    if (sharingAvailable) {
-      await Sharing.shareAsync(newUri, {
-        mimeType: 'application/pdf',
-        dialogTitle: `Compartir ${options.title}`,
-        UTI: 'com.adobe.pdf',
-      });
-
-      return {
-        success: true,
-        message: 'PDF exportado correctamente',
-        filePath: newUri,
-      };
+    if (action === 'save') {
+      return await shareFile(uri, `${options.filename}.pdf`, 'application/pdf');
     } else {
-      return {
-        success: false,
-        message: 'No es posible compartir archivos en este dispositivo',
-      };
+      // Compartir
+      const sharingAvailable = await Sharing.isAvailableAsync();
+
+      if (sharingAvailable) {
+        await Sharing.shareAsync(uri, {
+          mimeType: 'application/pdf',
+          dialogTitle: `Compartir ${options.title}`,
+          UTI: 'com.adobe.pdf',
+        });
+
+        return {
+          success: true,
+          message: 'PDF compartido correctamente',
+          filePath: uri,
+        };
+      } else {
+        return {
+          success: false,
+          message: 'No es posible compartir archivos en este dispositivo',
+        };
+      }
     }
   } catch (error: any) {
     logger.error('Error exportando PDF:', error);
@@ -352,43 +520,48 @@ export const exportToPDF = async (
 };
 
 /**
- * Exporta datos a CSV y abre el diálogo de compartir
+ * Exporta datos a CSV
  */
 export const exportToCSV = async (
   options: ExportOptions,
-  tableData: ExportTableData
+  tableData: ExportTableData,
+  action: ExportAction = 'share'
 ): Promise<ExportResult> => {
   try {
     const csv = generateCSV(tableData);
 
-    // Guardar archivo CSV
+    // Guardar archivo CSV temporal
     const csvDir = FileSystem.documentDirectory;
     const fileUri = `${csvDir}${options.filename}.csv`;
 
     await FileSystem.writeAsStringAsync(fileUri, csv, {
-      encoding: FileSystem.EncodingType.UTF8,
+      encoding: 'utf8',
     });
 
-    // Verificar si se puede compartir
-    const sharingAvailable = await Sharing.isAvailableAsync();
-
-    if (sharingAvailable) {
-      await Sharing.shareAsync(fileUri, {
-        mimeType: 'text/csv',
-        dialogTitle: `Compartir ${options.title}`,
-        UTI: 'public.comma-separated-values-text',
-      });
-
-      return {
-        success: true,
-        message: 'CSV exportado correctamente',
-        filePath: fileUri,
-      };
+    if (action === 'save') {
+      return await shareFile(fileUri, `${options.filename}.csv`, 'text/csv');
     } else {
-      return {
-        success: false,
-        message: 'No es posible compartir archivos en este dispositivo',
-      };
+      // Compartir
+      const sharingAvailable = await Sharing.isAvailableAsync();
+
+      if (sharingAvailable) {
+        await Sharing.shareAsync(fileUri, {
+          mimeType: 'text/csv',
+          dialogTitle: `Compartir ${options.title}`,
+          UTI: 'public.comma-separated-values-text',
+        });
+
+        return {
+          success: true,
+          message: 'CSV compartido correctamente',
+          filePath: fileUri,
+        };
+      } else {
+        return {
+          success: false,
+          message: 'No es posible compartir archivos en este dispositivo',
+        };
+      }
     }
   } catch (error: any) {
     logger.error('Error exportando CSV:', error);
@@ -404,12 +577,13 @@ export const exportToCSV = async (
  */
 export const exportData = async (
   options: ExportOptions,
-  tableData: ExportTableData
+  tableData: ExportTableData,
+  action: ExportAction = 'share'
 ): Promise<ExportResult> => {
   if (options.format === 'pdf') {
-    return exportToPDF(options, tableData);
+    return exportToPDF(options, tableData, action);
   } else {
-    return exportToCSV(options, tableData);
+    return exportToCSV(options, tableData, action);
   }
 };
 
@@ -466,6 +640,9 @@ export const formatDateForExport = (
   return d.toLocaleDateString('es-ES');
 };
 
+// Exportar función de logo para uso en otros componentes
+export { getLogoBase64 };
+
 // Exportar el servicio como objeto para facilitar uso
 export const ExportService = {
   canShare,
@@ -475,6 +652,7 @@ export const ExportService = {
   formatCurrencyForExport,
   formatNumberForExport,
   formatDateForExport,
+  getLogoBase64,
 };
 
 export default ExportService;

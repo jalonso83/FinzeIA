@@ -22,9 +22,14 @@ export interface NotificationPreferences {
   goalRemindersEnabled: boolean;
   weeklyReportEnabled: boolean;
   tipsEnabled: boolean;
+  antExpenseAlertsEnabled: boolean;
   budgetAlertThreshold: number;
+  goalReminderFrequency: number; // 0=nunca, 3, 7, 14, 30 días
   quietHoursStart: number | null;
   quietHoursEnd: number | null;
+  // Configuración de detección de gastos hormiga (PRO)
+  antExpenseAmountThreshold: number;  // Monto máximo (default 500)
+  antExpenseMinFrequency: number;     // Frecuencia mínima (default 3)
 }
 
 export interface NotificationHistoryItem {
@@ -44,15 +49,21 @@ class NotificationService {
   private notificationListener: Notifications.Subscription | null = null;
   private responseListener: Notifications.Subscription | null = null;
 
+  // Para debugging
+  public lastError: string | null = null;
+
   /**
    * Inicializa el servicio de notificaciones
    * Debe llamarse al iniciar la app o después del login
    */
   async initialize(): Promise<string | null> {
+    // Limpiar error anterior
+    this.lastError = null;
+
     try {
       // Verificar si estamos en un dispositivo físico
       if (!Device.isDevice) {
-        logger.log('[NotificationService] Notificaciones no disponibles en simulador');
+        this.lastError = 'No es dispositivo físico';
         return null;
       }
 
@@ -66,7 +77,7 @@ class NotificationService {
       }
 
       if (finalStatus !== 'granted') {
-        logger.log('[NotificationService] Permiso de notificaciones denegado');
+        this.lastError = 'Permisos denegados: ' + finalStatus;
         return null;
       }
 
@@ -81,40 +92,53 @@ class NotificationService {
         });
       }
 
-      // Obtener token de push
+      // Obtener Expo Push Token
       const token = await this.getExpoPushToken();
+      if (!token) {
+        if (!this.lastError) {
+          this.lastError = 'getExpoPushToken devolvió null sin error específico';
+        }
+        return null;
+      }
       this.pushToken = token;
 
-      logger.log('[NotificationService] Token obtenido:', token);
       return token;
 
-    } catch (error) {
-      logger.error('[NotificationService] Error inicializando:', error);
+    } catch (error: any) {
+      if (!this.lastError) {
+        this.lastError = error.message || 'Error desconocido';
+      }
       return null;
     }
   }
 
   /**
-   * Obtiene el token de Expo Push
+   * Obtiene el Expo Push Token del dispositivo
+   * Funciona tanto para iOS como Android con un formato unificado
    */
   private async getExpoPushToken(): Promise<string | null> {
     try {
-      const projectId = Constants.expoConfig?.extra?.eas?.projectId ?? Constants.easConfig?.projectId;
+      // Obtener el projectId de la configuración de Expo
+      const projectId = Constants.expoConfig?.extra?.eas?.projectId;
 
       if (!projectId) {
-        logger.warn('[NotificationService] No project ID found');
-        // Intentar obtener token FCM directamente
-        const { data } = await Notifications.getDevicePushTokenAsync();
-        return data;
+        this.lastError = 'No se encontró projectId en la configuración de Expo';
+        logger.error('[NotificationService] projectId no encontrado');
+        return null;
       }
 
-      const { data } = await Notifications.getExpoPushTokenAsync({
+      // Obtener Expo Push Token (funciona para iOS y Android)
+      const tokenData = await Notifications.getExpoPushTokenAsync({
         projectId,
       });
 
-      return data;
-    } catch (error) {
-      logger.error('[NotificationService] Error obteniendo token:', error);
+      const expoPushToken = tokenData.data;
+      logger.log('[NotificationService] Expo Push Token obtenido:', expoPushToken);
+      return expoPushToken;
+    } catch (error: any) {
+      const errorMsg = error.message || JSON.stringify(error);
+      this.lastError = `Token error: ${errorMsg}`;
+      logger.error('[NotificationService] Error obteniendo Expo Push token:', errorMsg);
       return null;
     }
   }
@@ -262,6 +286,7 @@ class NotificationService {
       }
     });
   }
+
 
   /**
    * Remueve los listeners de notificaciones

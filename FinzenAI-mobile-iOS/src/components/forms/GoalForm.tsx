@@ -15,6 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { categoriesAPI, goalsAPI, Category } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
@@ -78,6 +79,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [originalFormData, setOriginalFormData] = useState<FormData>({
     name: '',
     description: '',
@@ -274,6 +276,29 @@ const GoalForm: React.FC<GoalFormProps> = ({
       return `${year}-${month}-${day}`;
     }
     return displayDate; // Si no está completo, devolver como está
+  };
+
+  // Función para convertir fecha display (DD-MM-YYYY) a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Handler para cambio de fecha desde DatePicker
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setFormData({ ...formData, targetDate: `${dd}-${mm}-${yyyy}` });
+    }
   };
 
   const handleInputChange = (field: keyof FormData, value: string) => {
@@ -552,18 +577,33 @@ const GoalForm: React.FC<GoalFormProps> = ({
             {/* Fecha objetivo */}
             <View style={styles.section}>
               <Text style={styles.label}>Fecha objetivo (opcional)</Text>
-              <View style={styles.dateContainer}>
-                <Ionicons name="calendar-outline" size={20} color="#64748b" />
-                <TextInput
-                  style={styles.dateInput}
-                  value={formData.targetDate}
-                  onChangeText={(text) => handleInputChange('targetDate', text)}
-                  placeholder="DD-MM-YYYY"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="numeric"
-                  maxLength={10}
+              <TouchableOpacity
+                style={styles.dateContainer}
+                onPress={() => setShowDatePicker(true)}
+                activeOpacity={0.7}
+              >
+                <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+                <Text style={[styles.dateText, !formData.targetDate && styles.datePlaceholder]}>
+                  {formData.targetDate || 'Seleccionar fecha'}
+                </Text>
+                {formData.targetDate && (
+                  <TouchableOpacity
+                    onPress={() => setFormData({ ...formData, targetDate: '' })}
+                    hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+                  >
+                    <Ionicons name="close-circle" size={20} color="#9ca3af" />
+                  </TouchableOpacity>
+                )}
+              </TouchableOpacity>
+              {showDatePicker && (
+                <DateTimePicker
+                  value={formData.targetDate ? parseDisplayDateToDate(formData.targetDate) : new Date()}
+                  mode="date"
+                  display="default"
+                  onChange={handleDateChange}
+                  minimumDate={new Date()}
                 />
-              </View>
+              )}
             </View>
 
             {/* Prioridad - Solo visible para planes PLUS/PRO */}
@@ -836,6 +876,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1e293b',
+  },
+  dateText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1e293b',
+  },
+  datePlaceholder: {
+    color: '#9ca3af',
   },
   prioritiesContainer: {
     flexDirection: 'row',

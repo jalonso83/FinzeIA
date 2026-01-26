@@ -192,8 +192,8 @@ export default function InvestmentSimulatorScreen() {
                 <Slider
                   style={styles.slider}
                   minimumValue={500}
-                  maximumValue={50000}
-                  step={250}
+                  maximumValue={100000}
+                  step={500}
                   value={tempAmount}
                   onValueChange={setTempAmount}
                   minimumTrackTintColor="#2563EB"

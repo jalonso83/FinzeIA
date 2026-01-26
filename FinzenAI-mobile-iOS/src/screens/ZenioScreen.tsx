@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,11 +39,6 @@ export default function ZenioScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [showTips, setShowTips] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  // Debug: monitorear cambios en showTips
-  useEffect(() => {
-    logger.log('🔵 showTips cambió a:', showTips);
-  }, [showTips]);
 
   const { user } = useAuthStore();
   const { updateZenioUsage, fetchSubscription } = useSubscriptionStore();
@@ -110,9 +106,7 @@ export default function ZenioScreen() {
 
           setHasSentFirst(true);
         } catch (error: any) {
-          logger.error('Error al inicializar conversación:', error);
-          logger.log('Error status:', error.response?.status);
-          logger.log('Error data:', JSON.stringify(error.response?.data));
+          logger.error('Error al inicializar conversación:', error.message);
 
           // Verificar si es error de límite alcanzado (403)
           if (error.response?.status === 403) {
@@ -126,7 +120,8 @@ export default function ZenioScreen() {
               timestamp: new Date(),
             }]);
 
-            // Usar setTimeout para dar tiempo a iOS de cerrar modales antes de abrir otro
+            // Ocultar teclado y dar tiempo a iOS de cerrar modales antes de abrir otro
+            Keyboard.dismiss();
             setTimeout(() => {
               setShowUpgradeModal(true);
             }, 300);
@@ -216,9 +211,7 @@ export default function ZenioScreen() {
       }
 
     } catch (error: any) {
-      logger.error('Error sending message:', error);
-      logger.log('Error status:', error.response?.status);
-      logger.log('Error data:', JSON.stringify(error.response?.data));
+      logger.error('Error sending message:', error.message);
 
       // Verificar si es error de límite alcanzado (403)
       if (error.response?.status === 403) {
@@ -233,7 +226,8 @@ export default function ZenioScreen() {
         };
         setMessages(prev => [...prev, limitMessage]);
 
-        // Usar setTimeout para dar tiempo a iOS de cerrar modales antes de abrir otro
+        // Ocultar teclado y dar tiempo a iOS de cerrar modales antes de abrir otro
+        Keyboard.dismiss();
         setTimeout(() => {
           setShowUpgradeModal(true);
         }, 300);
@@ -281,12 +275,7 @@ export default function ZenioScreen() {
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => {
-              logger.log('🔵 Tips button pressed!');
-              logger.log('🔵 showTips ANTES:', showTips);
-              setShowTips(true);
-              logger.log('🔵 setShowTips(true) ejecutado');
-            }}
+            onPress={() => setShowTips(true)}
             activeOpacity={0.6}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
@@ -404,10 +393,7 @@ export default function ZenioScreen() {
         visible={true}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {
-          logger.log('🔴 Modal Tips cerrado');
-          setShowTips(false);
-        }}
+        onRequestClose={() => setShowTips(false)}
         statusBarTranslucent={false}
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : 'none'}
       >

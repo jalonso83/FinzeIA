@@ -6,20 +6,17 @@ import {
   ScrollView,
   ActivityIndicator,
   RefreshControl,
-  Modal,
   TouchableOpacity,
+  Alert,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import PlanCard from '../components/subscriptions/PlanCard';
 import CurrentPlanCard from '../components/subscriptions/CurrentPlanCard';
-import StripeWebView from '../components/subscriptions/StripeWebView';
 import ManageSubscriptionModal from '../components/subscriptions/ManageSubscriptionModal';
-import CustomModal from '../components/modals/CustomModal';
-import { SubscriptionPlan } from '../types/subscription';
-import { subscriptionsAPI } from '../utils/api';
-
+import { SubscriptionPlan, BillingPeriod } from '../types/subscription';
 import { logger } from '../utils/logger';
 interface SubscriptionsScreenProps {
   onClose?: () => void;
@@ -35,31 +32,16 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     fetchSubscription,
     fetchPlans,
     createCheckout,
+    startTrial,
+    changePlan,
+    isTrialing,
+    getTrialDaysRemaining,
   } = useSubscriptionStore();
 
-  const [checkoutUrl, setCheckoutUrl] = useState<string | null>(null);
-  const [showWebView, setShowWebView] = useState(false);
   const [showManageModal, setShowManageModal] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<SubscriptionPlan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
-
-  // Estados para CustomModal
-  const [modalConfig, setModalConfig] = useState<{
-    visible: boolean;
-    type: 'success' | 'error' | 'warning' | 'info';
-    title: string;
-    message: string;
-    buttonText?: string;
-    showSecondaryButton?: boolean;
-    secondaryButtonText?: string;
-    onSecondaryPress?: () => void;
-    onClose?: () => void;
-  }>({
-    visible: false,
-    type: 'info',
-    title: '',
-    message: '',
-  });
+  const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
 
   useEffect(() => {
     loadData();
@@ -80,27 +62,42 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
 
   const handleSelectPlan = async (planId: SubscriptionPlan) => {
     if (planId === 'FREE') {
-      setModalConfig({
-        visible: true,
-        type: 'info',
-        title: 'Información',
-        message: 'Ya estás en el plan Gratis',
-        buttonText: 'Entendido',
-        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
-      });
+      Alert.alert('Información', 'Ya estás en el plan Gratis');
       return;
     }
 
-    // Si ya tiene este plan, no hacer nada
-    if (subscription && subscription.plan === planId) {
-      setModalConfig({
-        visible: true,
-        type: 'info',
-        title: 'Información',
-        message: `Ya tienes el plan ${planId}`,
-        buttonText: 'Entendido',
-        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
-      });
+    // Si está en trial, verificar si quiere cambiar de plan o ya tiene el seleccionado
+    if (isTrialing()) {
+      const daysRemaining = getTrialDaysRemaining();
+      const currentTrialPlan = subscription?.plan;
+
+      // Si selecciona el mismo plan que ya tiene en trial
+      if (currentTrialPlan === planId) {
+        const planName = planId === 'PRO' ? 'Pro' : 'Plus';
+        Alert.alert(
+          `¡Ya tienes acceso ${planName}!`,
+          `Estás en tu periodo de prueba gratuito.\n\nTe quedan ${daysRemaining} día${daysRemaining !== 1 ? 's' : ''} de acceso completo a todas las funciones ${planName}.\n\nNo necesitas hacer nada más por ahora. Disfruta tu trial.`
+        );
+        return;
+      }
+
+      // Si quiere cambiar de plan durante el trial (ej: PLUS -> PRO o PRO -> PLUS)
+      const currentPlanName = currentTrialPlan === 'PRO' ? 'Pro' : 'Plus';
+      const newPlanName = planId === 'PRO' ? 'Pro' : 'Plus';
+      Alert.alert(
+        `Cambiar a ${newPlanName}`,
+        `Actualmente estás probando ${currentPlanName}.\n\n¿Deseas cambiar tu trial a ${newPlanName}?\n\nTe quedan ${daysRemaining} día${daysRemaining !== 1 ? 's' : ''} de prueba que continuarán con el nuevo plan.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Cambiar Plan', onPress: () => processChangePlanInTrial(planId) },
+        ]
+      );
+      return;
+    }
+
+    // Si ya tiene este plan pagado, no hacer nada
+    if (subscription && subscription.plan === planId && subscription.status === 'ACTIVE') {
+      Alert.alert('Información', `Ya tienes el plan ${planId}`);
       return;
     }
 
@@ -108,109 +105,127 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     const selectedPlan = plans.find(p => p.id === planId);
     if (!selectedPlan) return;
 
-    // Confirmación de pago real con CustomModal
-    setModalConfig({
-      visible: true,
-      type: 'warning',
-      title: 'Confirmar Suscripción',
-      message: `Estás a punto de suscribirte a ${selectedPlan.name} por $${selectedPlan.price.toFixed(2)}/mes.\n\n• 7 días de prueba gratis\n• Tarjeta de crédito real requerida\n• Los cargos aplican después del periodo de prueba\n• Cancela en cualquier momento\n\n¿Deseas continuar?`,
-      buttonText: 'Continuar',
-      showSecondaryButton: true,
-      secondaryButtonText: 'Cancelar',
-      onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),
-      onClose: () => {
-        setModalConfig({ ...modalConfig, visible: false });
-        processCheckout(planId);
-      },
-    });
+    // Si el usuario puede usar trial (FREE y no ha usado trial antes)
+    const canStartTrial = subscription?.canUseTrial && subscription?.plan === 'FREE';
+
+    if (canStartTrial) {
+      // Mostrar confirmación de trial (sin Stripe)
+      Alert.alert(
+        'Iniciar Período de Prueba',
+        `¡Obtén 7 días GRATIS de ${selectedPlan.name}!\n\n• Acceso completo a todas las funciones\n• Sin necesidad de tarjeta de crédito\n• Cancela cuando quieras\n\nAl finalizar los 7 días, podrás decidir si quieres continuar.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Iniciar', onPress: () => processStartTrial(planId) },
+        ]
+      );
+    } else {
+      // Usuario ya usó trial - mostrar checkout de Stripe
+      const planPrice = typeof selectedPlan.price === 'object' && selectedPlan.price !== null
+        ? (billingPeriod === 'yearly' ? (selectedPlan.price.yearly ?? 0) : (selectedPlan.price.monthly ?? 0))
+        : (typeof selectedPlan.price === 'number' ? selectedPlan.price : 0);
+
+      const periodText = billingPeriod === 'yearly' ? 'año' : 'mes';
+      const savingsText = billingPeriod === 'yearly' ? '\n• ¡Ahorras 17% con el plan anual!' : '';
+
+      Alert.alert(
+        'Confirmar Suscripción',
+        `Estás a punto de suscribirte a ${selectedPlan.name} por $${planPrice.toFixed(2)}/${periodText}.${savingsText}\n\n• Cancela en cualquier momento\n• Pago seguro con Stripe\n\n¿Deseas continuar?`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          { text: 'Continuar', onPress: () => processCheckout(planId) },
+        ]
+      );
+    }
   };
 
   const processCheckout = async (planId: SubscriptionPlan) => {
     setProcessingPlan(planId);
 
     try {
-      const { url, sessionId } = await createCheckout(planId);
+      const { url, sessionId } = await createCheckout(planId as 'PREMIUM' | 'PRO', billingPeriod);
       logger.log('Checkout session created:', sessionId);
-      setCheckoutUrl(url);
-      setShowWebView(true);
+
+      // Mostrar modal de advertencia requerido por Apple antes de abrir navegador externo
+      Alert.alert(
+        'Serás redirigido',
+        'El pago se procesará de forma segura en una página web externa (Stripe).\n\nAl completar el pago, regresarás automáticamente a FinZen AI.',
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
+            onPress: () => {
+              logger.log('Usuario canceló redirección a Stripe');
+            }
+          },
+          {
+            text: 'Continuar',
+            onPress: async () => {
+              try {
+                const supported = await Linking.canOpenURL(url);
+                if (supported) {
+                  logger.log('Abriendo navegador externo para checkout:', url);
+                  await Linking.openURL(url);
+                } else {
+                  logger.error('No se puede abrir la URL:', url);
+                  Alert.alert('Error', 'No se pudo abrir el navegador para completar el pago');
+                }
+              } catch (linkError: any) {
+                logger.error('Error abriendo URL:', linkError);
+                Alert.alert('Error', 'No se pudo abrir el navegador para completar el pago');
+              }
+            }
+          },
+        ]
+      );
     } catch (error: any) {
-      setModalConfig({
-        visible: true,
-        type: 'error',
-        title: 'Error',
-        message: error.message || 'No se pudo crear la sesión de pago',
-        buttonText: 'Entendido',
-        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
-      });
-    } finally{
+      Alert.alert('Error', error.message || 'No se pudo crear la sesión de pago');
+    } finally {
       setProcessingPlan(null);
     }
   };
 
-  const handlePaymentSuccess = async (sessionId?: string) => {
-    setShowWebView(false);
-    setCheckoutUrl(null);
+  const processStartTrial = async (planId: SubscriptionPlan) => {
+    setProcessingPlan(planId);
 
-    logger.log('💳 Pago exitoso detectado, sessionId:', sessionId);
+    try {
+      await startTrial(planId as 'PREMIUM' | 'PRO');
+      logger.log('✅ Trial iniciado exitosamente para plan:', planId);
 
-    // Si tenemos sessionId, sincronizar inmediatamente
-    if (sessionId) {
-      try {
-        logger.log('🔄 Sincronizando suscripción con sessionId:', sessionId);
-        const response = await subscriptionsAPI.checkCheckoutSession(sessionId);
-        logger.log('✅ Respuesta de sincronización:', response.data);
-
-        // CRÍTICO: Refrescar suscripción INMEDIATAMENTE después de sincronizar
-        await fetchSubscription();
-        logger.log('✅ Suscripción refrescada después de sincronización');
-      } catch (syncError: any) {
-        logger.error('❌ Error sincronizando:', syncError);
-        logger.error('❌ Detalles del error:', syncError.response?.data);
-      }
+      Alert.alert(
+        '¡Felicidades! 🎉',
+        `Tu período de prueba de 7 días ha comenzado.\n\nAhora tienes acceso completo a todas las funciones de ${planId === 'PREMIUM' ? 'Plus' : 'Pro'}.\n\n¡Disfruta la experiencia!`,
+        [{ text: 'Entendido', style: 'default' }]
+      );
+    } catch (error: any) {
+      logger.error('Error iniciando trial:', error);
+      Alert.alert('Error', error.message || 'No se pudo iniciar el período de prueba');
+    } finally {
+      setProcessingPlan(null);
     }
-
-    setModalConfig({
-      visible: true,
-      type: 'success',
-      title: '¡Éxito!',
-      message: 'Tu suscripción ha sido activada. ¡Gracias!',
-      buttonText: 'Continuar',
-      onClose: () => {
-        setModalConfig({ ...modalConfig, visible: false });
-        // Ya no es necesario refrescar aquí porque ya se hizo arriba
-      },
-    });
   };
 
-  const handlePaymentCancel = () => {
-    setShowWebView(false);
-    setCheckoutUrl(null);
-    setModalConfig({
-      visible: true,
-      type: 'info',
-      title: 'Pago Cancelado',
-      message: 'Puedes mejorar tu plan en cualquier momento desde tu perfil.',
-      buttonText: 'Entendido',
-      onClose: () => setModalConfig({ ...modalConfig, visible: false }),
-    });
-  };
+  const processChangePlanInTrial = async (planId: SubscriptionPlan) => {
+    setProcessingPlan(planId);
 
-  const handleCloseWebView = () => {
-    setModalConfig({
-      visible: true,
-      type: 'warning',
-      title: 'Cerrar Pago',
-      message: '¿Estás seguro que deseas cancelar este pago?',
-      buttonText: 'Sí, Salir',
-      showSecondaryButton: true,
-      secondaryButtonText: 'Continuar',
-      onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),
-      onClose: () => {
-        setModalConfig({ ...modalConfig, visible: false });
-        setShowWebView(false);
-        setCheckoutUrl(null);
-      },
-    });
+    try {
+      await changePlan(planId as 'PREMIUM' | 'PRO');
+      logger.log('✅ Plan cambiado en trial a:', planId);
+
+      const planName = planId === 'PRO' ? 'Pro' : 'Plus';
+      Alert.alert(
+        '¡Plan Cambiado!',
+        `Tu trial ahora es de ${planName}.\n\nTus días restantes de prueba continúan con el nuevo plan.`,
+        [{ text: 'Entendido', style: 'default' }]
+      );
+
+      // Refrescar suscripción
+      await fetchSubscription();
+    } catch (error: any) {
+      logger.error('Error cambiando plan en trial:', error);
+      Alert.alert('Error', error.message || 'No se pudo cambiar el plan');
+    } finally {
+      setProcessingPlan(null);
+    }
   };
 
   const handleManageClose = async () => {
@@ -232,6 +247,8 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
 
   const isFree = !subscription || subscription.plan === 'FREE';
   const isPaidPlan = subscription && (subscription.plan === 'PREMIUM' || subscription.plan === 'PRO');
+  const inTrial = isTrialing();
+  const trialDaysLeft = getTrialDaysRemaining();
 
   return (
     <SafeAreaView style={styles.container} edges={['top']}>
@@ -252,14 +269,34 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
         {/* Header */}
         <View style={styles.header}>
           <Text style={styles.title}>
-            {isFree ? 'Elige tu Plan' : 'Tu Suscripción'}
+            {inTrial
+              ? `Tu Trial ${subscription?.plan === 'PRO' ? 'Pro' : 'Plus'}`
+              : (isFree ? 'Elige tu Plan' : 'Tu Suscripción')}
           </Text>
           <Text style={styles.subtitle}>
-            {isFree
-              ? 'Desbloquea funciones premium y acceso ilimitado'
-              : 'Administra tu suscripción y facturación'}
+            {inTrial
+              ? `Disfruta de todas las funciones ${subscription?.plan === 'PRO' ? 'Pro' : 'Plus'}`
+              : (isFree
+                ? 'Desbloquea funciones premium y acceso ilimitado'
+                : 'Administra tu suscripción y facturación')}
           </Text>
         </View>
+
+        {/* Trial Banner */}
+        {inTrial && (
+          <View style={styles.trialBanner}>
+            <Ionicons name="star" size={24} color="#F59E0B" />
+            <View style={styles.trialBannerContent}>
+              <Text style={styles.trialBannerTitle}>
+                ¡Estás en tu periodo de prueba!
+              </Text>
+              <Text style={styles.trialBannerText}>
+                Te quedan {trialDaysLeft} día{trialDaysLeft !== 1 ? 's' : ''} de acceso completo a {subscription?.plan === 'PRO' ? 'Pro' : 'Plus'}.
+                No se requiere tarjeta de crédito.
+              </Text>
+            </View>
+          </View>
+        )}
 
         {/* Error Message */}
         {error && (
@@ -289,6 +326,44 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
           )}
         </View>
 
+        {/* Billing Period Toggle */}
+        <View style={styles.billingToggleContainer}>
+          <TouchableOpacity
+            style={[
+              styles.billingToggleOption,
+              billingPeriod === 'monthly' && styles.billingToggleOptionActive,
+            ]}
+            onPress={() => setBillingPeriod('monthly')}
+          >
+            <Text style={[
+              styles.billingToggleText,
+              billingPeriod === 'monthly' && styles.billingToggleTextActive,
+            ]}>
+              Mensual
+            </Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            style={[
+              styles.billingToggleOption,
+              billingPeriod === 'yearly' && styles.billingToggleOptionActive,
+            ]}
+            onPress={() => setBillingPeriod('yearly')}
+          >
+            <Text style={[
+              styles.billingToggleText,
+              billingPeriod === 'yearly' && styles.billingToggleTextActive,
+            ]}>
+              Anual
+            </Text>
+            {billingPeriod === 'yearly' && (
+              <View style={styles.savingsBadge}>
+                <Text style={styles.savingsBadgeText}>-17%</Text>
+              </View>
+            )}
+          </TouchableOpacity>
+        </View>
+
         {/* Plans */}
         <View style={styles.plansContainer}>
           {plans.map((plan) => (
@@ -298,6 +373,7 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
               currentPlan={subscription?.plan || 'FREE'}
               onSelect={handleSelectPlan}
               disabled={processingPlan !== null}
+              billingPeriod={billingPeriod}
             />
           ))}
         </View>
@@ -305,24 +381,12 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
         {/* Footer Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
-            • Todos los planes incluyen 7 días de prueba gratis{'\n'}
-            • Cancela en cualquier momento, sin preguntas{'\n'}
-            • Pago seguro con Stripe{'\n'}
-            • Acceso instantáneo después de suscribirte
+            {inTrial
+              ? `• Tu trial termina en ${trialDaysLeft} día${trialDaysLeft !== 1 ? 's' : ''}\n• No se te cobrará durante el trial\n• Cancela cuando quieras`
+              : `• Cancela en cualquier momento, sin preguntas\n• Pago seguro con Stripe\n• Acceso instantáneo después de suscribirte`}
           </Text>
         </View>
       </ScrollView>
-
-      {/* Stripe WebView */}
-      {checkoutUrl && (
-        <StripeWebView
-          visible={showWebView}
-          checkoutUrl={checkoutUrl}
-          onSuccess={handlePaymentSuccess}
-          onCancel={handlePaymentCancel}
-          onClose={handleCloseWebView}
-        />
-      )}
 
       {/* Manage Subscription Modal */}
       {isPaidPlan && subscription && (
@@ -332,19 +396,6 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
           subscription={subscription}
         />
       )}
-
-      {/* Custom Modal */}
-      <CustomModal
-        visible={modalConfig.visible}
-        type={modalConfig.type}
-        title={modalConfig.title}
-        message={modalConfig.message}
-        buttonText={modalConfig.buttonText}
-        showSecondaryButton={modalConfig.showSecondaryButton}
-        secondaryButtonText={modalConfig.secondaryButtonText}
-        onSecondaryPress={modalConfig.onSecondaryPress}
-        onClose={modalConfig.onClose || (() => setModalConfig({ ...modalConfig, visible: false }))}
-      />
     </SafeAreaView>
   );
 };
@@ -414,6 +465,31 @@ const styles = StyleSheet.create({
     color: '#991B1B',
     fontSize: 14,
   },
+  trialBanner: {
+    flexDirection: 'row',
+    backgroundColor: '#FEF3C7',
+    borderRadius: 16,
+    padding: 16,
+    marginBottom: 20,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#F59E0B',
+  },
+  trialBannerContent: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  trialBannerTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#92400E',
+    marginBottom: 4,
+  },
+  trialBannerText: {
+    fontSize: 14,
+    color: '#B45309',
+    lineHeight: 20,
+  },
   sectionHeader: {
     marginBottom: 16,
   },
@@ -426,6 +502,51 @@ const styles = StyleSheet.create({
   sectionSubtitle: {
     fontSize: 14,
     color: '#6B7280',
+  },
+  billingToggleContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    padding: 4,
+    marginBottom: 20,
+  },
+  billingToggleOption: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderRadius: 10,
+    gap: 6,
+  },
+  billingToggleOptionActive: {
+    backgroundColor: '#fff',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  billingToggleText: {
+    fontSize: 15,
+    fontWeight: '500',
+    color: '#6B7280',
+  },
+  billingToggleTextActive: {
+    color: '#1F2937',
+    fontWeight: '600',
+  },
+  savingsBadge: {
+    backgroundColor: '#059669',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 10,
+  },
+  savingsBadgeText: {
+    color: '#fff',
+    fontSize: 11,
+    fontWeight: '700',
   },
   plansContainer: {
     marginBottom: 24,

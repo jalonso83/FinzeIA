@@ -25,6 +25,7 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
+import CustomModal from './modals/CustomModal';
 
 import { logger } from '../utils/logger';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -70,10 +71,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const [showTipsModal, setShowTipsModal] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModalTTS, setShowProModalTTS] = useState(false);
 
   const { user } = useAuthStore();
-  const { updateZenioUsage, canUseTextToSpeech } = useSubscriptionStore();
+  const { updateZenioUsage, canUseTextToSpeech, openPlansModal } = useSubscriptionStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -99,16 +100,13 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
-    // Verificar si el usuario tiene acceso a TTS (PLUS/PRO)
+    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
     if (!canUseTextToSpeech()) {
-      Alert.alert(
-        'Función Premium',
-        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ver Planes', onPress: () => setShowUpgradeModal(true) }
-        ]
-      );
+      // iOS: cerrar el chat modal primero para evitar modales anidados
+      setShowChat(false);
+      setTimeout(() => {
+        setShowProModalTTS(true);
+      }, 400);
       return;
     }
 
@@ -215,11 +213,12 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               isUser: false,
               timestamp: new Date(),
             }]);
-            // Cerrar tips modal si está abierto antes de mostrar upgrade
+            // iOS: cerrar el chat modal primero para evitar modales anidados
             setShowTipsModal(false);
+            setShowChat(false);
             setTimeout(() => {
-              setShowUpgradeModal(true);
-            }, 300);
+              openPlansModal();
+            }, 400);
           } else {
             setMessages([{
               id: '1',
@@ -359,7 +358,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           case 'goal_limit_reached':
             // Mostrar modal de upgrade cuando se alcanza límite de presupuestos o metas
             setTimeout(() => {
-              setShowUpgradeModal(true);
+              openPlansModal();
             }, 500);
             break;
         }
@@ -368,7 +367,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       // También verificar si la respuesta indica que se debe hacer upgrade
       if (response.data.upgrade === true) {
         setTimeout(() => {
-          setShowUpgradeModal(true);
+          openPlansModal();
         }, 500);
       }
 
@@ -385,11 +384,12 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, limitMessage]);
-        // Cerrar tips modal si está abierto antes de mostrar upgrade
+        // iOS: cerrar el chat modal primero para evitar modales anidados
         setShowTipsModal(false);
+        setShowChat(false);
         setTimeout(() => {
-          setShowUpgradeModal(true);
-        }, 300);
+          openPlansModal();
+        }, 400);
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -743,109 +743,6 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             </View>
           </View>
 
-          {/* Overlay de Upgrade - DENTRO del Modal de Chat para evitar conflictos en iOS */}
-          {showUpgradeModal && (
-            <TouchableOpacity
-              style={styles.upgradeOverlayContainer}
-              activeOpacity={1}
-              onPress={() => setShowUpgradeModal(false)}
-            >
-              <TouchableOpacity
-                style={styles.upgradeOverlayModal}
-                activeOpacity={1}
-                onPress={(e) => e.stopPropagation()}
-              >
-                <TouchableOpacity
-                  style={styles.upgradeCloseButton}
-                  onPress={() => setShowUpgradeModal(false)}
-                >
-                  <Ionicons name="close" size={24} color="#6B7280" />
-                </TouchableOpacity>
-
-                <ScrollView
-                    showsVerticalScrollIndicator={true}
-                    contentContainerStyle={{ flexGrow: 1 }}
-                    bounces={true}
-                  >
-                  {/* Icon */}
-                  <View style={styles.upgradeIconContainer}>
-                    <View style={styles.upgradeIconCircle}>
-                      <Ionicons name="chatbubble-ellipses" size={34} color="#F59E0B" />
-                    </View>
-                  </View>
-
-                  {/* Title */}
-                  <Text style={styles.upgradeTitle}>Límite de Consultas Alcanzado</Text>
-
-                  {/* Description */}
-                  <Text style={styles.upgradeDescription}>
-                    Has usado las 15 consultas a Zenio AI de este mes.
-                  </Text>
-
-                  {/* Comparison */}
-                  <View style={styles.upgradeComparisonContainer}>
-                    <View style={styles.upgradeComparisonCard}>
-                      <Text style={styles.upgradeComparisonLabel}>Actual (Gratis)</Text>
-                      <Text style={styles.upgradeComparisonValue}>15/15</Text>
-                    </View>
-                    <Ionicons name="arrow-forward" size={24} color="#9CA3AF" />
-                    <View style={[styles.upgradeComparisonCard, styles.upgradePremiumCard]}>
-                      <Text style={[styles.upgradeComparisonLabel, styles.upgradePremiumLabel]}>Premium</Text>
-                      <Text style={[styles.upgradeComparisonValue, styles.upgradePremiumValue]}>Ilimitado</Text>
-                    </View>
-                  </View>
-
-                  {/* Features */}
-                  <View style={styles.upgradeFeaturesContainer}>
-                    <Text style={styles.upgradeFeaturesTitle}>Características Premium:</Text>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                      <Text style={styles.upgradeFeatureText}>Consultas ilimitadas a Zenio AI</Text>
-                    </View>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                      <Text style={styles.upgradeFeatureText}>Presupuestos ilimitados</Text>
-                    </View>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                      <Text style={styles.upgradeFeatureText}>Metas ilimitadas</Text>
-                    </View>
-                    <View style={styles.upgradeFeatureRow}>
-                      <Ionicons name="checkmark-circle" size={20} color="#F59E0B" />
-                      <Text style={styles.upgradeFeatureText}>Acceso a reportes</Text>
-                    </View>
-                  </View>
-
-                  {/* Trial Badge */}
-                  <View style={styles.upgradeTrialBadge}>
-                    <Ionicons name="gift" size={16} color="#059669" />
-                    <Text style={styles.upgradeTrialText}>7 días de prueba gratis</Text>
-                  </View>
-
-                  {/* Buttons */}
-                  <TouchableOpacity
-                    style={styles.upgradeButton}
-                    onPress={() => {
-                      setShowUpgradeModal(false);
-                      setShowChat(false);
-                      // Navigate to subscription screen or open upgrade flow
-                    }}
-                  >
-                    <Ionicons name="diamond" size={20} color="#fff" />
-                    <Text style={styles.upgradeButtonText}>Ver Planes</Text>
-                  </TouchableOpacity>
-
-                  <TouchableOpacity
-                    style={styles.upgradeContinueButton}
-                    onPress={() => setShowUpgradeModal(false)}
-                  >
-                    <Text style={styles.upgradeContinueButtonText}>Continuar con Gratis</Text>
-                  </TouchableOpacity>
-                </ScrollView>
-              </TouchableOpacity>
-            </TouchableOpacity>
-          )}
-
           {/* Overlay de Tips - DENTRO del Modal de Chat para evitar conflictos en iOS */}
           {showTipsModal && (
         <TouchableOpacity
@@ -940,6 +837,25 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           )}
         </KeyboardAvoidingView>
       </Modal>
+
+      {/* Modal PRO - Para TTS */}
+      <CustomModal
+        visible={showProModalTTS}
+        type="warning"
+        title="Función PRO"
+        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalTTS(false);
+          // iOS: esperar que el modal cierre antes de abrir el siguiente
+          setTimeout(() => {
+            openPlansModal();
+          }, 350);
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalTTS(false)}
+      />
     </>
   );
 };

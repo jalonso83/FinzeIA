@@ -65,12 +65,13 @@ export default function GoalsScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showExportUpgradeModal, setShowExportUpgradeModal] = useState(false);
+  const [showProModalPdf, setShowProModalPdf] = useState(false);
 
   // Dashboard store para notificar cambios
   const { onGoalChange, goalChangeTrigger} = useDashboardStore();
 
   // Subscription store para validar límites
-  const { canCreateGoal, canExportData, fetchSubscription, currentPlan } = useSubscriptionStore();
+  const { canCreateGoal, canExportData, canExportPdf, fetchSubscription, currentPlan, openPlansModal } = useSubscriptionStore();
 
   // Memoizado: Carga de metas
   const loadGoals = useCallback(async () => {
@@ -78,6 +79,7 @@ export default function GoalsScreen() {
       setLoading(true);
       const response = await goalsAPI.getAll();
       const goalsData = response.data.goals || response.data || [];
+      logger.log('Goals loaded:', goalsData);
       setGoals(goalsData);
     } catch (error) {
       logger.error('Error loading goals:', error);
@@ -90,14 +92,27 @@ export default function GoalsScreen() {
 
   useEffect(() => {
     loadGoals();
-  }, [loadGoals]);
+    fetchSubscription();
+  }, [loadGoals, fetchSubscription]);
 
   // Listener para cambios de metas desde Zenio
   useEffect(() => {
     if (goalChangeTrigger > 0) {
+      logger.log('[GoalsScreen] Goal change detected, reloading...');
       loadGoals();
     }
   }, [goalChangeTrigger, loadGoals]);
+
+  // Memoizado: Función para validar límites antes de crear meta
+  const handleCreateGoal = useCallback(() => {
+    // Solo contar metas NO completadas para el límite
+    const activeGoalsCount = goals.filter(g => !g.isCompleted).length;
+    if (!canCreateGoal(activeGoalsCount)) {
+      setShowUpgradeModal(true);
+      return;
+    }
+    setShowForm(true);
+  }, [canCreateGoal, goals]);
 
   // Memoizado: Editar meta
   const handleEditGoal = useCallback((goal: Goal) => {
@@ -112,13 +127,9 @@ export default function GoalsScreen() {
   }, []);
 
   // Memoizado: Callback cuando se añade contribución
-  const handleContributionAdded = useCallback((message: string) => {
-    setShowContributionForm(false);
-    setSelectedGoal(null);
+  const handleContributionAdded = useCallback(() => {
     loadGoals();
     onGoalChange();
-    setSuccessMessage(message);
-    setShowSuccessModal(true);
   }, [loadGoals, onGoalChange]);
 
   // Memoizado: Handler para iniciar eliminación
@@ -133,26 +144,18 @@ export default function GoalsScreen() {
 
     try {
       await goalsAPI.delete(goalToDelete.id);
-
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
-
       loadGoals();
       onGoalChange();
-
-      setTimeout(() => {
-        setSuccessMessage('Meta eliminada correctamente');
-        setShowSuccessModal(true);
-      }, 300);
+      setSuccessMessage('Meta eliminada correctamente');
+      setShowSuccessModal(true);
     } catch (error) {
       logger.error('Error deleting goal:', error);
       setShowDeleteConfirmModal(false);
       setGoalToDelete(null);
-
-      setTimeout(() => {
-        setErrorMessage('No se pudo eliminar la meta');
-        setShowErrorModal(true);
-      }, 300);
+      setErrorMessage('No se pudo eliminar la meta');
+      setShowErrorModal(true);
     }
   }, [goalToDelete, loadGoals, onGoalChange]);
 
@@ -225,6 +228,13 @@ export default function GoalsScreen() {
   // Memoizado: Función de exportación
   const handleExport = useCallback(async (format: ExportFormat) => {
     setShowExportOptions(false);
+
+    // Verificar si tiene permiso de exportación PDF (solo PRO)
+    if (format === 'pdf' && !canExportPdf()) {
+      setShowProModalPdf(true);
+      return;
+    }
+
     setIsExporting(true);
 
     try {
@@ -262,52 +272,34 @@ export default function GoalsScreen() {
       const completedGoals = goals.filter(g => g.isCompleted).length;
       const overallProgress = totalTarget > 0 ? (totalSaved / totalTarget * 100).toFixed(1) : '0';
 
-      const summary = `
-        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Total Metas</div>
-            <div style="font-size: 18px; font-weight: bold; color: #2563EB;">${goals.length}</div>
-          </div>
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Completadas</div>
-            <div style="font-size: 18px; font-weight: bold; color: #10B981;">${completedGoals}</div>
-          </div>
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Progreso Total</div>
-            <div style="font-size: 18px; font-weight: bold; color: #F59E0B;">${overallProgress}%</div>
-          </div>
-        </div>
-        <div style="display: flex; justify-content: space-between; flex-wrap: wrap; gap: 15px; margin-bottom: 20px;">
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Meta Total</div>
-            <div style="font-size: 16px; font-weight: bold; color: #2563EB;">${formatCurrency(totalTarget)}</div>
-          </div>
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Total Ahorrado</div>
-            <div style="font-size: 16px; font-weight: bold; color: #10B981;">${formatCurrency(totalSaved)}</div>
-          </div>
-          <div style="flex: 1; min-width: 120px; text-align: center; padding: 10px; background-color: #f8fafc; border-radius: 8px;">
-            <div style="font-size: 11px; color: #64748b;">Por Ahorrar</div>
-            <div style="font-size: 16px; font-weight: bold; color: #3B82F6;">${formatCurrency(totalToSave)}</div>
-          </div>
-        </div>
-      `;
+      const summary = [
+        { label: 'Total Metas', value: `${goals.length}` },
+        { label: 'Completadas', value: `${completedGoals}` },
+        { label: 'Progreso Total', value: `${overallProgress}%` },
+        { label: 'Meta Total', value: formatCurrency(totalTarget) },
+        { label: 'Total Ahorrado', value: formatCurrency(totalSaved) },
+        { label: 'Por Ahorrar', value: formatCurrency(totalToSave) },
+      ];
 
-      if (format === 'PDF') {
-        await ExportService.exportToPDF({
+      const result = await ExportService.exportData(
+        {
           title: 'Metas de Ahorro',
           subtitle: `Reporte generado el ${getCurrentDate()}`,
+          filename: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
+          format: format === 'PDF' ? 'pdf' : 'csv',
+        },
+        {
           columns,
-          data: exportData,
+          rows: exportData,
           summary,
-          fileName: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
-        });
-      } else {
-        await ExportService.exportToCSV({
-          columns,
-          data: exportData,
-          fileName: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
-        });
+        },
+        'save'
+      );
+
+      if (!result.success) {
+        setErrorMessage(result.message);
+        setShowErrorModal(true);
+        return;
       }
 
       setSuccessMessage(`Metas exportadas correctamente en formato ${format}`);
@@ -319,7 +311,7 @@ export default function GoalsScreen() {
     } finally {
       setIsExporting(false);
     }
-  }, [goals, totalTarget, totalSaved, totalToSave, formatCurrency]);
+  }, [goals, totalTarget, totalSaved, totalToSave, formatCurrency, canExportPdf]);
 
   if (loading) {
     return (
@@ -360,14 +352,8 @@ export default function GoalsScreen() {
           <TouchableOpacity
             style={styles.addButton}
             onPress={() => {
-              // Validar límite de metas
-              if (!canCreateGoal(goals.length)) {
-                // Mostrar modal de upgrade
-                setShowUpgradeModal(true);
-                return;
-              }
               setEditingGoal(null);
-              setShowForm(true);
+              handleCreateGoal();
             }}
           >
             <Ionicons name="add" size={24} color="white" />
@@ -448,17 +434,17 @@ export default function GoalsScreen() {
           </View>
         )}
 
-        {goals.length === 0 ? (
+        {activeGoals.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="trophy-outline" size={64} color="#9CA3AF" />
-            <Text style={styles.emptyTitle}>No hay metas</Text>
+            <Text style={styles.emptyTitle}>No hay metas activas</Text>
             <Text style={styles.emptySubtitle}>
               Establece metas de ahorro y realiza un seguimiento de tu progreso
             </Text>
           </View>
         ) : (
           <View style={styles.goalsList}>
-            {goals.map((goal) => {
+            {activeGoals.map((goal) => {
               const progress = calculateProgress(goal.currentAmount, goal.targetAmount);
               const progressColor = getProgressColor(progress);
               const remaining = goal.targetAmount - goal.currentAmount;
@@ -479,11 +465,11 @@ export default function GoalsScreen() {
                         <Text style={styles.goalName} numberOfLines={1}>{goal.name}</Text>
                       </View>
                     </View>
-                    <TouchableOpacity 
+                    <TouchableOpacity
                       style={styles.deleteButton}
                       onPress={() => handleDeleteGoal(goal)}
                     >
-                      <Text style={styles.deleteButtonText}>×</Text>
+                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
                     </TouchableOpacity>
                   </View>
 
@@ -572,18 +558,10 @@ export default function GoalsScreen() {
           setShowForm(false);
           setEditingGoal(null);
         }}
-        onSuccess={(message: string) => {
-          // 1. CERRAR FORMULARIO PRIMERO
-          setShowForm(false);
-          setEditingGoal(null);
-
-          // 2. Recargar datos
+        onSuccess={() => {
           loadGoals();
           onGoalChange();
-
-          // 3. Mostrar modal de éxito DESPUÉS de cerrar formulario
-          setSuccessMessage(message);
-          setShowSuccessModal(true);
+          setEditingGoal(null);
         }}
         editGoal={editingGoal}
       />
@@ -648,7 +626,7 @@ export default function GoalsScreen() {
         limitType="goals"
       />
 
-      {/* Export Upgrade Modal */}
+      {/* Export Upgrade Modal CSV */}
       <UpgradeModal
         visible={showExportUpgradeModal}
         onClose={() => {
@@ -658,33 +636,61 @@ export default function GoalsScreen() {
         limitType="export"
       />
 
+      {/* Modal de Función PRO para exportación PDF */}
+      <CustomModal
+        visible={showProModalPdf}
+        type="warning"
+        title="Función PRO"
+        message={`La exportación a PDF está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalPdf(false);
+          // iOS: esperar que el modal cierre antes de abrir el siguiente
+          setTimeout(() => {
+            openPlansModal();
+          }, 350);
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalPdf(false)}
+      />
+
       {/* Export Options Modal */}
       <CustomModal
         visible={showExportOptions}
         type="info"
         title="Exportar Metas"
-        message="Selecciona el formato de exportación"
-        buttonText=""
+        message=""
         hideDefaultButton={true}
         onClose={() => setShowExportOptions(false)}
         customContent={
-          <View style={styles.exportOptionsContainer}>
-            <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('PDF')}
-            >
-              <Ionicons name="document-text" size={24} color="#dc2626" />
-              <Text style={styles.exportOptionText}>PDF</Text>
-              <Text style={styles.exportOptionSubtext}>Documento formateado</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('CSV')}
-            >
-              <Ionicons name="grid" size={24} color="#16a34a" />
-              <Text style={styles.exportOptionText}>CSV</Text>
-              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
-            </TouchableOpacity>
+          <View>
+            <View style={styles.exportOptionsContainer}>
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('PDF')}
+              >
+                <View style={styles.exportOptionIconContainer}>
+                  <Ionicons name="document-text" size={32} color="#dc2626" />
+                  {!canExportPdf() && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.exportOptionText}>PDF</Text>
+                <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('CSV')}
+              >
+                <Ionicons name="grid" size={32} color="#059669" />
+                <Text style={styles.exportOptionText}>CSV</Text>
+                <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
               style={styles.cancelExportButton}
               onPress={() => setShowExportOptions(false)}
@@ -891,11 +897,6 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
-  deleteButtonText: {
-    fontSize: 18,
-    color: '#dc2626',
-    fontWeight: 'bold',
-  },
   badgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1017,36 +1018,60 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   exportOptionsContainer: {
-    width: '100%',
-    gap: 12,
-    marginTop: 8,
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingVertical: 20,
+    gap: 16,
   },
   exportOptionButton: {
-    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
     backgroundColor: '#f8fafc',
-    padding: 16,
+    paddingVertical: 20,
+    paddingHorizontal: 24,
     borderRadius: 12,
-    gap: 12,
+    borderWidth: 1,
+    borderColor: '#e2e8f0',
   },
   exportOptionText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#1e293b',
+    marginTop: 8,
   },
   exportOptionSubtext: {
     fontSize: 12,
     color: '#64748b',
-    marginLeft: 'auto',
+    marginTop: 4,
+  },
+  exportOptionIconContainer: {
+    position: 'relative',
+  },
+  proBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    backgroundColor: '#7c3aed',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  proBadgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
   },
   cancelExportButton: {
     alignItems: 'center',
-    padding: 12,
-    marginTop: 4,
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
   },
   cancelExportText: {
-    fontSize: 14,
-    color: '#64748b',
-    fontWeight: '500',
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
   },
 });

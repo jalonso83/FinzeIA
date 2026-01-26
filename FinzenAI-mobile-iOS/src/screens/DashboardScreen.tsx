@@ -492,7 +492,7 @@ export default function DashboardScreen() {
             {!subscription || subscription.plan === 'FREE' ? '🆓' : subscription.plan === 'PREMIUM' ? '👑' : '💎'}
           </Text>
           <Text style={styles.planBadgeText}>
-            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan}
+            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan === 'PREMIUM' ? 'Plus' : 'Pro'}
           </Text>
           <Ionicons name="chevron-forward" size={16} color="#6B7280" />
         </TouchableOpacity>
@@ -517,9 +517,9 @@ export default function DashboardScreen() {
               {/* Budgets */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="wallet" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/3</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/2</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeBudgets / 3) * 100)}%
+                  {Math.round((dashboardData.activeBudgets / 2) * 100)}%
                 </Text>
               </View>
 
@@ -528,9 +528,9 @@ export default function DashboardScreen() {
               {/* Goals */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="trophy" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/2</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/1</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeGoals / 2) * 100)}%
+                  {Math.round((dashboardData.activeGoals / 1) * 100)}%
                 </Text>
               </View>
             </View>
@@ -565,7 +565,7 @@ export default function DashboardScreen() {
           </View>
           
           <View style={styles.saldoTotalContainer}>
-            <Text style={styles.saldoTotalLabel}>Saldo Total</Text>
+            <Text style={styles.saldoTotalLabel}>Saldo Total del Mes</Text>
             <Text style={styles.saldoTotalAmount}>
               {formatCurrency(dashboardData.monthlyBalance)}
             </Text>
@@ -574,7 +574,7 @@ export default function DashboardScreen() {
 
         {/* Comprehensive Balance Card */}
         <View style={styles.comprehensiveBalanceCard}>
-          <Text style={styles.comprehensiveBalanceTitle}>Balance Mensual + Saldo Anterior</Text>
+          <Text style={styles.comprehensiveBalanceTitle}>Balance Mensual + Saldo Anterior Acumulado</Text>
           
           <View style={styles.comprehensiveBalanceDetail}>
             <View style={styles.comprehensiveBalanceItem}>
@@ -598,7 +598,7 @@ export default function DashboardScreen() {
           </View>
           
           <View style={styles.comprehensiveSaldoContainer}>
-            <Text style={styles.comprehensiveSaldoLabel}>Saldo Total</Text>
+            <Text style={styles.comprehensiveSaldoLabel}>Saldo Total Acumulado</Text>
             <Text style={styles.comprehensiveSaldoAmount}>
               {formatCurrency(dashboardData.cumulativeBalance)}
             </Text>
@@ -1164,7 +1164,8 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    padding: 20,
+    paddingHorizontal: 20,
+    paddingTop: 8,
     paddingBottom: 100,
   },
   loadingContainer: {
@@ -1319,7 +1320,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   comprehensiveSaldoContainer: {
-    backgroundColor: '#10B981',
+    backgroundColor: '#2563EB',
     borderRadius: 12,
     padding: 16,
     alignItems: 'center',

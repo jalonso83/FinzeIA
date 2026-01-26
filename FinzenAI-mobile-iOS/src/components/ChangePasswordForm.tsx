@@ -232,7 +232,7 @@ export default function ChangePasswordForm({ visible, onClose }: ChangePasswordF
                 {loading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.changeButtonText}>Cambiar Contraseña</Text>
+                  <Text style={styles.changeButtonText} numberOfLines={1} adjustsFontSizeToFit>Cambiar</Text>
                 )}
               </TouchableOpacity>
             </View>
@@ -326,20 +326,24 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#f3f4f6',
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
+    justifyContent: 'center',
     borderWidth: 1,
     borderColor: '#d1d5db',
   },
   cancelButtonText: {
     color: '#374151',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '500',
+    textAlign: 'center',
   },
   changeButton: {
     flex: 1,
     backgroundColor: '#2563EB',
     paddingVertical: 12,
+    paddingHorizontal: 8,
     borderRadius: 8,
     alignItems: 'center',
     justifyContent: 'center',
@@ -347,8 +351,9 @@ const styles = StyleSheet.create({
   },
   changeButtonText: {
     color: 'white',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: '600',
+    textAlign: 'center',
   },
   disabledButton: {
     opacity: 0.5,

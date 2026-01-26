@@ -7,13 +7,14 @@ import {
   ViewStyle,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { Plan, SubscriptionPlan } from '../../types/subscription';
+import { Plan, SubscriptionPlan, BillingPeriod } from '../../types/subscription';
 
 interface PlanCardProps {
   plan: Plan;
   currentPlan: SubscriptionPlan;
   onSelect: (planId: SubscriptionPlan) => void;
   disabled?: boolean;
+  billingPeriod?: BillingPeriod;
 }
 
 const PlanCard: React.FC<PlanCardProps> = ({
@@ -21,11 +22,27 @@ const PlanCard: React.FC<PlanCardProps> = ({
   currentPlan,
   onSelect,
   disabled = false,
+  billingPeriod = 'monthly',
 }) => {
+  // Defensive checks for plan data
+  if (!plan || !plan.id) {
+    return null;
+  }
+
   const isCurrentPlan = plan.id === currentPlan;
   const isFree = plan.id === 'FREE';
   const isPremium = plan.id === 'PREMIUM';
   const isPro = plan.id === 'PRO';
+
+  // Defensive defaults - price es un objeto {monthly, yearly}
+  const planPrice = typeof plan.price === 'object' && plan.price !== null
+    ? (billingPeriod === 'yearly' ? (plan.price.yearly ?? 0) : (plan.price.monthly ?? 0))
+    : (typeof plan.price === 'number' ? plan.price : 0);
+  const monthlyEquivalent = billingPeriod === 'yearly' && typeof plan.price === 'object' && plan.price !== null
+    ? (plan.price.yearly ?? 0) / 12
+    : 0;
+  const periodText = billingPeriod === 'yearly' ? '/año' : '/mes';
+  const planFeatures = Array.isArray(plan.features) ? plan.features : [];
 
   // Colores según el plan
   const getColors = () => {
@@ -78,31 +95,30 @@ const PlanCard: React.FC<PlanCardProps> = ({
       {/* Precio */}
       <View style={styles.priceContainer}>
         <Text style={styles.currency}>$</Text>
-        <Text style={styles.price}>{plan.price.toFixed(2)}</Text>
-        {!isFree && <Text style={styles.period}>/mes</Text>}
+        <Text style={styles.price}>{planPrice.toFixed(2)}</Text>
+        {!isFree && <Text style={styles.period}>{periodText}</Text>}
       </View>
+
+      {/* Equivalente mensual para plan anual */}
+      {!isFree && billingPeriod === 'yearly' && monthlyEquivalent > 0 && (
+        <Text style={styles.monthlyEquivalent}>
+          Solo ${monthlyEquivalent.toFixed(2)}/mes
+        </Text>
+      )}
 
       {/* Trial (solo para planes de pago) */}
       {!isFree && (
-        <>
-          <View style={styles.trialContainer}>
-            <Ionicons name="gift-outline" size={14} color={colors.primary} />
-            <Text style={[styles.trialText, { color: colors.primary }]}>
-              7 días de prueba gratis
-            </Text>
-          </View>
-          <View style={styles.realPaymentNotice}>
-            <Ionicons name="card-outline" size={12} color="#6B7280" />
-            <Text style={styles.realPaymentText}>
-              Tarjeta real requerida • Cargos aplican después del periodo de prueba
-            </Text>
-          </View>
-        </>
+        <View style={styles.trialContainer}>
+          <Ionicons name="gift-outline" size={14} color={colors.primary} />
+          <Text style={[styles.trialText, { color: colors.primary }]}>
+            7 días de prueba gratis
+          </Text>
+        </View>
       )}
 
       {/* Features */}
       <View style={styles.featuresContainer}>
-        {plan.features.map((feature, index) => (
+        {planFeatures.map((feature, index) => (
           <View key={index} style={styles.featureRow}>
             <Ionicons
               name="checkmark-circle"
@@ -132,7 +148,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
       )}
 
       {isCurrentPlan && !isFree && (
-        <View style={[styles.button, styles.currentButton]}>
+        <View style={[styles.currentButton, { borderColor: colors.primary }]}>
           <Ionicons name="checkmark-circle" size={20} color={colors.primary} />
           <Text style={[styles.currentButtonText, { color: colors.primary }]}>
             Activo
@@ -140,7 +156,7 @@ const PlanCard: React.FC<PlanCardProps> = ({
         </View>
       )}
 
-      {isFree && !isCurrentPlan && (
+      {isFree && isCurrentPlan && (
         <View style={styles.freeInfo}>
           <Text style={styles.freeInfoText}>Tu plan actual</Text>
         </View>
@@ -220,6 +236,12 @@ const styles = StyleSheet.create({
     color: '#6B7280',
     marginLeft: 4,
   },
+  monthlyEquivalent: {
+    fontSize: 14,
+    color: '#059669',
+    fontWeight: '600',
+    marginBottom: 8,
+  },
   trialContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -229,17 +251,6 @@ const styles = StyleSheet.create({
   trialText: {
     fontSize: 13,
     fontWeight: '600',
-  },
-  realPaymentNotice: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 16,
-  },
-  realPaymentText: {
-    fontSize: 11,
-    color: '#6B7280',
-    fontStyle: 'italic',
   },
   featuresContainer: {
     marginBottom: 20,
@@ -279,11 +290,14 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   currentButton: {
-    backgroundColor: 'transparent',
+    backgroundColor: '#FFFFFF',
     borderWidth: 2,
-    borderColor: '#E5E5E5',
+    borderRadius: 14,
+    paddingVertical: 14,
     flexDirection: 'row',
-    gap: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
   },
   currentButtonText: {
     fontSize: 16,

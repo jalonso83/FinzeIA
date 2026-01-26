@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authAPI, referralsAPI } from '../utils/api';
 
@@ -95,8 +97,30 @@ export default function RegisterScreen() {
   const [showOccupationModal, setShowOccupationModal] = useState(false);
   const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const navigation = useNavigation<any>();
+
+  // Cargar código de referido pendiente (desde deep link)
+  useEffect(() => {
+    const loadPendingReferralCode = async () => {
+      try {
+        const pendingCode = await AsyncStorage.getItem('pendingReferralCode');
+        if (pendingCode) {
+          logger.log('🎁 Código de referido pendiente encontrado:', pendingCode);
+          setForm(prev => ({ ...prev, referralCode: pendingCode }));
+          // Validar el código automáticamente
+          validateReferralCode(pendingCode);
+          // Limpiar el código pendiente
+          await AsyncStorage.removeItem('pendingReferralCode');
+        }
+      } catch (error) {
+        logger.error('Error cargando código de referido:', error);
+      }
+    };
+
+    loadPendingReferralCode();
+  }, []);
 
   // Validar código de referido
   const validateReferralCode = async (code: string) => {
@@ -234,6 +258,40 @@ export default function RegisterScreen() {
       return `${year}-${month}-${day}`;
     }
     return displayDate; // Si no está completo, devolver como está
+  };
+
+  // Función para convertir fecha display (DD-MM-YYYY) a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Restricciones de edad para fecha de nacimiento
+  const maxBirthDate = new Date();
+  maxBirthDate.setFullYear(maxBirthDate.getFullYear() - 13); // Mínimo 13 años
+
+  const minBirthDate = new Date();
+  minBirthDate.setFullYear(minBirthDate.getFullYear() - 100); // Máximo 100 años
+
+  // Handler para cambio de fecha desde DatePicker
+  const handleDatePickerChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setForm({ ...form, birthDate: `${dd}-${mm}-${yyyy}` });
+      // Limpiar error si existe
+      if (errors.birthDate) {
+        setErrors({ ...errors, birthDate: '' });
+      }
+    }
   };
 
   const handleChange = (field: string, value: string) => {
@@ -485,15 +543,26 @@ export default function RegisterScreen() {
 
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Fecha de Nacimiento *</Text>
-                <TextInput
-                  style={[styles.textInput, errors.birthDate && styles.inputError]}
-                  value={form.birthDate}
-                  onChangeText={(value) => handleChange('birthDate', value)}
-                  placeholder="DD-MM-YYYY"
-                  placeholderTextColor="#9ca3af"
-                  keyboardType="numeric"
-                  maxLength={10}
-                />
+                <TouchableOpacity
+                  style={[styles.dateInput, errors.birthDate && styles.inputError]}
+                  onPress={() => setShowDatePicker(true)}
+                  activeOpacity={0.7}
+                >
+                  <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+                  <Text style={[styles.dateText, !form.birthDate && styles.datePlaceholder]}>
+                    {form.birthDate || 'Seleccionar fecha'}
+                  </Text>
+                </TouchableOpacity>
+                {showDatePicker && (
+                  <DateTimePicker
+                    value={form.birthDate ? parseDisplayDateToDate(form.birthDate) : maxBirthDate}
+                    mode="date"
+                    display="default"
+                    onChange={handleDatePickerChange}
+                    maximumDate={maxBirthDate}
+                    minimumDate={minBirthDate}
+                  />
+                )}
                 {errors.birthDate && <Text style={styles.errorText}>{errors.birthDate}</Text>}
               </View>
             </View>
@@ -858,6 +927,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderText: {
+    color: '#9ca3af',
+  },
+  dateInput: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#1e293b',
+    flex: 1,
+  },
+  datePlaceholder: {
     color: '#9ca3af',
   },
   registerButton: {

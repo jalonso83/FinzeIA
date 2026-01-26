@@ -31,6 +31,17 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
   const colors = getColors();
 
+  // Defensive defaults for planDetails and limits
+  const planDetails = subscription.planDetails || {
+    name: subscription.plan === 'PREMIUM' ? 'Plus' : subscription.plan === 'PRO' ? 'Pro' : 'Gratis',
+    price: { monthly: 0, yearly: 0 },
+  };
+  // price puede ser objeto {monthly, yearly} o número
+  const planPrice = typeof planDetails.price === 'object' && planDetails.price !== null
+    ? (planDetails.price.monthly ?? 0)
+    : (typeof planDetails.price === 'number' ? planDetails.price : 0);
+  const limits = subscription.limits || { budgets: 2, goals: 1, zenioQueries: 15 };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -39,6 +50,18 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
       month: 'long',
       day: 'numeric',
     });
+  };
+
+  const getStatusText = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'ACTIVE': 'ACTIVO',
+      'TRIALING': 'EN PRUEBA',
+      'CANCELED': 'CANCELADO',
+      'PAST_DUE': 'VENCIDO',
+      'INCOMPLETE': 'INCOMPLETO',
+      'UNPAID': 'SIN PAGAR',
+    };
+    return statusMap[status] || status;
   };
 
   return (
@@ -50,13 +73,13 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
           <View>
             <Text style={styles.label}>Plan Actual</Text>
             <Text style={[styles.planName, { color: colors.primary }]}>
-              {subscription.planDetails.name}
+              {planDetails.name}
             </Text>
           </View>
         </View>
         {!isFree && (
           <View style={[styles.statusBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.statusText}>{subscription.status}</Text>
+            <Text style={styles.statusText}>{getStatusText(subscription.status)}</Text>
           </View>
         )}
       </View>
@@ -65,7 +88,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
       {!isFree && (
         <View style={styles.priceContainer}>
           <Text style={styles.price}>
-            ${subscription.planDetails.price.toFixed(2)}
+            ${planPrice.toFixed(2)}
           </Text>
           <Text style={styles.period}>/mes</Text>
         </View>
@@ -100,19 +123,19 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
           <View style={styles.limitItem}>
             <Ionicons name="wallet" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.budgets === -1 ? '∞' : subscription.limits.budgets} Presupuestos
+              {limits.budgets === -1 ? '∞' : limits.budgets} Presupuestos
             </Text>
           </View>
           <View style={styles.limitItem}>
             <Ionicons name="trophy" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.goals === -1 ? '∞' : subscription.limits.goals} Metas
+              {limits.goals === -1 ? '∞' : limits.goals} Metas
             </Text>
           </View>
           <View style={styles.limitItem}>
             <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.zenioQueries === -1 ? '∞' : subscription.limits.zenioQueries} Zenio
+              {limits.zenioQueries === -1 ? '∞' : limits.zenioQueries} Zenio
             </Text>
           </View>
         </View>

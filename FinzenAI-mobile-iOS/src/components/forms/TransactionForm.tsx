@@ -16,6 +16,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { categoriesAPI, transactionsAPI, Category, Transaction } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
@@ -54,6 +55,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [originalFormData, setOriginalFormData] = useState({
     description: '',
@@ -75,10 +77,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   
   // Dashboard store para notificar cambios
   const { onTransactionChange } = useDashboardStore();
-  
+
   // Hook para moneda del usuario
   const { userCurrencyInfo } = useCurrency();
   const currency = userCurrencyInfo;
+
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -117,6 +120,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
     }
     return backendDate;
+  };
+
+  // Función para convertir fecha display (DD-MM-YYYY) a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Handler para cambio de fecha desde DatePicker
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setFormData({ ...formData, date: `${dd}-${mm}-${yyyy}` });
+    }
   };
 
   useEffect(() => {
@@ -537,18 +563,25 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           {/* Fecha */}
           <View style={styles.section}>
             <Text style={styles.label}>Fecha</Text>
-            <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={20} color="#64748b" />
-              <TextInput
-                style={styles.dateInput}
-                value={formData.date}
-                onChangeText={(text) => setFormData({ ...formData, date: formatDateDisplay(text) })}
-                placeholder="DD-MM-YYYY"
-                placeholderTextColor="#9ca3af"
-                keyboardType="numeric"
-                maxLength={10}
+            <TouchableOpacity
+              style={styles.dateContainer}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+              <Text style={styles.dateText}>
+                {formData.date || 'Seleccionar fecha'}
+              </Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={formData.date ? parseDisplayDateToDate(formData.date) : new Date()}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+                maximumDate={new Date()}
               />
-            </View>
+            )}
           </View>
 
           {/* Categoría */}
@@ -560,28 +593,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <Text style={styles.loadingText}>Cargando categorías...</Text>
               </View>
             ) : (
-              <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                <View style={styles.categoriesContainer}>
-                  {filteredCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryButton,
-                        formData.categoryId === category.id && styles.categoryButtonActive,
-                      ]}
-                      onPress={() => setFormData({ ...formData, categoryId: category.id })}
-                    >
-                      <Text style={styles.categoryIcon}>{category.icon}</Text>
-                      <Text style={[
-                        styles.categoryText,
-                        formData.categoryId === category.id && styles.categoryTextActive,
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+              <View style={styles.categoriesGrid}>
+                {filteredCategories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryButton,
+                      formData.categoryId === category.id && styles.categoryButtonActive,
+                    ]}
+                    onPress={() => setFormData({ ...formData, categoryId: category.id })}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={[
+                      styles.categoryText,
+                      formData.categoryId === category.id && styles.categoryTextActive,
+                    ]}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
           </View>
           </ScrollView>
@@ -886,6 +917,11 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1e293b',
   },
+  dateText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1e293b',
+  },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -897,20 +933,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
-  categoriesContainer: {
+  categoriesGrid: {
     flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 4,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   categoryButton: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: 'white',
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#e5e7eb',
-    minWidth: 80,
+    minWidth: 75,
+    width: '30%',
+    maxWidth: 110,
   },
   categoryButtonActive: {
     backgroundColor: '#eff6ff',

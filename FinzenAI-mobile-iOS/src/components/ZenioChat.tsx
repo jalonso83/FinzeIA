@@ -11,14 +11,19 @@ import {
   Platform,
   KeyboardAvoidingView,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import api from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
 import { useCategoriesStore } from '../stores/categories';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import CustomModal from './modals/CustomModal';
 
 import { logger } from '../utils/logger';
+
+// Key para persistir el threadId en AsyncStorage
+const ZENIO_THREAD_KEY = '@finzen_zenio_thread_id';
 interface ZenioChatProps {
   onClose?: () => void;
   isOnboarding?: boolean;
@@ -51,13 +56,14 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
+  const [showProModalTTS, setShowProModalTTS] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   // Speech hook
   const speech = useSpeech();
 
   // Subscription store para verificar TTS
-  const { canUseTextToSpeech } = useSubscriptionStore();
+  const { canUseTextToSpeech, openPlansModal } = useSubscriptionStore();
 
   // Obtener categorías del store
   const { categories, fetchCategories } = useCategoriesStore();
@@ -66,6 +72,41 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   useEffect(() => {
     fetchCategories();
   }, [fetchCategories]);
+
+  // Cargar threadId guardado de AsyncStorage (solo si NO es onboarding)
+  useEffect(() => {
+    const loadSavedThreadId = async () => {
+      if (isOnboarding) {
+        // En onboarding siempre empezamos con thread nuevo
+        return;
+      }
+      try {
+        const savedThreadId = await AsyncStorage.getItem(ZENIO_THREAD_KEY);
+        if (savedThreadId) {
+          logger.log('[ZenioChat] ThreadId recuperado:', savedThreadId);
+          setThreadId(savedThreadId);
+        }
+      } catch (error) {
+        logger.error('[ZenioChat] Error cargando threadId:', error);
+      }
+    };
+    loadSavedThreadId();
+  }, [isOnboarding]);
+
+  // Guardar threadId en AsyncStorage cuando cambie
+  useEffect(() => {
+    const saveThreadId = async () => {
+      if (threadId && !isOnboarding) {
+        try {
+          await AsyncStorage.setItem(ZENIO_THREAD_KEY, threadId);
+          logger.log('[ZenioChat] ThreadId guardado:', threadId);
+        } catch (error) {
+          logger.error('[ZenioChat] Error guardando threadId:', error);
+        }
+      }
+    };
+    saveThreadId();
+  }, [threadId, isOnboarding]);
 
   // Auto-scroll to bottom when new messages arrive
   const scrollToBottom = () => {
@@ -80,12 +121,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
-    // Verificar si el usuario tiene acceso a TTS (PLUS/PRO)
+    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
     if (!canUseTextToSpeech()) {
-      Alert.alert(
-        'Función Premium',
-        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!'
-      );
+      setShowProModalTTS(true);
       return;
     }
 
@@ -396,13 +434,32 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
           onPress={sendMessage}
           disabled={!input.trim() || submitting}
         >
-          <Ionicons 
-            name="send" 
-            size={20} 
-            color={(!input.trim() || submitting) ? "#9ca3af" : "#2563EB"} 
+          <Ionicons
+            name="send"
+            size={20}
+            color={(!input.trim() || submitting) ? "#9ca3af" : "#2563EB"}
           />
         </TouchableOpacity>
       </View>
+
+      {/* Modal PRO - Para TTS */}
+      <CustomModal
+        visible={showProModalTTS}
+        type="warning"
+        title="Función PRO"
+        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalTTS(false);
+          // iOS: esperar que el modal cierre antes de abrir el siguiente
+          setTimeout(() => {
+            openPlansModal();
+          }, 350);
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalTTS(false)}
+      />
     </View>
   );
 };

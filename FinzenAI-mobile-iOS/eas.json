@@ -42,6 +42,12 @@
     }
   },
   "submit": {
-    "production": {}
+    "production": {
+      "ios": {
+        "appleId": "info@finzenai.com",
+        "ascAppId": "6758305719",
+        "appleTeamId": "PK4462U2Y4"
+      }
+    }
   }
 }

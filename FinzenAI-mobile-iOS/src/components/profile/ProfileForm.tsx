@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import api from '../../utils/api';
 import CustomModal from '../modals/CustomModal';
 import { useBiometric } from '../../hooks/useBiometric';
@@ -78,6 +79,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   const [showBiometricInfoModal, setShowBiometricInfoModal] = useState(false);
   const [showBiometricConfirmModal, setShowBiometricConfirmModal] = useState(false);
   const [biometricMessage, setBiometricMessage] = useState('');
+  const [showDatePicker, setShowDatePicker] = useState(false);
   const [originalForm, setOriginalForm] = useState({
     name: '',
     lastName: '',
@@ -131,6 +133,40 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
       return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
     }
     return backendDate;
+  };
+
+  // Función para convertir fecha display (DD-MM-YYYY) a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Restricciones de edad para fecha de nacimiento
+  const maxBirthDate = new Date();
+  maxBirthDate.setFullYear(maxBirthDate.getFullYear() - 13); // Mínimo 13 años
+
+  const minBirthDate = new Date();
+  minBirthDate.setFullYear(minBirthDate.getFullYear() - 100); // Máximo 100 años
+
+  // Handler para cambio de fecha desde DatePicker
+  const handleDatePickerChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setForm({ ...form, birthDate: `${dd}-${mm}-${yyyy}` });
+      // Limpiar error si existe
+      if (errors.birthDate) {
+        setErrors({ ...errors, birthDate: '' });
+      }
+    }
   };
 
   // Actualizar formulario cuando cambien los datos del usuario
@@ -418,15 +454,26 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
 
                 <View style={styles.inputContainer}>
                   <Text style={styles.label}>Fecha de Nacimiento *</Text>
-                  <TextInput
-                    style={[styles.input, errors.birthDate && styles.inputError]}
-                    value={form.birthDate}
-                    onChangeText={(text) => handleChange('birthDate', text)}
-                    placeholder="DD-MM-YYYY"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="numeric"
-                    maxLength={10}
-                  />
+                  <TouchableOpacity
+                    style={[styles.dateInput, errors.birthDate && styles.inputError]}
+                    onPress={() => setShowDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+                    <Text style={[styles.dateText, !form.birthDate && styles.datePlaceholder]}>
+                      {form.birthDate || 'Seleccionar fecha'}
+                    </Text>
+                  </TouchableOpacity>
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={form.birthDate ? parseDisplayDateToDate(form.birthDate) : maxBirthDate}
+                      mode="date"
+                      display="default"
+                      onChange={handleDatePickerChange}
+                      maximumDate={maxBirthDate}
+                      minimumDate={minBirthDate}
+                    />
+                  )}
                   {errors.birthDate && <Text style={styles.inputErrorText}>{errors.birthDate}</Text>}
                 </View>
               </View>
@@ -554,7 +601,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                   <Switch
                     value={isEnabled}
                     onValueChange={handleBiometricToggle}
-                    trackColor={{ false: '#d1d5db', true: '#93c5fd' }}
+                    trackColor={{ false: '#d1d5db', true: '#2563EB' }}
                     thumbColor={isEnabled ? '#2563EB' : '#f3f4f6'}
                     ios_backgroundColor="#d1d5db"
                   />
@@ -771,6 +818,26 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   placeholderText: {
+    color: '#9ca3af',
+  },
+  dateInput: {
+    backgroundColor: 'white',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    height: 48,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  dateText: {
+    fontSize: 16,
+    color: '#1e293b',
+    flex: 1,
+  },
+  datePlaceholder: {
     color: '#9ca3af',
   },
   buttonContainer: {

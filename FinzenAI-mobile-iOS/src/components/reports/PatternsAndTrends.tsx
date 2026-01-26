@@ -11,7 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
-
+import { useDashboardStore } from '../../stores/dashboard';
 import { logger } from '../../utils/logger';
 interface PatternsData {
   mostActiveDay: {
@@ -35,13 +35,16 @@ const PatternsAndTrends: React.FC = () => {
   const [patternsData, setPatternsData] = useState<PatternsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
+  // Escuchar cambios del dashboard para refrescar
+  const { refreshTrigger } = useDashboardStore();
+
   useEffect(() => {
     loadPatternsData();
-  }, []);
+  }, [refreshTrigger]);
 
   const loadPatternsData = async () => {
     try {
@@ -101,7 +104,15 @@ const PatternsAndTrends: React.FC = () => {
     );
   }
 
-  if (error || !patternsData) {
+  // Verificar si hay datos significativos para mostrar
+  const hasData = patternsData && (
+    patternsData.mostActiveDay ||
+    patternsData.highestIncomeDay ||
+    patternsData.highestExpenseDay ||
+    (patternsData.weekdayActivity && patternsData.weekdayActivity.length > 0 && patternsData.weekdayActivity.some(v => v > 0))
+  );
+
+  if (error || !hasData) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -109,8 +120,8 @@ const PatternsAndTrends: React.FC = () => {
           <Text style={styles.subtitle}>Mes actual</Text>
         </View>
         <View style={styles.errorContainer}>
-          <Ionicons name="alert-circle-outline" size={24} color="#dc2626" />
-          <Text style={styles.errorText}>No hay datos suficientes</Text>
+          <Ionicons name="alert-circle-outline" size={24} color="#94a3b8" />
+          <Text style={styles.errorText}>No hay datos suficientes este mes</Text>
         </View>
       </View>
     );
@@ -265,7 +276,7 @@ const styles = StyleSheet.create({
   errorText: {
     marginLeft: 8,
     fontSize: 14,
-    color: '#dc2626',
+    color: '#64748b',
   },
   patternCard: {
     padding: 12,

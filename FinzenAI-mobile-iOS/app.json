@@ -16,7 +16,6 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "com.jl.alonso.finzenaimobile",
-      "googleServicesFile": "./GoogleService-Info.plist",
       "associatedDomains": [
         "applinks:finzenai-backend-production.up.railway.app"
       ],

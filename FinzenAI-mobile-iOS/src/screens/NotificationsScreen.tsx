@@ -14,6 +14,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { Swipeable, GestureHandlerRootView } from 'react-native-gesture-handler';
 import { useNotificationStore, NotificationItem } from '../stores/notificationStore';
+import notificationService from '../services/notificationService';
 
 interface NotificationsScreenProps {
   onClose?: () => void;
@@ -81,6 +82,8 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
 
   useEffect(() => {
     fetchNotifications();
+    // Limpiar el badge del ícono de la app cuando el usuario ve las notificaciones
+    notificationService.setBadgeCount(0);
   }, []);
 
   const handleRefresh = async () => {
@@ -191,7 +194,7 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
               </Text>
               {isUnread && <View style={styles.unreadDot} />}
             </View>
-            <Text style={styles.body} numberOfLines={2}>
+            <Text style={styles.body}>
               {item.body}
             </Text>
             <Text style={styles.time}>
