@@ -26,6 +26,7 @@ import {
   DEFAULT_ANT_EXPENSE_CONFIG,
 } from '../types/antExpense';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import notificationService from '../services/notificationService';
 
 import { logger } from '../utils/logger';
 export default function AntExpenseDetectiveScreen() {
@@ -54,20 +55,29 @@ export default function AntExpenseDetectiveScreen() {
   const loadInitialData = useCallback(async () => {
     try {
       setConfigLoading(true);
+
+      // Cargar preferencias del usuario desde notificaciones (configuración centralizada)
+      const userPreferences = await notificationService.getPreferences();
+
       const configResponse = await antExpenseAPI.getConfig();
 
       if (configResponse.data.success) {
         setConfigData(configResponse.data);
-        const recommendedConfig: AntExpenseConfig = {
-          antThreshold: configResponse.data.recommendations.antThreshold.value,
-          minFrequency: configResponse.data.recommendations.minFrequency.value,
+
+        // Usar la configuración del usuario si existe, sino usar las recomendaciones del backend
+        const userConfig: AntExpenseConfig = {
+          antThreshold: userPreferences?.antExpenseAmountThreshold ??
+            configResponse.data.recommendations.antThreshold.value,
+          minFrequency: userPreferences?.antExpenseMinFrequency ??
+            configResponse.data.recommendations.minFrequency.value,
           monthsToAnalyze: configResponse.data.recommendations.monthsToAnalyze.value,
         };
-        setConfig(recommendedConfig);
-        setTempConfig(recommendedConfig);
-        setTempThreshold(recommendedConfig.antThreshold);
-        setTempFrequency(recommendedConfig.minFrequency);
-        setTempMonths(recommendedConfig.monthsToAnalyze);
+
+        setConfig(userConfig);
+        setTempConfig(userConfig);
+        setTempThreshold(userConfig.antThreshold);
+        setTempFrequency(userConfig.minFrequency);
+        setTempMonths(userConfig.monthsToAnalyze);
       }
     } catch (error) {
       logger.error('Error loading config:', error);

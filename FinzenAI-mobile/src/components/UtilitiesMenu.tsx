@@ -5,7 +5,6 @@ import {
   StyleSheet,
   TouchableOpacity,
   Modal,
-  Animated,
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
@@ -16,9 +15,10 @@ import UpgradeModal from './subscriptions/UpgradeModal';
 interface UtilitiesMenuProps {
   color: string;
   focused: boolean;
+  size?: number;
 }
 
-const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
+const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused, size = 24 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const navigation = useNavigation<any>();
@@ -158,15 +158,12 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
 
   return (
     <>
-      <TouchableOpacity onPress={openMenu} style={styles.tabButton}>
+      <TouchableOpacity onPress={openMenu}>
         <Ionicons
           name="add-circle"
-          size={24}
-          color={focused ? color : '#9CA3AF'}
+          size={size}
+          color={isVisible ? '#2563EB' : color}
         />
-        <Text style={[styles.tabLabel, { color: focused ? color : '#9CA3AF' }]}>
-          Más
-        </Text>
       </TouchableOpacity>
 
       <Modal
@@ -276,17 +273,6 @@ const UtilitiesMenu: React.FC<UtilitiesMenuProps> = ({ color, focused }) => {
 };
 
 const styles = StyleSheet.create({
-  tabButton: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginTop: -8,
-  },
-  tabLabel: {
-    fontSize: 10,
-    fontWeight: '600',
-    marginTop: 4,
-  },
   overlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -294,10 +280,16 @@ const styles = StyleSheet.create({
   },
   menuContainer: {
     backgroundColor: 'white',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    paddingBottom: 34,
-    maxHeight: '75%',
+    borderRadius: 20,
+    marginHorizontal: 10,
+    marginBottom: 90,
+    paddingBottom: 16,
+    maxHeight: '70%',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 10,
   },
   menuHeader: {
     flexDirection: 'row',

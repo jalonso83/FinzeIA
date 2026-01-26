@@ -25,33 +25,80 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
   onClose,
   subscription,
 }) => {
-  const { cancelSubscription, reactivateSubscription, changePlan } = useSubscriptionStore();
+  const { cancelSubscription, reactivateSubscription, changePlan, fetchSubscription } = useSubscriptionStore();
   const [loading, setLoading] = useState(false);
 
-  const isPremium = subscription.plan === 'PREMIUM';
-  const isPro = subscription.plan === 'PRO';
-  const isCanceled = subscription.cancelAtPeriodEnd;
+  const isPremium = subscription?.plan === 'PREMIUM';
+  const isPro = subscription?.plan === 'PRO';
+  const isCanceled = subscription?.cancelAtPeriodEnd;
+  const isTrialing = subscription?.status === 'TRIALING';
+
+  // Defensive defaults - price puede ser objeto {monthly, yearly} o número
+  const priceData = subscription?.planDetails?.price;
+  const planPrice = typeof priceData === 'object' && priceData !== null
+    ? (priceData.monthly ?? 0)
+    : (typeof priceData === 'number' ? priceData : 0);
+  // Para trials, usar trialEndsAt; para suscripciones activas, usar currentPeriodEnd
+  const endDate = subscription?.status === 'TRIALING' && subscription?.trialEndsAt
+    ? subscription.trialEndsAt
+    : subscription?.currentPeriodEnd;
+  const currentPeriodEnd = endDate
+    ? new Date(endDate).toLocaleDateString('es-ES')
+    : 'N/A';
 
   const handleCancelSubscription = () => {
+    // Si está en trial, cancelar significa volver a FREE (no hay suscripción de Stripe)
+    if (isTrialing) {
+      Alert.alert(
+        'Cancelar Período de Prueba',
+        `¿Estás seguro de que quieres cancelar tu período de prueba de ${isPremium ? 'Plus' : 'Pro'}?\n\nVolverás al plan gratuito inmediatamente.`,
+        [
+          { text: 'Mantener Prueba', style: 'cancel' },
+          {
+            text: 'Sí, Cancelar',
+            style: 'destructive',
+            onPress: async () => {
+              setLoading(true);
+              try {
+                // Para trial, llamar al endpoint de cancelar trial (vuelve a FREE)
+                await cancelSubscription();
+                Alert.alert(
+                  'Prueba Cancelada',
+                  'Has vuelto al plan gratuito.'
+                );
+                onClose();
+              } catch (error: any) {
+                Alert.alert('Error', error.message || 'No se pudo cancelar la prueba');
+              } finally {
+                setLoading(false);
+              }
+            },
+          },
+        ]
+      );
+      return;
+    }
+
+    // Suscripción pagada normal
     Alert.alert(
-      'Cancel Subscription',
-      `Are you sure you want to cancel your ${subscription.plan} subscription?\n\nYou'll continue to have access until ${new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}.`,
+      'Cancelar Suscripción',
+      `¿Estás seguro de que quieres cancelar tu suscripción ${subscription?.plan === 'PREMIUM' ? 'Plus' : 'Pro'}?\n\nMantendrás acceso hasta ${currentPeriodEnd}.`,
       [
-        { text: 'Keep Subscription', style: 'cancel' },
+        { text: 'Mantener Suscripción', style: 'cancel' },
         {
-          text: 'Yes, Cancel',
+          text: 'Sí, Cancelar',
           style: 'destructive',
           onPress: async () => {
             setLoading(true);
             try {
               await cancelSubscription();
               Alert.alert(
-                'Subscription Canceled',
-                'Your subscription has been canceled. You will have access until the end of the billing period.'
+                'Suscripción Cancelada',
+                'Tu suscripción ha sido cancelada. Tendrás acceso hasta el final del período de facturación.'
               );
               onClose();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Could not cancel subscription');
+              Alert.alert('Error', error.message || 'No se pudo cancelar la suscripción');
             } finally {
               setLoading(false);
             }
@@ -79,26 +126,36 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
 
   const handleChangePlan = () => {
     const targetPlan = isPremium ? 'PRO' : 'PREMIUM';
+    const targetPlanName = isPremium ? 'Pro' : 'Plus';
     const targetPrice = isPremium ? '$19.99' : '$9.99';
 
+    // Mensaje diferente para trial vs suscripción pagada
+    const title = isTrialing ? 'Cambiar Plan de Prueba' : 'Cambiar Plan';
+    const message = isTrialing
+      ? `¿Deseas cambiar tu prueba de ${isPremium ? 'Plus' : 'Pro'} a ${targetPlanName}?\n\nTu período de prueba continuará con los días restantes.`
+      : `¿Deseas ${isPremium ? 'mejorar' : 'cambiar'} a ${targetPlanName}?\n\nNuevo precio: ${targetPrice}/mes\n\nEl cambio se aplicará de forma prorrateada.`;
+
     Alert.alert(
-      'Change Plan',
-      `Do you want to ${isPremium ? 'upgrade' : 'downgrade'} to ${targetPlan}?\n\nNew price: ${targetPrice}/month\n\nThe change will be prorated and applied immediately.`,
+      title,
+      message,
       [
-        { text: 'Cancel', style: 'cancel' },
+        { text: 'Cancelar', style: 'cancel' },
         {
-          text: 'Yes, Change Plan',
+          text: 'Sí, Cambiar',
           onPress: async () => {
             setLoading(true);
             try {
               await changePlan(targetPlan);
+              await fetchSubscription();
               Alert.alert(
-                'Plan Changed',
-                `Your plan has been changed to ${targetPlan} successfully!`
+                'Plan Cambiado',
+                isTrialing
+                  ? `Ahora estás probando ${targetPlanName}. Tu período de prueba continúa.`
+                  : `Tu plan ha sido cambiado a ${targetPlanName} exitosamente.`
               );
               onClose();
             } catch (error: any) {
-              Alert.alert('Error', error.message || 'Could not change plan');
+              Alert.alert('Error', error.message || 'No se pudo cambiar el plan');
             } finally {
               setLoading(false);
             }
@@ -121,31 +178,31 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <TouchableOpacity onPress={onClose} style={styles.closeButton}>
             <Ionicons name="close" size={28} color="#1F2937" />
           </TouchableOpacity>
-          <Text style={styles.headerTitle}>Manage Subscription</Text>
+          <Text style={styles.headerTitle}>Gestionar Suscripción</Text>
           <View style={styles.placeholder} />
         </View>
 
         <ScrollView style={styles.content}>
           {/* Current Plan Info */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Current Plan</Text>
+            <Text style={styles.sectionTitle}>Plan Actual</Text>
             <View style={styles.planBox}>
               <View style={styles.planHeader}>
-                <Text style={styles.planName}>{subscription.plan}</Text>
+                <Text style={styles.planName}>{subscription?.plan === 'PREMIUM' ? 'Plus' : subscription?.plan === 'PRO' ? 'Pro' : 'Gratis'}</Text>
                 <Text style={styles.planPrice}>
-                  ${subscription.planDetails.price.toFixed(2)}/month
+                  ${(typeof planPrice === 'number' ? planPrice : 0).toFixed(2)}/mes
                 </Text>
               </View>
               <Text style={styles.planStatus}>
-                Status: {subscription.status}
-                {isCanceled && ' (Canceling at period end)'}
+                Estado: {subscription?.status === 'ACTIVE' ? 'Activo' : subscription?.status === 'TRIALING' ? 'En Prueba' : subscription?.status || 'Desconocido'}
+                {isCanceled && ' (Cancelándose al final del período)'}
               </Text>
             </View>
           </View>
 
           {/* Actions */}
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Actions</Text>
+            <Text style={styles.sectionTitle}>Acciones</Text>
 
             {/* Change Plan */}
             <TouchableOpacity
@@ -157,10 +214,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                 <Ionicons name="swap-horizontal" size={24} color="#6C47FF" />
                 <View>
                   <Text style={styles.actionTitle}>
-                    {isPremium ? 'Upgrade to Pro' : 'Downgrade to Premium'}
+                    {isPremium ? 'Mejorar a Pro' : 'Cambiar a Plus'}
                   </Text>
                   <Text style={styles.actionSubtitle}>
-                    {isPremium ? '$19.99/month' : '$9.99/month'} • Prorated billing
+                    {isPremium ? '$19.99/mes' : '$9.99/mes'} • Prorrateo
                   </Text>
                 </View>
               </View>
@@ -178,10 +235,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                   <Ionicons name="refresh" size={24} color="#10B981" />
                   <View>
                     <Text style={[styles.actionTitle, { color: '#10B981' }]}>
-                      Reactivate Subscription
+                      Reactivar Suscripción
                     </Text>
                     <Text style={styles.actionSubtitle}>
-                      Resume your subscription now
+                      Continuar con tu suscripción
                     </Text>
                   </View>
                 </View>
@@ -197,10 +254,10 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                   <Ionicons name="close-circle" size={24} color="#EF4444" />
                   <View>
                     <Text style={[styles.actionTitle, { color: '#EF4444' }]}>
-                      Cancel Subscription
+                      Cancelar Suscripción
                     </Text>
                     <Text style={styles.actionSubtitle}>
-                      Access until {new Date(subscription.currentPeriodEnd!).toLocaleDateString('es-ES')}
+                      Acceso hasta {currentPeriodEnd}
                     </Text>
                   </View>
                 </View>
@@ -213,8 +270,8 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={20} color="#6C47FF" />
             <Text style={styles.infoText}>
-              Changes to your subscription take effect immediately. You can cancel
-              at any time and will have access until the end of your billing period.
+              Los cambios en tu suscripción se aplican inmediatamente. Puedes cancelar
+              en cualquier momento y tendrás acceso hasta el final de tu período de facturación.
             </Text>
           </View>
         </ScrollView>
@@ -224,7 +281,7 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <View style={styles.loadingOverlay}>
             <View style={styles.loadingBox}>
               <ActivityIndicator size="large" color="#6C47FF" />
-              <Text style={styles.loadingText}>Processing...</Text>
+              <Text style={styles.loadingText}>Procesando...</Text>
             </View>
           </View>
         )}

@@ -24,7 +24,8 @@ export interface PlanLimits {
   budgetAlerts: boolean; // Alertas de umbral de presupuesto
   textToSpeech: boolean; // TTS para respuestas de Zenio
   advancedReports: boolean;
-  exportData: boolean;
+  exportData: boolean; // Exportar CSV (PLUS y PRO)
+  exportPdf: boolean; // Exportar PDF (solo PRO)
   bankIntegration: boolean; // Email Sync (PRO only)
   antExpenseAnalysis: 'basic' | 'full'; // Detector de gastos hormiga
   advancedCalculators: boolean; // Skip vs Save Challenge
@@ -83,6 +84,7 @@ export interface Subscription {
   features: string[];
   planDetails: PlanDetails;
   zenioUsage: ZenioUsage;
+  canUseTrial: boolean;
 }
 
 export interface Payment {

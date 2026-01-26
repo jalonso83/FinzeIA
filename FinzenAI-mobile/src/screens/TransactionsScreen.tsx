@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { transactionsAPI, Transaction } from '../utils/api';
 import TransactionForm from '../components/forms/TransactionForm';
 import { useCurrency } from '../hooks/useCurrency';
@@ -41,6 +42,8 @@ export default function TransactionsScreen() {
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
 
   // Hook para moneda del usuario
   const { formatCurrency, userCountry } = useCurrency();
@@ -49,11 +52,12 @@ export default function TransactionsScreen() {
   const { refreshTrigger, transactionChangeTrigger, onTransactionChange } = useDashboardStore();
 
   // Subscription store para exportación
-  const { canExportData } = useSubscriptionStore();
+  const { canExportData, canExportPdf, openPlansModal } = useSubscriptionStore();
 
   // Estados para exportación
   const [isExporting, setIsExporting] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModalPdf, setShowProModalPdf] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
@@ -80,6 +84,40 @@ export default function TransactionsScreen() {
       return `${year}-${month}-${day}`;
     }
     return displayDate;
+  };
+
+  // Función para convertir DD-MM-YYYY a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    if (!displayDate) return new Date();
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1;
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Manejadores del DatePicker para filtros
+  const handleStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setStartDate(`${dd}-${mm}-${yyyy}`);
+    }
+  };
+
+  const handleEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setEndDate(`${dd}-${mm}-${yyyy}`);
+    }
   };
 
   // Memoizado: Carga de transacciones (debe definirse ANTES de los useEffects que lo usan)
@@ -157,11 +195,12 @@ export default function TransactionsScreen() {
   }, []);
 
   const formatDateForSummary = (dateString: string) => {
-    // Usar la función createSafeDate para consistencia
-    const date = createSafeDate(dateString);
+    // Convertir DD-MM-YYYY a YYYY-MM-DD para crear fecha correctamente
+    const backendDate = convertToBackendFormat(dateString);
+    const date = createSafeDate(backendDate);
     // Usar el mismo locale que el formatDate principal pero con formato corto
     const locale = (userCountry && countryToLocale[userCountry]) || 'en-US';
-    
+
     return date.toLocaleDateString(locale, {
       day: '2-digit',
       month: '2-digit',
@@ -222,11 +261,10 @@ export default function TransactionsScreen() {
 
   // Función para crear fecha sin problemas de zona horaria
   const createSafeDate = (dateString: string) => {
-    // Si ya tiene hora, usarla; si no, agregar mediodía para evitar zona horaria
-    if (dateString.includes('T')) {
-      return new Date(dateString);
-    }
-    return new Date(dateString + 'T12:00:00');
+    // Extraer solo la parte de la fecha (YYYY-MM-DD) y agregar mediodía
+    // Esto evita problemas de zona horaria donde UTC medianoche se convierte al día anterior
+    const datePart = dateString.split('T')[0];
+    return new Date(datePart + 'T12:00:00');
   };
 
   const formatDate = (dateString: string) => {
@@ -304,16 +342,22 @@ export default function TransactionsScreen() {
     } else if (endDate) {
       return `Hasta ${formatDate(convertToBackendFormat(endDate))}`;
     }
-    return 'Todas las transacciones';
+    return '';
   };
 
   // Memoizado: Función para manejar exportación
   const handleExport = useCallback(async (format: ExportFormat) => {
     setShowExportOptions(false);
 
-    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    // Verificar si tiene permiso de exportación CSV (PLUS/PRO)
     if (!canExportData()) {
       setShowUpgradeModal(true);
+      return;
+    }
+
+    // Verificar si tiene permiso de exportación PDF (solo PRO)
+    if (format === 'pdf' && !canExportPdf()) {
+      setShowProModalPdf(true);
       return;
     }
 
@@ -378,14 +422,15 @@ export default function TransactionsScreen() {
         },
       ];
 
-      // Preparar filas ordenadas por fecha (más reciente primero)
+      // Preparar filas ordenadas por fecha (más antigua primero, como estados de cuenta bancarios)
       const sortedTransactions = [...filteredTransactions].sort(
-        (a, b) => createSafeDate(b.date).getTime() - createSafeDate(a.date).getTime()
+        (a, b) => createSafeDate(a.date).getTime() - createSafeDate(b.date).getTime()
       );
 
       // Preparar resumen
+      const period = getReportPeriod();
       const summary = [
-        { label: 'Período', value: getReportPeriod() },
+        ...(period ? [{ label: 'Período', value: period }] : []),
         { label: 'Total de transacciones', value: `${filteredTransactions.length}` },
         { label: 'Total Ingresos', value: `+${formatCurrency(totalIncome)}` },
         { label: 'Total Gastos', value: `-${formatCurrency(totalExpense)}` },
@@ -394,13 +439,17 @@ export default function TransactionsScreen() {
 
       // Filtro activo para subtítulo
       const filterInfo = filterType !== 'all'
-        ? `(${filterType === 'INCOME' ? 'Solo Ingresos' : 'Solo Gastos'})`
+        ? (filterType === 'INCOME' ? 'Solo Ingresos' : 'Solo Gastos')
         : '';
+
+      // Construir subtítulo solo si hay información relevante
+      const subtitleParts = [period, filterInfo].filter(Boolean);
+      const subtitle = subtitleParts.length > 0 ? subtitleParts.join(' - ') : undefined;
 
       const result = await ExportService.exportData(
         {
           title: 'Reporte de Transacciones',
-          subtitle: `${getReportPeriod()} ${filterInfo}`.trim(),
+          subtitle,
           filename: `transacciones_${new Date().getTime()}`,
           format,
         },
@@ -408,7 +457,8 @@ export default function TransactionsScreen() {
           columns,
           rows: sortedTransactions,
           summary,
-        }
+        },
+        'save'
       );
 
       if (!result.success) {
@@ -422,7 +472,7 @@ export default function TransactionsScreen() {
     } finally {
       setIsExporting(false);
     }
-  }, [canExportData, filteredTransactions, filterType, formatCurrency]);
+  }, [canExportData, canExportPdf, filteredTransactions, filterType, formatCurrency]);
 
   // Memoizado: Función para mostrar opciones de exportación
   const handleExportPress = useCallback(() => {
@@ -622,33 +672,47 @@ export default function TransactionsScreen() {
               <View style={styles.dateInputs}>
                 <View style={styles.dateInputContainer}>
                   <Text style={styles.dateInputLabel}>Fecha inicial</Text>
-                  <TouchableOpacity style={styles.dateInput}>
-                    <TextInput
-                      style={styles.dateInputText}
-                      value={startDate}
-                      onChangeText={(text) => setStartDate(formatDateDisplay(text))}
-                      placeholder="DD-MM-YYYY"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType="numeric"
-                      maxLength={10}
-                    />
-                    <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => setShowStartDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dateInputText, !startDate && styles.dateInputPlaceholder]}>
+                      {startDate || 'DD-MM-YYYY'}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={20} color="#2563EB" />
                   </TouchableOpacity>
+                  {showStartDatePicker && (
+                    <DateTimePicker
+                      value={startDate ? parseDisplayDateToDate(startDate) : new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={handleStartDateChange}
+                      maximumDate={new Date()}
+                    />
+                  )}
                 </View>
                 <View style={styles.dateInputContainer}>
                   <Text style={styles.dateInputLabel}>Fecha final</Text>
-                  <TouchableOpacity style={styles.dateInput}>
-                    <TextInput
-                      style={styles.dateInputText}
-                      value={endDate}
-                      onChangeText={(text) => setEndDate(formatDateDisplay(text))}
-                      placeholder="DD-MM-YYYY"
-                      placeholderTextColor="#9CA3AF"
-                      keyboardType="numeric"
-                      maxLength={10}
-                    />
-                    <Ionicons name="calendar-outline" size={20} color="#64748b" />
+                  <TouchableOpacity
+                    style={styles.dateInput}
+                    onPress={() => setShowEndDatePicker(true)}
+                    activeOpacity={0.7}
+                  >
+                    <Text style={[styles.dateInputText, !endDate && styles.dateInputPlaceholder]}>
+                      {endDate || 'DD-MM-YYYY'}
+                    </Text>
+                    <Ionicons name="calendar-outline" size={20} color="#2563EB" />
                   </TouchableOpacity>
+                  {showEndDatePicker && (
+                    <DateTimePicker
+                      value={endDate ? parseDisplayDateToDate(endDate) : new Date()}
+                      mode="date"
+                      display="default"
+                      onChange={handleEndDateChange}
+                      maximumDate={new Date()}
+                    />
+                  )}
                 </View>
               </View>
               
@@ -658,8 +722,12 @@ export default function TransactionsScreen() {
                   style={styles.quickDateButton}
                   onPress={() => {
                     const today = new Date();
-                    setStartDate(today.toISOString().split('T')[0]);
-                    setEndDate(today.toISOString().split('T')[0]);
+                    const dd = String(today.getDate()).padStart(2, '0');
+                    const mm = String(today.getMonth() + 1).padStart(2, '0');
+                    const yyyy = today.getFullYear();
+                    const todayFormatted = `${dd}-${mm}-${yyyy}`;
+                    setStartDate(todayFormatted);
+                    setEndDate(todayFormatted);
                   }}
                 >
                   <Text style={styles.quickDateButtonText}>Hoy</Text>
@@ -670,12 +738,20 @@ export default function TransactionsScreen() {
                     const today = new Date();
                     // Calcular el lunes de esta semana (semana empieza en lunes, no domingo)
                     const currentDay = today.getDay(); // 0=domingo, 1=lunes, ..., 6=sábado
-                    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1; // Si es domingo (0), restamos 6 días
+                    const daysFromMonday = currentDay === 0 ? 6 : currentDay - 1;
                     const startOfWeek = new Date(today);
                     startOfWeek.setDate(today.getDate() - daysFromMonday);
-                    
-                    setStartDate(startOfWeek.toISOString().split('T')[0]);
-                    setEndDate(today.toISOString().split('T')[0]);
+
+                    const ddStart = String(startOfWeek.getDate()).padStart(2, '0');
+                    const mmStart = String(startOfWeek.getMonth() + 1).padStart(2, '0');
+                    const yyyyStart = startOfWeek.getFullYear();
+
+                    const ddEnd = String(today.getDate()).padStart(2, '0');
+                    const mmEnd = String(today.getMonth() + 1).padStart(2, '0');
+                    const yyyyEnd = today.getFullYear();
+
+                    setStartDate(`${ddStart}-${mmStart}-${yyyyStart}`);
+                    setEndDate(`${ddEnd}-${mmEnd}-${yyyyEnd}`);
                   }}
                 >
                   <Text style={styles.quickDateButtonText}>Esta semana</Text>
@@ -685,8 +761,17 @@ export default function TransactionsScreen() {
                   onPress={() => {
                     const today = new Date();
                     const startOfMonth = new Date(today.getFullYear(), today.getMonth(), 1);
-                    setStartDate(startOfMonth.toISOString().split('T')[0]);
-                    setEndDate(today.toISOString().split('T')[0]);
+
+                    const ddStart = String(startOfMonth.getDate()).padStart(2, '0');
+                    const mmStart = String(startOfMonth.getMonth() + 1).padStart(2, '0');
+                    const yyyyStart = startOfMonth.getFullYear();
+
+                    const ddEnd = String(today.getDate()).padStart(2, '0');
+                    const mmEnd = String(today.getMonth() + 1).padStart(2, '0');
+                    const yyyyEnd = today.getFullYear();
+
+                    setStartDate(`${ddStart}-${mmStart}-${yyyyStart}`);
+                    setEndDate(`${ddEnd}-${mmEnd}-${yyyyEnd}`);
                   }}
                 >
                   <Text style={styles.quickDateButtonText}>Este mes</Text>
@@ -746,11 +831,27 @@ export default function TransactionsScreen() {
         onClose={() => setShowErrorModal(false)}
       />
 
-      {/* Modal de upgrade para exportación */}
+      {/* Modal de upgrade para exportación CSV */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         limitType="export"
+      />
+
+      {/* Modal de Función PRO para exportación PDF */}
+      <CustomModal
+        visible={showProModalPdf}
+        type="warning"
+        title="Función PRO"
+        message={`La exportación a PDF está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalPdf(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalPdf(false)}
       />
 
       {/* Modal de opciones de exportación */}
@@ -762,23 +863,38 @@ export default function TransactionsScreen() {
         onClose={() => setShowExportOptions(false)}
         hideDefaultButton={true}
         customContent={
-          <View style={styles.exportOptionsContainer}>
-            <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('pdf')}
-            >
-              <Ionicons name="document-text" size={32} color="#dc2626" />
-              <Text style={styles.exportOptionText}>PDF</Text>
-              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
-            </TouchableOpacity>
+          <View>
+            <View style={styles.exportOptionsContainer}>
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('pdf')}
+              >
+                <View style={styles.exportOptionIconContainer}>
+                  <Ionicons name="document-text" size={32} color="#dc2626" />
+                  {!canExportPdf() && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.exportOptionText}>PDF</Text>
+                <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('csv')}
+              >
+                <Ionicons name="grid" size={32} color="#059669" />
+                <Text style={styles.exportOptionText}>CSV</Text>
+                <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('csv')}
+              style={styles.exportCancelButton}
+              onPress={() => setShowExportOptions(false)}
             >
-              <Ionicons name="grid" size={32} color="#059669" />
-              <Text style={styles.exportOptionText}>CSV</Text>
-              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              <Text style={styles.exportCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1076,6 +1192,9 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1e293b',
   },
+  dateInputPlaceholder: {
+    color: '#9CA3AF',
+  },
   quickDateButtons: {
     flexDirection: 'row',
     gap: 8,
@@ -1188,5 +1307,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginTop: 4,
+  },
+  exportOptionIconContainer: {
+    position: 'relative',
+  },
+  proBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    backgroundColor: '#7c3aed',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  proBadgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  exportCancelButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+  },
+  exportCancelText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
   },
 });

@@ -36,6 +36,7 @@ import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import EmailSyncScreen from '../screens/EmailSyncScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
 import NotificationsScreen from '../screens/NotificationsScreen';
+import WeeklyReportsScreen from '../screens/WeeklyReportsScreen';
 import NotificationBell from '../components/NotificationBell';
 import UtilitiesMenu from '../components/UtilitiesMenu';
 import ZenioFloatingButton from '../components/ZenioFloatingButton';
@@ -276,7 +277,10 @@ function MainTabNavigator({
         component={ToolsStackNavigator}
         options={{
           tabBarLabel: 'Más',
-          tabBarItemStyle: { flex: 1 }
+          tabBarItemStyle: { flex: 1 },
+          tabBarIcon: ({ focused, color, size }) => (
+            <UtilitiesMenu color={color} focused={focused} size={size} />
+          ),
         }}
         listeners={({ navigation, route }) => ({
           tabPress: (e) => {
@@ -300,6 +304,7 @@ function MainNavigator({ route }: any) {
   const [showEmailSync, setShowEmailSync] = React.useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
   const [showNotifications, setShowNotifications] = React.useState(false);
+  const [showWeeklyReports, setShowWeeklyReports] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [showPlansModal, setShowPlansModal] = React.useState(false);
   const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
@@ -307,8 +312,16 @@ function MainNavigator({ route }: any) {
   const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
   const { updateUser, logout } = useAuthStore();
-  const { fetchSubscription } = useSubscriptionStore();
+  const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal } = useSubscriptionStore();
   const { onTransactionChange } = useDashboardStore();
+
+  // Sincronizar modal de planes desde el store global
+  React.useEffect(() => {
+    if (storePlansModal) {
+      setShowSubscriptions(true);
+      closePlansModal();
+    }
+  }, [storePlansModal, closePlansModal]);
   const insets = useSafeAreaInsets();
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
@@ -385,7 +398,7 @@ function MainNavigator({ route }: any) {
         <View style={{
           backgroundColor: 'white',
           borderRadius: 12,
-          minWidth: 200,
+          minWidth: 230,
           shadowColor: '#000',
           shadowOffset: { width: 0, height: 2 },
           shadowOpacity: 0.25,
@@ -472,11 +485,26 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
-                setShowEmailSync(true);
+                if (subscription?.plan === 'PRO') {
+                  setShowEmailSync(true);
+                } else {
+                  setShowSubscriptions(true);
+                }
               }}
             >
               <Ionicons name="mail-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
               <Text style={{ fontSize: 14, color: '#374151' }}>Email Bancario</Text>
+              {subscription?.plan !== 'PRO' && (
+                <View style={{
+                  backgroundColor: '#6366F1',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  marginLeft: 8,
+                }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>PRO</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -493,6 +521,33 @@ function MainNavigator({ route }: any) {
             >
               <Ionicons name="notifications-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
               <Text style={{ fontSize: 14, color: '#374151' }}>Notificaciones</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowWeeklyReports(true);
+              }}
+            >
+              <Ionicons name="document-text-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Reportes Quincenales</Text>
+              {subscription?.plan !== 'PRO' && (
+                <View style={{
+                  backgroundColor: '#6366F1',
+                  paddingHorizontal: 6,
+                  paddingVertical: 2,
+                  borderRadius: 4,
+                  marginLeft: 8,
+                }}>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>PRO</Text>
+                </View>
+              )}
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -617,10 +672,13 @@ function MainNavigator({ route }: any) {
           onTransactionChange(); // Refrescar dashboard al cerrar
         }}
       >
-        <EmailSyncScreen onClose={() => {
-          setShowEmailSync(false);
-          onTransactionChange(); // Refrescar dashboard al cerrar
-        }} />
+        <EmailSyncScreen
+          onClose={() => {
+            setShowEmailSync(false);
+            onTransactionChange(); // Refrescar dashboard al cerrar
+          }}
+          onOpenPlans={() => setShowSubscriptions(true)}
+        />
       </Modal>
 
       {/* Notifications List Modal */}
@@ -647,6 +705,22 @@ function MainNavigator({ route }: any) {
         onRequestClose={() => setShowNotificationSettings(false)}
       >
         <NotificationSettingsScreen onClose={() => setShowNotificationSettings(false)} />
+      </Modal>
+
+      {/* Weekly Reports Modal */}
+      <Modal
+        visible={showWeeklyReports}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowWeeklyReports(false)}
+      >
+        <WeeklyReportsScreen
+          onClose={() => setShowWeeklyReports(false)}
+          onOpenPlans={() => {
+            setShowWeeklyReports(false);
+            setShowSubscriptions(true);
+          }}
+        />
       </Modal>
 
       {/* Profile Success Modal */}
@@ -681,7 +755,7 @@ function MainNavigator({ route }: any) {
         type="success"
         title="🎉 ¡Ahora que conoces FinZen AI!"
         message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Reportes avanzados con IA\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
-        buttonText="Ver Planes Premium 👑"
+        buttonText="Ver Planes 👑"
         showSecondaryButton={true}
         secondaryButtonText="Empezar con Gratis"
         onClose={() => {
@@ -789,6 +863,31 @@ export default function AppNavigator() {
       else if (url.includes('/checkout/cancel')) {
         logger.log('❌ Checkout cancelado');
         setShowPaymentCancelModal(true);
+      }
+      // Referral Deep Link - Guardar código para registro
+      else if (url.includes('/referral') || url.includes('referral?code=')) {
+        try {
+          const urlObj = new URL(url.replace('finzenai://', 'https://finzenai.com/'));
+          const refCode = urlObj.searchParams.get('code');
+
+          if (refCode) {
+            logger.log('🎁 Código de referido recibido:', refCode);
+            // Guardar en AsyncStorage para usar en registro
+            const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+            await AsyncStorage.setItem('pendingReferralCode', refCode);
+
+            // Si no está autenticado, el código se usará automáticamente en registro
+            if (!isAuthenticated) {
+              Alert.alert(
+                '¡Código Aplicado!',
+                `El código ${refCode} se aplicará automáticamente cuando te registres. Obtendrás 50% de descuento en tu primer mes.`,
+                [{ text: 'Entendido' }]
+              );
+            }
+          }
+        } catch (error) {
+          logger.error('Error procesando código de referido:', error);
+        }
       }
     };
 
@@ -919,7 +1018,7 @@ export default function AppNavigator() {
         visible={showPaymentSuccessModal}
         type="success"
         title="¡Pago Exitoso!"
-        message="¡Ahora eres miembro Premium! Disfruta del acceso ilimitado a todas las funciones."
+        message="¡Ahora eres miembro Plus! Disfruta del acceso ilimitado a todas las funciones."
         buttonText="¡Genial!"
         onClose={() => setShowPaymentSuccessModal(false)}
       />

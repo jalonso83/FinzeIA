@@ -98,7 +98,7 @@ export default function SkipVsSaveScreen() {
   const calculateChallenge = async () => {
     try {
       setLoading(true);
-      
+
       const amount = selectedExpense ? selectedExpense.amount : parseInt(customAmount);
       const frequency = selectedExpense ? selectedExpense.frequency : selectedFrequency;
 
@@ -106,7 +106,10 @@ export default function SkipVsSaveScreen() {
         dailyExpense: amount,
         frequency: frequency,
         timeframe: selectedTimeframe,
-        investmentReturn: 8 // Retorno balanceado por defecto
+        investmentReturn: 8, // Retorno balanceado por defecto
+        // Enviar nombre e icono del gasto si es predefinido
+        expenseName: selectedExpense ? selectedExpense.name : undefined,
+        expenseIcon: selectedExpense ? selectedExpense.icon : undefined,
       });
 
       setResult(response.data);

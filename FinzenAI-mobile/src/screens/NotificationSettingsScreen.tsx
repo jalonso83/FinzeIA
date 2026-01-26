@@ -15,6 +15,7 @@ import Slider from '@react-native-community/slider';
 import notificationService, { NotificationPreferences } from '../services/notificationService';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
+import CustomModal from '../components/modals/CustomModal';
 
 import { logger } from '../utils/logger';
 interface NotificationSettingsScreenProps {
@@ -28,9 +29,12 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
   const [isEnabled, setIsEnabled] = useState(false);
   const [token, setToken] = useState<string | null>(null);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModal, setShowProModal] = useState(false);
 
-  // Subscription check for budget alerts
-  const { hasBudgetAlerts } = useSubscriptionStore();
+  // Subscription check for budget alerts and PRO notifications
+  const { hasBudgetAlerts, canUseProNotifications, openPlansModal } = useSubscriptionStore();
+  const canUseBudgetAlerts = hasBudgetAlerts();
+  const canUseProFeatures = canUseProNotifications();
 
   // Memoizado: Carga de datos (definido antes de useEffects que lo usan)
   const loadData = useCallback(async () => {
@@ -56,9 +60,13 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
           goalRemindersEnabled: true,
           weeklyReportEnabled: true,
           tipsEnabled: true,
+          antExpenseAlertsEnabled: true,
           budgetAlertThreshold: 80,
+          goalReminderFrequency: 7, // Semanal por defecto
           quietHoursStart: null,
           quietHoursEnd: null,
+          antExpenseAmountThreshold: 500, // Umbral de monto por defecto
+          antExpenseMinFrequency: 3,      // Frecuencia mínima por defecto
         });
       }
     } catch (error) {
@@ -72,7 +80,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     loadData();
   }, [loadData]);
 
-  const handleToggle = async (key: keyof NotificationPreferences, value: boolean) => {
+  const handleToggle = async (key: keyof NotificationPreferences, value: boolean | number) => {
     if (!preferences) return;
 
     const newPreferences = { ...preferences, [key]: value };
@@ -124,6 +132,34 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     }
   };
 
+  const handleGoalReminderFrequencyChange = async (frequency: number) => {
+    if (!preferences) return;
+
+    const newPreferences = { ...preferences, goalReminderFrequency: frequency };
+    setPreferences(newPreferences);
+
+    setSaving(true);
+    try {
+      await notificationService.updatePreferences({ goalReminderFrequency: frequency });
+    } catch (error) {
+      logger.error('Error guardando frecuencia de recordatorio:', error);
+      setPreferences(preferences);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const getFrequencyLabel = (days: number): string => {
+    switch (days) {
+      case 0: return 'Nunca';
+      case 3: return '3 días';
+      case 7: return 'Semanal';
+      case 14: return 'Quincenal';
+      case 30: return 'Mensual';
+      default: return `${days} días`;
+    }
+  };
+
   const handleTestNotification = async () => {
     setSaving(true);
     try {
@@ -147,7 +183,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
     return `${displayHour}:00 ${period}`;
   };
 
-  if (loading) {
+  if (loading || !preferences) {
     return (
       <SafeAreaView style={styles.container}>
         <View style={styles.header}>
@@ -217,55 +253,79 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
         <Text style={styles.sectionTitle}>Tipos de notificaciones</Text>
 
         <View style={styles.settingsCard}>
-          <View style={styles.settingRow}>
+          {/* Sincronización de emails - PRO */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => !canUseProFeatures && setShowProModal(true)}
+            activeOpacity={canUseProFeatures ? 1 : 0.7}
+          >
             <View style={styles.settingInfo}>
-              <Ionicons name="mail-outline" size={22} color="#2563EB" style={styles.settingIcon} />
-              <View>
-                <Text style={styles.settingTitle}>Sincronización de emails</Text>
-                <Text style={styles.settingDescription}>Cuando se importan transacciones</Text>
+              <Ionicons name="mail-outline" size={22} color={canUseProFeatures ? "#2563EB" : "#9CA3AF"} style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <View style={styles.settingTitleRow}>
+                  <Text style={[styles.settingTitle, !canUseProFeatures && styles.settingTitleDisabled]}>
+                    Sincronización de emails
+                  </Text>
+                  {!canUseProFeatures && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.settingDescription, !canUseProFeatures && styles.settingDescriptionDisabled]}>
+                  {canUseProFeatures
+                    ? 'Cuando se importan transacciones'
+                    : 'Disponible con plan PRO'}
+                </Text>
               </View>
             </View>
-            <Switch
-              value={preferences?.emailSyncEnabled ?? true}
-              onValueChange={(value) => handleToggle('emailSyncEnabled', value)}
-              trackColor={{ false: '#D1D5DB', true: '#93C5FD' }}
-              thumbColor={preferences?.emailSyncEnabled ? '#2563EB' : '#9CA3AF'}
-            />
-          </View>
+            {canUseProFeatures ? (
+              <Switch
+                value={preferences?.emailSyncEnabled ?? true}
+                onValueChange={(value) => handleToggle('emailSyncEnabled', value)}
+                trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+                thumbColor={preferences?.emailSyncEnabled ? '#2563EB' : '#9CA3AF'}
+              />
+            ) : (
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed" size={18} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.divider} />
 
           <TouchableOpacity
             style={styles.settingRow}
-            onPress={() => !hasBudgetAlerts && setShowUpgradeModal(true)}
-            activeOpacity={hasBudgetAlerts ? 1 : 0.7}
+            onPress={() => !canUseBudgetAlerts && setShowUpgradeModal(true)}
+            activeOpacity={canUseBudgetAlerts ? 1 : 0.7}
           >
             <View style={styles.settingInfo}>
-              <Ionicons name="wallet-outline" size={22} color={hasBudgetAlerts ? "#F59E0B" : "#9CA3AF"} style={styles.settingIcon} />
+              <Ionicons name="wallet-outline" size={22} color={canUseBudgetAlerts ? "#F59E0B" : "#9CA3AF"} style={styles.settingIcon} />
               <View style={styles.settingTextContainer}>
                 <View style={styles.settingTitleRow}>
-                  <Text style={[styles.settingTitle, !hasBudgetAlerts && styles.settingTitleDisabled]}>
+                  <Text style={[styles.settingTitle, !canUseBudgetAlerts && styles.settingTitleDisabled]}>
                     Alertas de presupuesto
                   </Text>
-                  {!hasBudgetAlerts && (
+                  {!canUseBudgetAlerts && (
                     <View style={styles.plusBadge}>
                       <Text style={styles.plusBadgeText}>PLUS</Text>
                     </View>
                   )}
                 </View>
-                <Text style={[styles.settingDescription, !hasBudgetAlerts && styles.settingDescriptionDisabled]}>
-                  {hasBudgetAlerts
+                <Text style={[styles.settingDescription, !canUseBudgetAlerts && styles.settingDescriptionDisabled]}>
+                  {canUseBudgetAlerts
                     ? 'Cuando estás por exceder un presupuesto'
                     : 'Disponible con plan PLUS o superior'}
                 </Text>
               </View>
             </View>
-            {hasBudgetAlerts ? (
+            {canUseBudgetAlerts ? (
               <Switch
                 value={preferences?.budgetAlertsEnabled ?? true}
                 onValueChange={(value) => handleToggle('budgetAlertsEnabled', value)}
-                trackColor={{ false: '#D1D5DB', true: '#FDE68A' }}
-                thumbColor={preferences?.budgetAlertsEnabled ? '#F59E0B' : '#9CA3AF'}
+                trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+                thumbColor={preferences?.budgetAlertsEnabled ? '#2563EB' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -287,66 +347,217 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
             <Switch
               value={preferences?.goalRemindersEnabled ?? true}
               onValueChange={(value) => handleToggle('goalRemindersEnabled', value)}
-              trackColor={{ false: '#D1D5DB', true: '#A7F3D0' }}
-              thumbColor={preferences?.goalRemindersEnabled ? '#10B981' : '#9CA3AF'}
+              trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+              thumbColor={preferences?.goalRemindersEnabled ? '#2563EB' : '#9CA3AF'}
             />
           </View>
 
           <View style={styles.divider} />
 
-          <View style={styles.settingRow}>
+          {/* Reporte quincenal - PRO */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => !canUseProFeatures && setShowProModal(true)}
+            activeOpacity={canUseProFeatures ? 1 : 0.7}
+          >
             <View style={styles.settingInfo}>
-              <Ionicons name="bar-chart-outline" size={22} color="#1E40AF" style={styles.settingIcon} />
-              <View>
-                <Text style={styles.settingTitle}>Reporte semanal</Text>
-                <Text style={styles.settingDescription}>Resumen de tus finanzas</Text>
+              <Ionicons name="bar-chart-outline" size={22} color={canUseProFeatures ? "#1E40AF" : "#9CA3AF"} style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <View style={styles.settingTitleRow}>
+                  <Text style={[styles.settingTitle, !canUseProFeatures && styles.settingTitleDisabled]}>
+                    Reporte quincenal
+                  </Text>
+                  {!canUseProFeatures && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.settingDescription, !canUseProFeatures && styles.settingDescriptionDisabled]}>
+                  {canUseProFeatures
+                    ? 'Resumen de tus finanzas'
+                    : 'Disponible con plan PRO'}
+                </Text>
               </View>
             </View>
-            <Switch
-              value={preferences?.weeklyReportEnabled ?? true}
-              onValueChange={(value) => handleToggle('weeklyReportEnabled', value)}
-              trackColor={{ false: '#D1D5DB', true: '#DDD6FE' }}
-              thumbColor={preferences?.weeklyReportEnabled ? '#1E40AF' : '#9CA3AF'}
-            />
-          </View>
+            {canUseProFeatures ? (
+              <Switch
+                value={preferences?.weeklyReportEnabled ?? true}
+                onValueChange={(value) => handleToggle('weeklyReportEnabled', value)}
+                trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+                thumbColor={preferences?.weeklyReportEnabled ? '#2563EB' : '#9CA3AF'}
+              />
+            ) : (
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed" size={18} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
 
           <View style={styles.divider} />
 
-          <View style={styles.settingRow}>
+          {/* Alertas de gastos hormiga - PRO */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => !canUseProFeatures && setShowProModal(true)}
+            activeOpacity={canUseProFeatures ? 1 : 0.7}
+          >
             <View style={styles.settingInfo}>
-              <Ionicons name="bulb-outline" size={22} color="#EC4899" style={styles.settingIcon} />
-              <View>
-                <Text style={styles.settingTitle}>Tips financieros</Text>
-                <Text style={styles.settingDescription}>Consejos personalizados</Text>
+              <Ionicons name="bug-outline" size={22} color={canUseProFeatures ? "#F59E0B" : "#9CA3AF"} style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <View style={styles.settingTitleRow}>
+                  <Text style={[styles.settingTitle, !canUseProFeatures && styles.settingTitleDisabled]}>
+                    Alertas de gastos hormiga
+                  </Text>
+                  {!canUseProFeatures && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.settingDescription, !canUseProFeatures && styles.settingDescriptionDisabled]}>
+                  {canUseProFeatures
+                    ? 'Análisis automático quincenal'
+                    : 'Disponible con plan PRO'}
+                </Text>
               </View>
             </View>
-            <Switch
-              value={preferences?.tipsEnabled ?? true}
-              onValueChange={(value) => handleToggle('tipsEnabled', value)}
-              trackColor={{ false: '#D1D5DB', true: '#FBCFE8' }}
-              thumbColor={preferences?.tipsEnabled ? '#EC4899' : '#9CA3AF'}
-            />
-          </View>
+            {canUseProFeatures ? (
+              <Switch
+                value={preferences?.antExpenseAlertsEnabled ?? true}
+                onValueChange={(value) => handleToggle('antExpenseAlertsEnabled', value)}
+                trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+                thumbColor={preferences?.antExpenseAlertsEnabled ? '#2563EB' : '#9CA3AF'}
+              />
+            ) : (
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed" size={18} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
+
+          {/* Configuración de gastos hormiga - Solo visible si PRO y alertas habilitadas */}
+          {canUseProFeatures && preferences?.antExpenseAlertsEnabled && (
+            <View style={styles.antConfigContainer}>
+              {/* Umbral de monto */}
+              <View style={styles.antConfigItem}>
+                <Text style={styles.antConfigLabel}>Monto máximo para gasto hormiga</Text>
+                <Text style={styles.antConfigValue}>
+                  RD$ {preferences?.antExpenseAmountThreshold ?? 500}
+                </Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={50}
+                  maximumValue={2000}
+                  step={50}
+                  value={preferences?.antExpenseAmountThreshold ?? 500}
+                  onSlidingComplete={(value) => {
+                    setPreferences(prev => prev ? { ...prev, antExpenseAmountThreshold: value } : null);
+                    handleToggle('antExpenseAmountThreshold', value);
+                  }}
+                  minimumTrackTintColor="#2B4C7E"
+                  maximumTrackTintColor="#D1D5DB"
+                  thumbTintColor="#2B4C7E"
+                />
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>RD$50</Text>
+                  <Text style={styles.sliderLabel}>RD$2,000</Text>
+                </View>
+              </View>
+
+              {/* Frecuencia mínima */}
+              <View style={styles.antConfigItem}>
+                <Text style={styles.antConfigLabel}>Repeticiones mínimas para detectar</Text>
+                <Text style={styles.antConfigValue}>
+                  {preferences?.antExpenseMinFrequency ?? 3} veces
+                </Text>
+                <Slider
+                  style={styles.slider}
+                  minimumValue={2}
+                  maximumValue={10}
+                  step={1}
+                  value={preferences?.antExpenseMinFrequency ?? 3}
+                  onSlidingComplete={(value) => {
+                    setPreferences(prev => prev ? { ...prev, antExpenseMinFrequency: value } : null);
+                    handleToggle('antExpenseMinFrequency', value);
+                  }}
+                  minimumTrackTintColor="#2B4C7E"
+                  maximumTrackTintColor="#D1D5DB"
+                  thumbTintColor="#2B4C7E"
+                />
+                <View style={styles.sliderLabels}>
+                  <Text style={styles.sliderLabel}>2 veces</Text>
+                  <Text style={styles.sliderLabel}>10 veces</Text>
+                </View>
+              </View>
+
+              <Text style={styles.antConfigDescription}>
+                Se detectarán gastos menores a RD${preferences?.antExpenseAmountThreshold ?? 500} que se repitan al menos {preferences?.antExpenseMinFrequency ?? 3} veces en el período.
+              </Text>
+            </View>
+          )}
+
+          <View style={styles.divider} />
+
+          {/* Tips financieros - PRO */}
+          <TouchableOpacity
+            style={styles.settingRow}
+            onPress={() => !canUseProFeatures && setShowProModal(true)}
+            activeOpacity={canUseProFeatures ? 1 : 0.7}
+          >
+            <View style={styles.settingInfo}>
+              <Ionicons name="bulb-outline" size={22} color={canUseProFeatures ? "#EC4899" : "#9CA3AF"} style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <View style={styles.settingTitleRow}>
+                  <Text style={[styles.settingTitle, !canUseProFeatures && styles.settingTitleDisabled]}>
+                    Tips financieros
+                  </Text>
+                  {!canUseProFeatures && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={[styles.settingDescription, !canUseProFeatures && styles.settingDescriptionDisabled]}>
+                  {canUseProFeatures
+                    ? 'Consejos personalizados'
+                    : 'Disponible con plan PRO'}
+                </Text>
+              </View>
+            </View>
+            {canUseProFeatures ? (
+              <Switch
+                value={preferences?.tipsEnabled ?? true}
+                onValueChange={(value) => handleToggle('tipsEnabled', value)}
+                trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+                thumbColor={preferences?.tipsEnabled ? '#2563EB' : '#9CA3AF'}
+              />
+            ) : (
+              <View style={styles.lockIcon}>
+                <Ionicons name="lock-closed" size={18} color="#9CA3AF" />
+              </View>
+            )}
+          </TouchableOpacity>
         </View>
 
         {/* Umbral de alerta de presupuesto */}
         <View style={styles.sectionTitleRow}>
           <Text style={styles.sectionTitle}>Umbral de alerta</Text>
-          {!hasBudgetAlerts && (
+          {!canUseBudgetAlerts && (
             <View style={styles.plusBadgeSmall}>
               <Text style={styles.plusBadgeSmallText}>PLUS</Text>
             </View>
           )}
         </View>
         <TouchableOpacity
-          style={[styles.settingsCard, !hasBudgetAlerts && styles.settingsCardDisabled]}
-          onPress={() => !hasBudgetAlerts && setShowUpgradeModal(true)}
-          activeOpacity={hasBudgetAlerts ? 1 : 0.7}
-          disabled={hasBudgetAlerts}
+          style={[styles.settingsCard, !canUseBudgetAlerts && styles.settingsCardDisabled]}
+          onPress={() => !canUseBudgetAlerts && setShowUpgradeModal(true)}
+          activeOpacity={canUseBudgetAlerts ? 1 : 0.7}
+          disabled={canUseBudgetAlerts}
         >
-          <Text style={[styles.thresholdLabel, !hasBudgetAlerts && styles.thresholdLabelDisabled]}>
+          <Text style={[styles.thresholdLabel, !canUseBudgetAlerts && styles.thresholdLabelDisabled]}>
             Alertar cuando el presupuesto llegue al{' '}
-            <Text style={[styles.thresholdValue, !hasBudgetAlerts && styles.thresholdValueDisabled]}>
+            <Text style={[styles.thresholdValue, !canUseBudgetAlerts && styles.thresholdValueDisabled]}>
               {Math.round(preferences?.budgetAlertThreshold ?? 80)}%
             </Text>
           </Text>
@@ -358,16 +569,16 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
             value={preferences?.budgetAlertThreshold ?? 80}
             onValueChange={handleThresholdChange}
             onSlidingComplete={handleThresholdComplete}
-            minimumTrackTintColor={hasBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
+            minimumTrackTintColor={canUseBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
             maximumTrackTintColor="#E5E7EB"
-            thumbTintColor={hasBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
-            disabled={!hasBudgetAlerts}
+            thumbTintColor={canUseBudgetAlerts ? "#F59E0B" : "#D1D5DB"}
+            disabled={!canUseBudgetAlerts}
           />
           <View style={styles.sliderLabels}>
-            <Text style={[styles.sliderLabel, !hasBudgetAlerts && styles.sliderLabelDisabled]}>50%</Text>
-            <Text style={[styles.sliderLabel, !hasBudgetAlerts && styles.sliderLabelDisabled]}>95%</Text>
+            <Text style={[styles.sliderLabel, !canUseBudgetAlerts && styles.sliderLabelDisabled]}>50%</Text>
+            <Text style={[styles.sliderLabel, !canUseBudgetAlerts && styles.sliderLabelDisabled]}>95%</Text>
           </View>
-          {!hasBudgetAlerts && (
+          {!canUseBudgetAlerts && (
             <View style={styles.upgradeHint}>
               <Ionicons name="sparkles" size={14} color="#F59E0B" />
               <Text style={styles.upgradeHintText}>Mejora a PLUS para personalizar alertas</Text>
@@ -375,86 +586,40 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
           )}
         </TouchableOpacity>
 
-        {/* Horas silenciosas */}
-        <Text style={styles.sectionTitle}>Horas silenciosas</Text>
+        {/* Frecuencia de recordatorio de metas */}
+        <Text style={styles.sectionTitle}>Recordatorio de metas</Text>
         <View style={styles.settingsCard}>
-          <Text style={styles.quietHoursInfo}>
-            No recibirás notificaciones durante este horario
+          <View style={styles.goalReminderHeader}>
+            <Ionicons name="flag" size={20} color="#10B981" />
+            <Text style={styles.goalReminderTitle}>Recordarme contribuir cada:</Text>
+          </View>
+
+          <View style={styles.frequencyButtonsContainer}>
+            {[0, 3, 7, 14, 30].map((days) => (
+              <TouchableOpacity
+                key={days}
+                style={[
+                  styles.frequencyButton,
+                  (preferences?.goalReminderFrequency ?? 7) === days && styles.frequencyButtonActive
+                ]}
+                onPress={() => handleGoalReminderFrequencyChange(days)}
+              >
+                <Text style={[
+                  styles.frequencyButtonText,
+                  (preferences?.goalReminderFrequency ?? 7) === days && styles.frequencyButtonTextActive
+                ]}>
+                  {getFrequencyLabel(days)}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <Text style={styles.goalReminderDescription}>
+            {(preferences?.goalReminderFrequency ?? 7) === 0
+              ? 'No recibirás recordatorios de contribución a tus metas'
+              : `Te recordaremos si llevas ${preferences?.goalReminderFrequency ?? 7} días sin aportar a tus metas activas`}
           </Text>
-          <View style={styles.quietHoursRow}>
-            <View style={styles.quietHoursItem}>
-              <Text style={styles.quietHoursLabel}>Inicio</Text>
-              <TouchableOpacity
-                style={styles.quietHoursButton}
-                onPress={() => {
-                  Alert.alert(
-                    'Hora de inicio',
-                    'Selecciona cuándo inicia el horario silencioso',
-                    [
-                      { text: 'No usar', onPress: () => handleQuietHoursChange(null, preferences?.quietHoursEnd ?? null) },
-                      { text: '9 PM', onPress: () => handleQuietHoursChange(21, preferences?.quietHoursEnd ?? 8) },
-                      { text: '10 PM', onPress: () => handleQuietHoursChange(22, preferences?.quietHoursEnd ?? 8) },
-                      { text: '11 PM', onPress: () => handleQuietHoursChange(23, preferences?.quietHoursEnd ?? 8) },
-                      { text: 'Cancelar', style: 'cancel' },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.quietHoursButtonText}>
-                  {formatHour(preferences?.quietHoursStart ?? null)}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-            <View style={styles.quietHoursItem}>
-              <Text style={styles.quietHoursLabel}>Fin</Text>
-              <TouchableOpacity
-                style={styles.quietHoursButton}
-                onPress={() => {
-                  Alert.alert(
-                    'Hora de fin',
-                    'Selecciona cuándo termina el horario silencioso',
-                    [
-                      { text: 'No usar', onPress: () => handleQuietHoursChange(preferences?.quietHoursStart ?? null, null) },
-                      { text: '6 AM', onPress: () => handleQuietHoursChange(preferences?.quietHoursStart ?? 22, 6) },
-                      { text: '7 AM', onPress: () => handleQuietHoursChange(preferences?.quietHoursStart ?? 22, 7) },
-                      { text: '8 AM', onPress: () => handleQuietHoursChange(preferences?.quietHoursStart ?? 22, 8) },
-                      { text: 'Cancelar', style: 'cancel' },
-                    ]
-                  );
-                }}
-              >
-                <Text style={styles.quietHoursButtonText}>
-                  {formatHour(preferences?.quietHoursEnd ?? null)}
-                </Text>
-                <Ionicons name="chevron-down" size={16} color="#64748b" />
-              </TouchableOpacity>
-            </View>
-          </View>
         </View>
-
-        {/* Botón de prueba */}
-        {__DEV__ && (
-          <>
-            <Text style={styles.sectionTitle}>Desarrollo</Text>
-            <TouchableOpacity
-              style={styles.testButton}
-              onPress={handleTestNotification}
-              disabled={saving}
-            >
-              <Ionicons name="paper-plane-outline" size={20} color="#2563EB" />
-              <Text style={styles.testButtonText}>Enviar notificación de prueba</Text>
-            </TouchableOpacity>
-          </>
-        )}
-
-        {/* Token info (solo desarrollo) */}
-        {__DEV__ && token && (
-          <View style={styles.debugCard}>
-            <Text style={styles.debugTitle}>Token de dispositivo:</Text>
-            <Text style={styles.debugText} numberOfLines={3}>{token}</Text>
-          </View>
-        )}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -464,6 +629,22 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         limitType="budgetAlerts"
+      />
+
+      {/* Modal PRO - Para notificaciones PRO */}
+      <CustomModal
+        visible={showProModal}
+        type="warning"
+        title="Función PRO"
+        message={`Las notificaciones inteligentes están disponibles exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para recibir alertas personalizadas!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModal(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModal(false)}
       />
     </SafeAreaView>
   );
@@ -650,6 +831,17 @@ const styles = StyleSheet.create({
     color: '#D97706',
     letterSpacing: 0.5,
   },
+  proBadge: {
+    backgroundColor: '#6366F1',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  proBadgeText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#fff',
+  },
   lockIcon: {
     width: 36,
     height: 36,
@@ -746,6 +938,53 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#475569',
   },
+  goalReminderHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    paddingHorizontal: 12,
+    paddingTop: 12,
+    paddingBottom: 8,
+  },
+  goalReminderTitle: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#475569',
+  },
+  frequencyButtonsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+  },
+  frequencyButton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 20,
+    backgroundColor: '#F1F5F9',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  frequencyButtonActive: {
+    backgroundColor: '#D1FAE5',
+    borderColor: '#10B981',
+  },
+  frequencyButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#64748B',
+  },
+  frequencyButtonTextActive: {
+    color: '#059669',
+  },
+  goalReminderDescription: {
+    fontSize: 12,
+    color: '#94A3B8',
+    paddingHorizontal: 12,
+    paddingBottom: 12,
+    fontStyle: 'italic',
+  },
   testButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -777,5 +1016,39 @@ const styles = StyleSheet.create({
     fontSize: 10,
     color: '#B45309',
     fontFamily: 'monospace',
+  },
+  // Estilos para configuración de gastos hormiga
+  antConfigContainer: {
+    backgroundColor: '#F0F9FF',
+    borderRadius: 8,
+    marginHorizontal: 12,
+    marginTop: 8,
+    marginBottom: 8,
+    padding: 16,
+    borderWidth: 1,
+    borderColor: '#BAE6FD',
+  },
+  antConfigItem: {
+    marginBottom: 16,
+  },
+  antConfigLabel: {
+    fontSize: 14,
+    fontWeight: '500',
+    color: '#1E3A5F',
+    marginBottom: 4,
+  },
+  antConfigValue: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#2B4C7E',
+    marginBottom: 8,
+  },
+  antConfigDescription: {
+    fontSize: 12,
+    color: '#64748B',
+    fontStyle: 'italic',
+    marginTop: 4,
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -17,6 +17,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import { categoriesAPI, transactionsAPI, Category, Transaction } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -67,7 +68,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [converterErrors, setConverterErrors] = useState<Record<string, string>>({});
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [lastExchangeRates, setLastExchangeRates] = useState<Record<string, number>>({});
-  
+
+  // Estado para el DatePicker
+  const [showDatePicker, setShowDatePicker] = useState(false);
+
   // Dashboard store para notificar cambios
   const { onTransactionChange } = useDashboardStore();
   
@@ -75,9 +79,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const { userCurrencyInfo } = useCurrency();
   const currency = userCurrencyInfo;
 
-  // Ref para el ScrollView de categorías
-  const categoriesScrollRef = useRef<ScrollView>(null);
-  const CATEGORY_ITEM_WIDTH = 100; // Ancho aproximado de cada item de categoría
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -116,6 +117,29 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       return `${parts[2]}-${parts[1]}-${parts[0]}`; // DD-MM-YYYY
     }
     return backendDate;
+  };
+
+  // Función para convertir DD-MM-YYYY a objeto Date
+  const parseDisplayDateToDate = (displayDate: string): Date => {
+    const parts = displayDate.split('-');
+    if (parts.length === 3) {
+      const day = parseInt(parts[0], 10);
+      const month = parseInt(parts[1], 10) - 1; // Los meses en JS son 0-indexed
+      const year = parseInt(parts[2], 10);
+      return new Date(year, month, day);
+    }
+    return new Date();
+  };
+
+  // Manejador del DatePicker
+  const handleDateChange = (event: any, selectedDate?: Date) => {
+    setShowDatePicker(false);
+    if (selectedDate) {
+      const dd = String(selectedDate.getDate()).padStart(2, '0');
+      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
+      const yyyy = selectedDate.getFullYear();
+      setFormData({ ...formData, date: `${dd}-${mm}-${yyyy}` });
+    }
   };
 
   useEffect(() => {
@@ -173,29 +197,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
     }
   }, [categories, editTransaction]);
-
-  // Effect para hacer scroll a la categoría seleccionada
-  useEffect(() => {
-    if (formData.categoryId && categories.length > 0 && categoriesScrollRef.current) {
-      // Filtrar categorías por tipo
-      const filtered = categories.filter(
-        cat => cat.type === formData.type || cat.type === 'BOTH'
-      );
-
-      // Encontrar el índice de la categoría seleccionada
-      const selectedIndex = filtered.findIndex(cat => cat.id === formData.categoryId);
-
-      if (selectedIndex > 0) {
-        // Calcular posición de scroll (centrar la categoría seleccionada si es posible)
-        const scrollPosition = Math.max(0, (selectedIndex * CATEGORY_ITEM_WIDTH) - CATEGORY_ITEM_WIDTH);
-
-        // Hacer scroll con un pequeño delay para asegurar que el componente esté renderizado
-        setTimeout(() => {
-          categoriesScrollRef.current?.scrollTo({ x: scrollPosition, animated: true });
-        }, 100);
-      }
-    }
-  }, [formData.categoryId, categories, formData.type]);
 
   const loadCategories = async () => {
     try {
@@ -537,18 +538,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           {/* Fecha */}
           <View style={styles.section}>
             <Text style={styles.label}>Fecha</Text>
-            <View style={styles.dateContainer}>
-              <Ionicons name="calendar-outline" size={20} color="#64748b" />
-              <TextInput
-                style={styles.dateInput}
-                value={formData.date}
-                onChangeText={(text) => setFormData({ ...formData, date: formatDateDisplay(text) })}
-                placeholder="DD-MM-YYYY"
-                placeholderTextColor="#9ca3af"
-                keyboardType="numeric"
-                maxLength={10}
+            <TouchableOpacity
+              style={styles.dateContainer}
+              onPress={() => setShowDatePicker(true)}
+              activeOpacity={0.7}
+            >
+              <Ionicons name="calendar-outline" size={20} color="#2563EB" />
+              <Text style={styles.dateText}>{formData.date}</Text>
+            </TouchableOpacity>
+            {showDatePicker && (
+              <DateTimePicker
+                value={parseDisplayDateToDate(formData.date)}
+                mode="date"
+                display="default"
+                onChange={handleDateChange}
+                maximumDate={new Date()}
               />
-            </View>
+            )}
           </View>
 
           {/* Categoría */}
@@ -560,32 +566,26 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 <Text style={styles.loadingText}>Cargando categorías...</Text>
               </View>
             ) : (
-              <ScrollView
-                ref={categoriesScrollRef}
-                horizontal
-                showsHorizontalScrollIndicator={false}
-              >
-                <View style={styles.categoriesContainer}>
-                  {filteredCategories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryButton,
-                        formData.categoryId === category.id && styles.categoryButtonActive,
-                      ]}
-                      onPress={() => setFormData({ ...formData, categoryId: category.id })}
-                    >
-                      <Text style={styles.categoryIcon}>{category.icon}</Text>
-                      <Text style={[
-                        styles.categoryText,
-                        formData.categoryId === category.id && styles.categoryTextActive,
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
+              <View style={styles.categoriesGrid}>
+                {filteredCategories.map((category) => (
+                  <TouchableOpacity
+                    key={category.id}
+                    style={[
+                      styles.categoryButton,
+                      formData.categoryId === category.id && styles.categoryButtonActive,
+                    ]}
+                    onPress={() => setFormData({ ...formData, categoryId: category.id })}
+                  >
+                    <Text style={styles.categoryIcon}>{category.icon}</Text>
+                    <Text style={[
+                      styles.categoryText,
+                      formData.categoryId === category.id && styles.categoryTextActive,
+                    ]}>
+                      {category.name}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             )}
           </View>
           </ScrollView>
@@ -905,6 +905,12 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#1e293b',
   },
+  dateText: {
+    flex: 1,
+    fontSize: 16,
+    color: '#1e293b',
+    fontWeight: '500',
+  },
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -916,20 +922,22 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
   },
-  categoriesContainer: {
+  categoriesGrid: {
     flexDirection: 'row',
-    gap: 12,
-    paddingVertical: 4,
+    flexWrap: 'wrap',
+    gap: 10,
   },
   categoryButton: {
     alignItems: 'center',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
     backgroundColor: 'white',
     borderRadius: 12,
     borderWidth: 2,
     borderColor: '#e5e7eb',
-    minWidth: 80,
+    minWidth: 75,
+    width: '30%',
+    maxWidth: 110,
   },
   categoryButtonActive: {
     backgroundColor: '#eff6ff',

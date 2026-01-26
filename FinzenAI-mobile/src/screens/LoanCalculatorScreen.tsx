@@ -32,7 +32,7 @@ interface AmortizationRow {
 export default function LoanCalculatorScreen() {
   const navigation = useNavigation();
   const { formatCurrency } = useCurrency();
-  const { canExportData } = useSubscriptionStore();
+  const { canExportData, canExportPdf, openPlansModal } = useSubscriptionStore();
 
   const [loanAmount, setLoanAmount] = useState('');
   const [loanType, setLoanType] = useState('hipotecario');
@@ -52,6 +52,7 @@ export default function LoanCalculatorScreen() {
   // Estados para exportación
   const [isExporting, setIsExporting] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModalPdf, setShowProModalPdf] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
 
   const loanTypes = [
@@ -172,9 +173,15 @@ export default function LoanCalculatorScreen() {
   const handleExport = async (format: ExportFormat) => {
     setShowExportOptions(false);
 
-    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    // Verificar si tiene permiso de exportación CSV (PLUS/PRO)
     if (!canExportData()) {
       setShowUpgradeModal(true);
+      return;
+    }
+
+    // Verificar si tiene permiso de exportación PDF (solo PRO)
+    if (format === 'pdf' && !canExportPdf()) {
+      setShowProModalPdf(true);
       return;
     }
 
@@ -219,7 +226,8 @@ export default function LoanCalculatorScreen() {
           columns,
           rows: amortizationTable,
           summary,
-        }
+        },
+        'save'
       );
 
       if (!result.success) {
@@ -534,11 +542,27 @@ export default function LoanCalculatorScreen() {
         onClose={() => setShowErrorModal(false)}
       />
 
-      {/* Modal de upgrade para exportación */}
+      {/* Modal de upgrade para exportación CSV */}
       <UpgradeModal
         visible={showUpgradeModal}
         onClose={() => setShowUpgradeModal(false)}
         limitType="export"
+      />
+
+      {/* Modal de Función PRO para exportación PDF */}
+      <CustomModal
+        visible={showProModalPdf}
+        type="warning"
+        title="Función PRO"
+        message={`La exportación a PDF está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalPdf(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalPdf(false)}
       />
 
       {/* Modal de opciones de exportación */}
@@ -550,23 +574,38 @@ export default function LoanCalculatorScreen() {
         onClose={() => setShowExportOptions(false)}
         hideDefaultButton={true}
         customContent={
-          <View style={styles.exportOptionsContainer}>
-            <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('pdf')}
-            >
-              <Ionicons name="document-text" size={32} color="#dc2626" />
-              <Text style={styles.exportOptionText}>PDF</Text>
-              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
-            </TouchableOpacity>
+          <View>
+            <View style={styles.exportOptionsContainer}>
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('pdf')}
+              >
+                <View style={styles.exportOptionIconContainer}>
+                  <Ionicons name="document-text" size={32} color="#dc2626" />
+                  {!canExportPdf() && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.exportOptionText}>PDF</Text>
+                <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('csv')}
+              >
+                <Ionicons name="grid" size={32} color="#059669" />
+                <Text style={styles.exportOptionText}>CSV</Text>
+                <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('csv')}
+              style={styles.exportCancelButton}
+              onPress={() => setShowExportOptions(false)}
             >
-              <Ionicons name="grid" size={32} color="#059669" />
-              <Text style={styles.exportOptionText}>CSV</Text>
-              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              <Text style={styles.exportCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         }
@@ -945,5 +984,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginTop: 4,
+  },
+  exportOptionIconContainer: {
+    position: 'relative',
+  },
+  proBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    backgroundColor: '#7c3aed',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  proBadgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  exportCancelButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+  },
+  exportCancelText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
   },
 });

@@ -25,7 +25,7 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import api from '../utils/api';
 import { categoriesAPI } from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
-import UpgradeModal from './subscriptions/UpgradeModal';
+import CustomModal from './modals/CustomModal';
 
 import { logger } from '../utils/logger';
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -71,10 +71,10 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const [showTipsModal, setShowTipsModal] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModalTTS, setShowProModalTTS] = useState(false);
 
   const { user } = useAuthStore();
-  const { updateZenioUsage, canUseTextToSpeech } = useSubscriptionStore();
+  const { updateZenioUsage, canUseTextToSpeech, openPlansModal } = useSubscriptionStore();
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
@@ -100,16 +100,9 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
-    // Verificar si el usuario tiene acceso a TTS según su plan
+    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
     if (!canUseTextToSpeech()) {
-      Alert.alert(
-        'Función Premium',
-        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ver Planes', onPress: () => setShowUpgradeModal(true) }
-        ]
-      );
+      setShowProModalTTS(true);
       return;
     }
 
@@ -216,7 +209,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
               isUser: false,
               timestamp: new Date(),
             }]);
-            setShowUpgradeModal(true);
+            // Cerrar el chat modal primero para evitar modales anidados
+            setShowChat(false);
+            setTimeout(() => {
+              openPlansModal();
+            }, 400);
           } else {
             setMessages([{
               id: '1',
@@ -355,14 +352,14 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           case 'budget_limit_reached':
           case 'goal_limit_reached':
             // Mostrar modal de upgrade cuando se alcanza límite de presupuestos o metas
-            setShowUpgradeModal(true);
+            openPlansModal();
             break;
         }
       }
 
       // También verificar si la respuesta indica que se debe hacer upgrade
       if (response.data.upgrade === true) {
-        setShowUpgradeModal(true);
+        openPlansModal();
       }
 
     } catch (error: any) {
@@ -378,7 +375,11 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, limitMessage]);
-        setShowUpgradeModal(true);
+        // Cerrar el chat modal primero para evitar modales anidados
+        setShowChat(false);
+        setTimeout(() => {
+          openPlansModal();
+        }, 400);
       } else {
         const errorMessage: Message = {
           id: (Date.now() + 1).toString(),
@@ -827,11 +828,20 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         </KeyboardAvoidingView>
       </Modal>
 
-      {/* Modal de Upgrade - Para límite de Zenio alcanzado */}
-      <UpgradeModal
-        visible={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        limitType="zenio"
+      {/* Modal PRO - Para TTS */}
+      <CustomModal
+        visible={showProModalTTS}
+        type="warning"
+        title="Función PRO"
+        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalTTS(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalTTS(false)}
       />
     </>
   );

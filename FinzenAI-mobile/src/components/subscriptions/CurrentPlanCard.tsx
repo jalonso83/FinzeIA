@@ -31,6 +31,17 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
   const colors = getColors();
 
+  // Defensive defaults for planDetails and limits
+  const planDetails = subscription.planDetails || {
+    name: subscription.plan === 'PREMIUM' ? 'Plus' : subscription.plan === 'PRO' ? 'Pro' : 'Gratis',
+    price: { monthly: 0, yearly: 0 },
+  };
+  // price puede ser objeto {monthly, yearly} o número
+  const planPrice = typeof planDetails.price === 'object' && planDetails.price !== null
+    ? (planDetails.price.monthly ?? 0)
+    : (typeof planDetails.price === 'number' ? planDetails.price : 0);
+  const limits = subscription.limits || { budgets: 2, goals: 1, zenioQueries: 15 };
+
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';
     const date = new Date(dateString);
@@ -41,6 +52,18 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
     });
   };
 
+  const getStatusText = (status: string) => {
+    const statusMap: { [key: string]: string } = {
+      'ACTIVE': 'ACTIVO',
+      'TRIALING': 'EN PRUEBA',
+      'CANCELED': 'CANCELADO',
+      'PAST_DUE': 'VENCIDO',
+      'INCOMPLETE': 'INCOMPLETO',
+      'UNPAID': 'SIN PAGAR',
+    };
+    return statusMap[status] || status;
+  };
+
   return (
     <View style={[styles.container, { backgroundColor: colors.secondary }]}>
       {/* Header */}
@@ -48,15 +71,15 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
         <View style={styles.headerLeft}>
           <Text style={styles.icon}>{colors.icon}</Text>
           <View>
-            <Text style={styles.label}>Current Plan</Text>
+            <Text style={styles.label}>Plan Actual</Text>
             <Text style={[styles.planName, { color: colors.primary }]}>
-              {subscription.planDetails.name}
+              {planDetails.name}
             </Text>
           </View>
         </View>
         {!isFree && (
           <View style={[styles.statusBadge, { backgroundColor: colors.primary }]}>
-            <Text style={styles.statusText}>{subscription.status}</Text>
+            <Text style={styles.statusText}>{getStatusText(subscription.status)}</Text>
           </View>
         )}
       </View>
@@ -65,9 +88,9 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
       {!isFree && (
         <View style={styles.priceContainer}>
           <Text style={styles.price}>
-            ${subscription.planDetails.price.toFixed(2)}
+            ${planPrice.toFixed(2)}
           </Text>
-          <Text style={styles.period}>/month</Text>
+          <Text style={styles.period}>/mes</Text>
         </View>
       )}
 
@@ -76,7 +99,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
         <View style={styles.infoContainer}>
           <View style={styles.infoRow}>
             <Ionicons name="calendar-outline" size={16} color="#6B7280" />
-            <Text style={styles.infoLabel}>Next billing date:</Text>
+            <Text style={styles.infoLabel}>Próximo cobro:</Text>
             <Text style={styles.infoValue}>
               {formatDate(subscription.currentPeriodEnd)}
             </Text>
@@ -86,7 +109,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             <View style={styles.warningBox}>
               <Ionicons name="warning-outline" size={18} color="#F59E0B" />
               <Text style={styles.warningText}>
-                Your subscription will end on {formatDate(subscription.currentPeriodEnd)}
+                Tu suscripción terminará el {formatDate(subscription.currentPeriodEnd)}
               </Text>
             </View>
           )}
@@ -95,24 +118,24 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
       {/* Limits Summary */}
       <View style={styles.limitsContainer}>
-        <Text style={styles.limitsTitle}>Your Limits:</Text>
+        <Text style={styles.limitsTitle}>Tus Límites:</Text>
         <View style={styles.limitsGrid}>
           <View style={styles.limitItem}>
             <Ionicons name="wallet" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.budgets === -1 ? '∞' : subscription.limits.budgets} Budgets
+              {limits.budgets === -1 ? '∞' : limits.budgets} Presupuestos
             </Text>
           </View>
           <View style={styles.limitItem}>
             <Ionicons name="trophy" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.goals === -1 ? '∞' : subscription.limits.goals} Goals
+              {limits.goals === -1 ? '∞' : limits.goals} Metas
             </Text>
           </View>
           <View style={styles.limitItem}>
             <Ionicons name="chatbubble-ellipses" size={18} color={colors.primary} />
             <Text style={styles.limitText}>
-              {subscription.limits.zenioQueries === -1 ? '∞' : subscription.limits.zenioQueries} Zenio
+              {limits.zenioQueries === -1 ? '∞' : limits.zenioQueries} Zenio
             </Text>
           </View>
         </View>
@@ -128,7 +151,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             >
               <Ionicons name="settings-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-                Manage Subscription
+                Gestionar Suscripción
               </Text>
             </TouchableOpacity>
 
@@ -138,7 +161,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
             >
               <Ionicons name="receipt-outline" size={18} color={colors.primary} />
               <Text style={[styles.actionButtonText, { color: colors.primary }]}>
-                Payment History
+                Historial de Pagos
               </Text>
             </TouchableOpacity>
           </>
@@ -146,7 +169,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
 
         {isFree && (
           <Text style={styles.freeMessage}>
-            Upgrade to unlock unlimited access and premium features
+            Mejora tu plan para desbloquear acceso ilimitado y funciones premium
           </Text>
         )}
       </View>

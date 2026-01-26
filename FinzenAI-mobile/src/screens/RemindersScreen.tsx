@@ -412,7 +412,7 @@ export default function RemindersScreen() {
                       <Switch
                         value={reminder.isActive}
                         onValueChange={() => handleToggleReminder(reminder)}
-                        trackColor={{ false: '#e2e8f0', true: '#93c5fd' }}
+                        trackColor={{ false: '#e2e8f0', true: '#2563EB' }}
                         thumbColor={reminder.isActive ? '#2563EB' : '#94a3b8'}
                       />
                     </View>

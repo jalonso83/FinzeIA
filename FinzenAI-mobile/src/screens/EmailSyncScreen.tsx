@@ -18,6 +18,7 @@ import CustomModal from '../components/modals/CustomModal';
 import { logger } from '../utils/logger';
 interface EmailSyncScreenProps {
   onClose: () => void;
+  onOpenPlans?: () => void;
 }
 
 interface ConnectionDetail {
@@ -44,7 +45,7 @@ interface SupportedBank {
   isActive: boolean;
 }
 
-const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
+const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans }) => {
   const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState(true);
   const [syncing, setSyncing] = useState(false);
@@ -61,6 +62,9 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
   const [modalMessage, setModalMessage] = useState('');
   const [modalButtonText, setModalButtonText] = useState('Continuar');
   const [modalOnClose, setModalOnClose] = useState<() => void>(() => () => setModalVisible(false));
+  const [modalShowSecondary, setModalShowSecondary] = useState(false);
+  const [modalSecondaryText, setModalSecondaryText] = useState('');
+  const [modalSecondaryAction, setModalSecondaryAction] = useState<() => void>(() => () => {});
 
   // Estado para modal de confirmación de desconexión
   const [showDisconnectConfirm, setShowDisconnectConfirm] = useState(false);
@@ -71,7 +75,8 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
     title: string,
     message: string,
     buttonText: string = 'Continuar',
-    onCloseCallback?: () => void
+    onCloseCallback?: () => void,
+    secondaryButton?: { text: string; action: () => void }
   ) => {
     setModalType(type);
     setModalTitle(title);
@@ -81,6 +86,18 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
       setModalVisible(false);
       if (onCloseCallback) onCloseCallback();
     });
+    if (secondaryButton) {
+      setModalShowSecondary(true);
+      setModalSecondaryText(secondaryButton.text);
+      setModalSecondaryAction(() => () => {
+        setModalVisible(false);
+        secondaryButton.action();
+      });
+    } else {
+      setModalShowSecondary(false);
+      setModalSecondaryText('');
+      setModalSecondaryAction(() => () => {});
+    }
     setModalVisible(true);
   };
 
@@ -182,7 +199,32 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
       }
     } catch (error: any) {
       logger.error(`Error connecting ${provider}:`, error);
-      showModal('error', 'Error', error.response?.data?.message || error.message || 'No se pudo iniciar la conexión');
+      const errorMessage = error.response?.data?.message || error.message || 'No se pudo iniciar la conexión';
+
+      // COMENTADO: Validación de PRO movida al menú principal (AppNavigator)
+      // Si el usuario llegó aquí, ya es PRO. Se mantiene por si hay que revertir.
+      // const isProRestriction = errorMessage.toLowerCase().includes('pro') ||
+      //                          errorMessage.toLowerCase().includes('plan') ||
+      //                          error.response?.status === 403;
+      //
+      // if (isProRestriction && onOpenPlans) {
+      //   showModal(
+      //     'warning',
+      //     'Función PRO',
+      //     'La sincronización de email bancario está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!',
+      //     'Ver Planes',
+      //     () => {
+      //       onClose();
+      //       onOpenPlans();
+      //     },
+      //     { text: 'Cerrar', action: () => {} }
+      //   );
+      // } else {
+      //   showModal('error', 'Error', errorMessage);
+      // }
+
+      // Mostrar error genérico (el usuario ya es PRO si llegó aquí)
+      showModal('error', 'Error', errorMessage);
     } finally {
       setConnecting(null);
     }
@@ -371,7 +413,7 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
                     {disconnectingId === connection.id ? (
                       <ActivityIndicator size="small" color="#dc2626" />
                     ) : (
-                      <Ionicons name="close-circle" size={24} color="#dc2626" />
+                      <Ionicons name="trash-outline" size={22} color="#dc2626" />
                     )}
                   </TouchableOpacity>
                 </View>
@@ -508,6 +550,9 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose }) => {
         message={modalMessage}
         buttonText={modalButtonText}
         onClose={modalOnClose}
+        showSecondaryButton={modalShowSecondary}
+        secondaryButtonText={modalSecondaryText}
+        onSecondaryPress={modalSecondaryAction}
       />
 
       <CustomModal

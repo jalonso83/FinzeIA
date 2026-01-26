@@ -11,6 +11,7 @@ import {
   Platform,
   Image,
   Modal,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -38,11 +39,6 @@ export default function ZenioScreen() {
   const [categories, setCategories] = useState<any[]>([]);
   const [showTips, setShowTips] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
-
-  // Debug: monitorear cambios en showTips
-  useEffect(() => {
-    logger.log('🔵 showTips cambió a:', showTips);
-  }, [showTips]);
 
   const { user } = useAuthStore();
   const { updateZenioUsage, fetchSubscription } = useSubscriptionStore();
@@ -110,9 +106,7 @@ export default function ZenioScreen() {
 
           setHasSentFirst(true);
         } catch (error: any) {
-          logger.error('Error al inicializar conversación:', error);
-          logger.log('Error status:', error.response?.status);
-          logger.log('Error data:', JSON.stringify(error.response?.data));
+          logger.error('Error al inicializar conversación:', error.message);
 
           // Detectar error 403 - límite de Zenio alcanzado
           if (error.response?.status === 403) {
@@ -122,7 +116,11 @@ export default function ZenioScreen() {
               isUser: false,
               timestamp: new Date(),
             }]);
-            setShowUpgradeModal(true);
+            // Ocultar teclado antes de mostrar el modal
+            Keyboard.dismiss();
+            setTimeout(() => {
+              setShowUpgradeModal(true);
+            }, 300);
           } else {
             setMessages([{
               id: '1',
@@ -209,8 +207,7 @@ export default function ZenioScreen() {
       }
 
     } catch (error: any) {
-      logger.error('Error sending message:', error);
-      logger.log('Error status:', error.response?.status);
+      logger.error('Error sending message:', error.message);
 
       // Detectar error 403 - límite de Zenio alcanzado
       if (error.response?.status === 403) {
@@ -221,7 +218,11 @@ export default function ZenioScreen() {
           timestamp: new Date(),
         };
         setMessages(prev => [...prev, limitMessage]);
-        setShowUpgradeModal(true);
+        // Ocultar teclado antes de mostrar el modal
+        Keyboard.dismiss();
+        setTimeout(() => {
+          setShowUpgradeModal(true);
+        }, 300);
       } else {
         Alert.alert('Error', 'No se pudo enviar el mensaje');
       }
@@ -266,12 +267,7 @@ export default function ZenioScreen() {
         <View style={styles.headerButtons}>
           <TouchableOpacity
             style={styles.iconButton}
-            onPress={() => {
-              logger.log('🔵 Tips button pressed!');
-              logger.log('🔵 showTips ANTES:', showTips);
-              setShowTips(true);
-              logger.log('🔵 setShowTips(true) ejecutado');
-            }}
+            onPress={() => setShowTips(true)}
             activeOpacity={0.6}
             hitSlop={{ top: 15, bottom: 15, left: 15, right: 15 }}
           >
@@ -389,10 +385,7 @@ export default function ZenioScreen() {
         visible={true}
         transparent={true}
         animationType="fade"
-        onRequestClose={() => {
-          logger.log('🔴 Modal Tips cerrado');
-          setShowTips(false);
-        }}
+        onRequestClose={() => setShowTips(false)}
         statusBarTranslucent={false}
         presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : 'none'}
       >

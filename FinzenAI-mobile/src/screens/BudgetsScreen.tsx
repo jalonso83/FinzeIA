@@ -41,7 +41,7 @@ export default function BudgetsScreen() {
   const { onBudgetChange, budgetChangeTrigger, transactionChangeTrigger} = useDashboardStore();
 
   // Subscription store para validar límites y exportación
-  const { canCreateBudget, canExportData, fetchSubscription } = useSubscriptionStore();
+  const { canCreateBudget, canExportData, canExportPdf, fetchSubscription, openPlansModal } = useSubscriptionStore();
 
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
@@ -50,6 +50,7 @@ export default function BudgetsScreen() {
   const [isExporting, setIsExporting] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [exportUpgradeModal, setExportUpgradeModal] = useState(false);
+  const [showProModalPdf, setShowProModalPdf] = useState(false);
 
   // Calcular resumen dinámicamente con análisis de rendimiento y proyecciones
   const stats = useMemo(() => {
@@ -187,12 +188,14 @@ export default function BudgetsScreen() {
 
   // Memoizado: Función para validar límites antes de crear presupuesto
   const handleCreateBudget = useCallback(() => {
-    if (!canCreateBudget(budgets.length)) {
+    // Solo contar presupuestos ACTIVOS para el límite
+    const activeBudgetsCount = budgets.filter(b => b.is_active).length;
+    if (!canCreateBudget(activeBudgetsCount)) {
       setShowUpgradeModal(true);
       return;
     }
     setShowForm(true);
-  }, [canCreateBudget, budgets.length]);
+  }, [canCreateBudget, budgets]);
 
   // Función para eliminar presupuesto (replicando la web)
   const handleDeleteBudget = (budgetId: string, budgetName: string) => {
@@ -262,14 +265,23 @@ export default function BudgetsScreen() {
   const handleExport = async (format: ExportFormat) => {
     setShowExportOptions(false);
 
-    // Verificar si tiene permiso de exportación (PLUS/PRO)
+    // Verificar si tiene permiso de exportación CSV (PLUS/PRO)
     if (!canExportData()) {
       setExportUpgradeModal(true);
       return;
     }
 
-    if (budgets.length === 0) {
-      setErrorMessage('No hay presupuestos para exportar');
+    // Verificar si tiene permiso de exportación PDF (solo PRO)
+    if (format === 'pdf' && !canExportPdf()) {
+      setShowProModalPdf(true);
+      return;
+    }
+
+    // Solo exportar presupuestos activos
+    const activeBudgets = budgets.filter(b => b.is_active);
+
+    if (activeBudgets.length === 0) {
+      setErrorMessage('No hay presupuestos activos para exportar');
       setShowErrorModal(true);
       return;
     }
@@ -283,35 +295,42 @@ export default function BudgetsScreen() {
           header: 'Presupuesto',
           key: 'name',
           align: 'left',
-          width: '25%',
+          width: '22%',
           format: (v, row) => `${row?.category?.icon || '💰'} ${v}`
         },
         {
           header: 'Categoría',
           key: 'category',
           align: 'left',
-          width: '20%',
+          width: '18%',
           format: (v) => v?.name || 'General'
+        },
+        {
+          header: 'Frecuencia',
+          key: 'period',
+          align: 'center',
+          width: '12%',
+          format: (v) => formatPeriod(v)
         },
         {
           header: 'Presupuestado',
           key: 'amount',
           align: 'right',
-          width: '18%',
+          width: '16%',
           format: (v) => formatCurrency(v)
         },
         {
           header: 'Gastado',
           key: 'spent',
           align: 'right',
-          width: '18%',
+          width: '16%',
           format: (v) => formatCurrency(v)
         },
         {
           header: 'Restante',
           key: 'remaining',
           align: 'right',
-          width: '19%',
+          width: '16%',
           format: (v, row) => {
             const remaining = (row?.amount || 0) - (row?.spent || 0);
             const prefix = remaining >= 0 ? '' : '-';
@@ -320,25 +339,25 @@ export default function BudgetsScreen() {
         },
       ];
 
-      // Preparar filas con datos calculados
-      const rows = budgets.map(b => ({
+      // Preparar filas con datos calculados (solo activos)
+      const rows = activeBudgets.map(b => ({
         ...b,
         remaining: b.amount - b.spent,
         progress: b.amount > 0 ? ((b.spent / b.amount) * 100).toFixed(1) + '%' : '0%'
       }));
 
-      // Calcular estadísticas para resumen
-      const activeBudgets = budgets.filter(b => b.is_active);
-      const exceededBudgets = budgets.filter(b => b.spent > b.amount);
+      // Calcular estadísticas solo de presupuestos activos
+      const exceededBudgets = activeBudgets.filter(b => b.spent > b.amount);
+      const totalBudgeted = activeBudgets.reduce((sum, b) => sum + b.amount, 0);
+      const totalSpent = activeBudgets.reduce((sum, b) => sum + b.spent, 0);
+      const balance = totalBudgeted - totalSpent;
 
-      // Preparar resumen
+      // Preparar resumen (solo info relevante de activos)
       const summary = [
         { label: 'Período', value: getCurrentMonth() },
-        { label: 'Total de presupuestos', value: `${budgets.length}` },
-        { label: 'Presupuestos activos', value: `${activeBudgets.length}` },
-        { label: 'Total presupuestado', value: formatCurrency(stats.totalBudget) },
-        { label: 'Total gastado', value: formatCurrency(stats.monthlyExpenses) },
-        { label: 'Balance', value: `${stats.remaining >= 0 ? '+' : ''}${formatCurrency(stats.remaining)}` },
+        { label: 'Total presupuestado', value: formatCurrency(totalBudgeted) },
+        { label: 'Total gastado', value: formatCurrency(totalSpent) },
+        { label: 'Balance', value: `${balance >= 0 ? '+' : ''}${formatCurrency(balance)}` },
         { label: 'Presupuestos excedidos', value: `${exceededBudgets.length}` },
       ];
 
@@ -353,7 +372,8 @@ export default function BudgetsScreen() {
           columns,
           rows,
           summary,
-        }
+        },
+        'save'
       );
 
       if (!result.success) {
@@ -639,11 +659,27 @@ export default function BudgetsScreen() {
         limitType="budgets"
       />
 
-      {/* Upgrade Modal para exportación */}
+      {/* Upgrade Modal para exportación CSV */}
       <UpgradeModal
         visible={exportUpgradeModal}
         onClose={() => setExportUpgradeModal(false)}
         limitType="export"
+      />
+
+      {/* Modal de Función PRO para exportación PDF */}
+      <CustomModal
+        visible={showProModalPdf}
+        type="warning"
+        title="Función PRO"
+        message={`La exportación a PDF está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalPdf(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalPdf(false)}
       />
 
       {/* Modal de opciones de exportación */}
@@ -655,23 +691,38 @@ export default function BudgetsScreen() {
         onClose={() => setShowExportOptions(false)}
         hideDefaultButton={true}
         customContent={
-          <View style={styles.exportOptionsContainer}>
-            <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('pdf')}
-            >
-              <Ionicons name="document-text" size={32} color="#dc2626" />
-              <Text style={styles.exportOptionText}>PDF</Text>
-              <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
-            </TouchableOpacity>
+          <View>
+            <View style={styles.exportOptionsContainer}>
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('pdf')}
+              >
+                <View style={styles.exportOptionIconContainer}>
+                  <Ionicons name="document-text" size={32} color="#dc2626" />
+                  {!canExportPdf() && (
+                    <View style={styles.proBadge}>
+                      <Text style={styles.proBadgeText}>PRO</Text>
+                    </View>
+                  )}
+                </View>
+                <Text style={styles.exportOptionText}>PDF</Text>
+                <Text style={styles.exportOptionSubtext}>Documento con formato</Text>
+              </TouchableOpacity>
 
+              <TouchableOpacity
+                style={styles.exportOptionButton}
+                onPress={() => handleExport('csv')}
+              >
+                <Ionicons name="grid" size={32} color="#059669" />
+                <Text style={styles.exportOptionText}>CSV</Text>
+                <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              </TouchableOpacity>
+            </View>
             <TouchableOpacity
-              style={styles.exportOptionButton}
-              onPress={() => handleExport('csv')}
+              style={styles.exportCancelButton}
+              onPress={() => setShowExportOptions(false)}
             >
-              <Ionicons name="grid" size={32} color="#059669" />
-              <Text style={styles.exportOptionText}>CSV</Text>
-              <Text style={styles.exportOptionSubtext}>Hoja de cálculo</Text>
+              <Text style={styles.exportCancelText}>Cancelar</Text>
             </TouchableOpacity>
           </View>
         }
@@ -1059,5 +1110,35 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#64748b',
     marginTop: 4,
+  },
+  exportOptionIconContainer: {
+    position: 'relative',
+  },
+  proBadge: {
+    position: 'absolute',
+    top: -8,
+    right: -12,
+    backgroundColor: '#7c3aed',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
+  },
+  proBadgeText: {
+    color: 'white',
+    fontSize: 9,
+    fontWeight: 'bold',
+  },
+  exportCancelButton: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginTop: 12,
+    backgroundColor: '#e5e7eb',
+    borderRadius: 12,
+  },
+  exportCancelText: {
+    fontSize: 16,
+    color: '#374151',
+    fontWeight: '600',
   },
 });

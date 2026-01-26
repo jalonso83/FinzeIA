@@ -9,15 +9,19 @@ import {
   Alert,
   ActivityIndicator,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Ionicons } from '@expo/vector-icons';
 import Markdown from 'react-native-markdown-display';
 import { useSpeech } from '../hooks/useSpeech';
 import { zenioAPI, categoriesAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
-import UpgradeModal from './subscriptions/UpgradeModal';
+import CustomModal from './modals/CustomModal';
 
 import { logger } from '../utils/logger';
+
+// Key para persistir el threadId en AsyncStorage
+const ZENIO_THREAD_KEY = '@finzen_zenio_thread_id';
 interface Message {
   id: string;
   text: string;
@@ -45,25 +49,18 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
   const [categories, setCategories] = useState<any[]>([]);
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showProModalTTS, setShowProModalTTS] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
 
   const speech = useSpeech();
   const { user } = useAuthStore();
-  const { canUseTextToSpeech } = useSubscriptionStore();
+  const { canUseTextToSpeech, openPlansModal } = useSubscriptionStore();
 
   // Función para reproducir un mensaje específico
   const playMessage = async (messageId: string, text: string) => {
-    // Verificar si el usuario tiene acceso a TTS según su plan
+    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
     if (!canUseTextToSpeech()) {
-      Alert.alert(
-        'Función Premium',
-        'La voz de Zenio está disponible en los planes Plus y Pro. ¡Mejora tu plan para escuchar las respuestas!',
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Ver Planes', onPress: () => setShowUpgradeModal(true) }
-        ]
-      );
+      setShowProModalTTS(true);
       return;
     }
 
@@ -112,6 +109,40 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
 
     loadCategories();
   }, []);
+
+  // Cargar threadId guardado de AsyncStorage (solo si NO es onboarding y no hay initialThreadId)
+  useEffect(() => {
+    const loadSavedThreadId = async () => {
+      if (isOnboarding || initialThreadId) {
+        return;
+      }
+      try {
+        const savedThreadId = await AsyncStorage.getItem(ZENIO_THREAD_KEY);
+        if (savedThreadId) {
+          logger.log('[VoiceZenioChat] ThreadId recuperado:', savedThreadId);
+          setThreadId(savedThreadId);
+        }
+      } catch (error) {
+        logger.error('[VoiceZenioChat] Error cargando threadId:', error);
+      }
+    };
+    loadSavedThreadId();
+  }, [isOnboarding, initialThreadId]);
+
+  // Guardar threadId en AsyncStorage cuando cambie
+  useEffect(() => {
+    const saveThreadId = async () => {
+      if (threadId && !isOnboarding) {
+        try {
+          await AsyncStorage.setItem(ZENIO_THREAD_KEY, threadId);
+          logger.log('[VoiceZenioChat] ThreadId guardado:', threadId);
+        } catch (error) {
+          logger.error('[VoiceZenioChat] Error guardando threadId:', error);
+        }
+      }
+    };
+    saveThreadId();
+  }, [threadId, isOnboarding]);
 
   // Auto-inicializar conversación cuando se abre el chat
   useEffect(() => {
@@ -487,11 +518,20 @@ const VoiceZenioChat: React.FC<VoiceZenioChatProps> = ({
         )}
       </View>
 
-      {/* Modal de Upgrade - Para TTS Premium */}
-      <UpgradeModal
-        visible={showUpgradeModal}
-        onClose={() => setShowUpgradeModal(false)}
-        limitType="zenio"
+      {/* Modal PRO - Para TTS */}
+      <CustomModal
+        visible={showProModalTTS}
+        type="warning"
+        title="Función PRO"
+        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        buttonText="Ver Planes"
+        onClose={() => {
+          setShowProModalTTS(false);
+          openPlansModal();
+        }}
+        showSecondaryButton={true}
+        secondaryButtonText="Cerrar"
+        onSecondaryPress={() => setShowProModalTTS(false)}
       />
     </View>
   );

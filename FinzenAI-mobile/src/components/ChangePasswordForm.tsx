@@ -232,7 +232,7 @@ export default function ChangePasswordForm({ visible, onClose }: ChangePasswordF
                 {loading ? (
                   <ActivityIndicator size="small" color="white" />
                 ) : (
-                  <Text style={styles.changeButtonText}>Cambiar Contraseña</Text>
+                  <Text style={styles.changeButtonText}>Cambiar</Text>
                 )}
               </TouchableOpacity>
             </View>

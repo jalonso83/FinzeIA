@@ -6,17 +6,10 @@ import * as SecureStore from 'expo-secure-store';
 import Constants from 'expo-constants';
 
 import { logger } from './logger';
-// Configuración de la API - HARDCODEADA PARA DEBUGGING
+
+// API Configuration - Production
 const API_BASE_URL = 'https://finzenai-backend-production.up.railway.app';
 const API_URL_WITH_PATH = `${API_BASE_URL}/api`;
-
-// Debug para verificar la URL
-logger.log('=== DEBUG API CONFIG ===');
-logger.log('expoConfig API_URL:', Constants.expoConfig?.extra?.API_URL);
-logger.log('manifest API_URL:', Constants.manifest?.extra?.API_URL);
-logger.log('Final API_BASE_URL:', API_BASE_URL);
-logger.log('Final API_URL_WITH_PATH:', API_URL_WITH_PATH);
-logger.log('========================');
 
 // Clave para almacenar el token de forma segura
 const TOKEN_KEY = 'finzen_auth_token';
@@ -318,6 +311,10 @@ export const subscriptionsAPI = {
   // Verificar estado de sesión de checkout (requiere auth)
   checkCheckoutSession: (sessionId: string) =>
     api.get(`/subscriptions/checkout/${sessionId}`),
+
+  // Iniciar período de prueba de 7 días (sin tarjeta)
+  startTrial: (plan: 'PREMIUM' | 'PRO', deviceInfo?: { deviceId: string; platform: 'ios' | 'android'; deviceName?: string }) =>
+    api.post('/subscriptions/start-trial', { plan, ...deviceInfo }),
 };
 
 // API de notificaciones push
