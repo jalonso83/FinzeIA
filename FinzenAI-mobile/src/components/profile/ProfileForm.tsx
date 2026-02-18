@@ -54,7 +54,6 @@ const currencies = [
   { code: 'UYU', name: 'Peso Uruguayo', symbol: '$' },
   { code: 'VEF', name: 'Bolívar Venezolano', symbol: 'Bs.' },
   { code: 'VES', name: 'Bolívar Soberano', symbol: 'Bs.S' },
-  { code: 'PR', name: 'Dólar Estadounidense', symbol: '$' },
 ];
 
 export default function ProfileForm({ visible, user, onClose, onProfileUpdated }: ProfileFormProps) {
@@ -191,6 +190,8 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
     if (!form.country) newErrors.country = 'El país es obligatorio';
     if (!form.state) newErrors.state = 'El estado es obligatorio';
     if (!form.city) newErrors.city = 'La ciudad es obligatoria';
+    if (!form.currency) newErrors.currency = 'La moneda es obligatoria';
+    if (!form.preferredLanguage) newErrors.preferredLanguage = 'El idioma es obligatorio';
     if (!form.occupation) newErrors.occupation = 'La ocupación es obligatoria';
     return newErrors;
   };
@@ -493,9 +494,9 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                 </View>
 
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Moneda</Text>
+                  <Text style={styles.label}>Moneda *</Text>
                   <TouchableOpacity
-                    style={styles.dropdown}
+                    style={[styles.dropdown, errors.currency && styles.inputError]}
                     onPress={() => setShowCurrencyModal(true)}
                   >
                     <Text style={[styles.dropdownText, !form.currency && styles.placeholderText]}>
@@ -503,14 +504,15 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                     </Text>
                     <Ionicons name="chevron-down" size={20} color="#64748b" />
                   </TouchableOpacity>
+                  {errors.currency && <Text style={styles.inputErrorText}>{errors.currency}</Text>}
                 </View>
               </View>
 
               <View style={styles.row}>
                 <View style={styles.inputContainer}>
-                  <Text style={styles.label}>Idioma Preferido</Text>
+                  <Text style={styles.label}>Idioma Preferido *</Text>
                   <TouchableOpacity
-                    style={styles.dropdown}
+                    style={[styles.dropdown, errors.preferredLanguage && styles.inputError]}
                     onPress={() => setShowLanguageModal(true)}
                   >
                     <Text style={styles.dropdownText}>
@@ -518,6 +520,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                     </Text>
                     <Ionicons name="chevron-down" size={20} color="#64748b" />
                   </TouchableOpacity>
+                  {errors.preferredLanguage && <Text style={styles.inputErrorText}>{errors.preferredLanguage}</Text>}
                 </View>
 
                 <View style={styles.inputContainer}>

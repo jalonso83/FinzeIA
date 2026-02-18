@@ -478,6 +478,21 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose }) =>
               ? `• Tu trial termina en ${trialDaysLeft} día${trialDaysLeft !== 1 ? 's' : ''}\n• No se te cobrará durante el trial\n• Cancela cuando quieras`
               : `• Cancela en cualquier momento, sin preguntas\n• Pago seguro con Stripe\n• Acceso instantáneo después de suscribirte`}
           </Text>
+          <View style={styles.legalLinks}>
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.abundancelabllc.com/terms')}
+            >
+              Términos de Uso (EULA)
+            </Text>
+            <Text style={styles.legalSeparator}>|</Text>
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.abundancelabllc.com/privacy')}
+            >
+              Política de Privacidad
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -685,6 +700,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 20,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  legalLink: {
+    fontSize: 13,
+    color: '#6C47FF',
+    fontWeight: '500',
+  },
+  legalSeparator: {
+    fontSize: 13,
+    color: '#D1D5DB',
+    marginHorizontal: 8,
   },
 });
 

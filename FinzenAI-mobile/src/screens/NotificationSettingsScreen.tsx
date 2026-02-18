@@ -284,7 +284,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 value={preferences?.emailSyncEnabled ?? true}
                 onValueChange={(value) => handleToggle('emailSyncEnabled', value)}
                 trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-                thumbColor={preferences?.emailSyncEnabled ? '#2563EB' : '#9CA3AF'}
+                thumbColor={preferences?.emailSyncEnabled ? '#FFFFFF' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -325,7 +325,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 value={preferences?.budgetAlertsEnabled ?? true}
                 onValueChange={(value) => handleToggle('budgetAlertsEnabled', value)}
                 trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-                thumbColor={preferences?.budgetAlertsEnabled ? '#2563EB' : '#9CA3AF'}
+                thumbColor={preferences?.budgetAlertsEnabled ? '#FFFFFF' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -348,7 +348,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
               value={preferences?.goalRemindersEnabled ?? true}
               onValueChange={(value) => handleToggle('goalRemindersEnabled', value)}
               trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-              thumbColor={preferences?.goalRemindersEnabled ? '#2563EB' : '#9CA3AF'}
+              thumbColor={preferences?.goalRemindersEnabled ? '#FFFFFF' : '#9CA3AF'}
             />
           </View>
 
@@ -385,7 +385,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 value={preferences?.weeklyReportEnabled ?? true}
                 onValueChange={(value) => handleToggle('weeklyReportEnabled', value)}
                 trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-                thumbColor={preferences?.weeklyReportEnabled ? '#2563EB' : '#9CA3AF'}
+                thumbColor={preferences?.weeklyReportEnabled ? '#FFFFFF' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -427,7 +427,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 value={preferences?.antExpenseAlertsEnabled ?? true}
                 onValueChange={(value) => handleToggle('antExpenseAlertsEnabled', value)}
                 trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-                thumbColor={preferences?.antExpenseAlertsEnabled ? '#2563EB' : '#9CA3AF'}
+                thumbColor={preferences?.antExpenseAlertsEnabled ? '#FFFFFF' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -530,7 +530,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 value={preferences?.tipsEnabled ?? true}
                 onValueChange={(value) => handleToggle('tipsEnabled', value)}
                 trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
-                thumbColor={preferences?.tipsEnabled ? '#2563EB' : '#9CA3AF'}
+                thumbColor={preferences?.tipsEnabled ? '#FFFFFF' : '#9CA3AF'}
               />
             ) : (
               <View style={styles.lockIcon}>
@@ -617,7 +617,13 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
           <Text style={styles.goalReminderDescription}>
             {(preferences?.goalReminderFrequency ?? 7) === 0
               ? 'No recibirás recordatorios de contribución a tus metas'
-              : `Te recordaremos si llevas ${preferences?.goalReminderFrequency ?? 7} días sin aportar a tus metas activas`}
+              : (preferences?.goalReminderFrequency ?? 7) === 3
+                ? 'Recibirás recordatorios los Domingos y Miércoles a las 6:00 PM'
+                : (preferences?.goalReminderFrequency ?? 7) === 7
+                  ? 'Recibirás recordatorios los Domingos a las 6:00 PM'
+                  : (preferences?.goalReminderFrequency ?? 7) === 14
+                    ? 'Recibirás recordatorios cada dos Domingos a las 6:00 PM'
+                    : 'Recibirás recordatorios el primer Domingo de cada mes a las 6:00 PM'}
           </Text>
         </View>
 

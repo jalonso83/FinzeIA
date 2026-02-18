@@ -14,6 +14,7 @@ import {
   Modal,
   FlatList,
   Animated,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -62,7 +63,6 @@ const currencies = [
   { code: 'UYU', name: 'Peso Uruguayo', symbol: '$' },
   { code: 'VEF', name: 'Bolívar Venezolano', symbol: 'Bs.' },
   { code: 'VES', name: 'Bolívar Soberano', symbol: 'Bs.S' },
-  { code: 'PR', name: 'Dólar Estadounidense', symbol: '$' }, // Puerto Rico
 ];
 
 export default function RegisterScreen() {
@@ -165,12 +165,8 @@ export default function RegisterScreen() {
     else if (form.password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
     if (!form.confirmPassword) newErrors.confirmPassword = 'Confirma tu contraseña';
     else if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Las contraseñas no coinciden';
-    if (!form.phone) newErrors.phone = 'El teléfono es obligatorio';
-    if (!form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es obligatoria';
     if (!form.country) newErrors.country = 'El país es obligatorio';
-    if (!form.state) newErrors.state = 'El estado es obligatorio';
-    if (!form.city) newErrors.city = 'La ciudad es obligatoria';
-    if (!form.occupation) newErrors.occupation = 'La ocupación es obligatoria';
+    if (!form.currency) newErrors.currency = 'La moneda es obligatoria';
     return newErrors;
   };
 
@@ -191,14 +187,14 @@ export default function RegisterScreen() {
         lastName: form.lastName,
         email: form.email,
         password: form.password,
-        phone: form.phone,
-        birthDate: convertToBackendFormat(form.birthDate), // Convertir DD-MM-YYYY a YYYY-MM-DD
+        phone: form.phone || undefined,
+        birthDate: form.birthDate ? convertToBackendFormat(form.birthDate) : undefined,
         country: form.country,
-        state: form.state,
-        city: form.city,
+        state: form.state || undefined,
+        city: form.city || undefined,
         currency: form.currency,
         preferredLanguage: form.preferredLanguage,
-        occupation: form.occupation,
+        occupation: form.occupation || undefined,
         company: form.company || undefined,
         referralCode: form.referralCode && referralValidation.valid ? form.referralCode : undefined,
       };
@@ -529,7 +525,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Teléfono *</Text>
+                <Text style={styles.inputLabel}>Teléfono</Text>
                 <TextInput
                   style={[styles.textInput, errors.phone && styles.inputError]}
                   value={form.phone}
@@ -542,7 +538,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Fecha de Nacimiento *</Text>
+                <Text style={styles.inputLabel}>Fecha de Nacimiento</Text>
                 <TouchableOpacity
                   style={[styles.dateInput, errors.birthDate && styles.inputError]}
                   onPress={() => setShowDatePicker(true)}
@@ -586,7 +582,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Estado / Provincia *</Text>
+                <Text style={styles.inputLabel}>Estado / Provincia</Text>
                 <TextInput
                   style={[styles.textInput, errors.state && styles.inputError]}
                   value={form.state}
@@ -598,7 +594,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Ciudad *</Text>
+                <Text style={styles.inputLabel}>Ciudad</Text>
                 <TextInput
                   style={[styles.textInput, errors.city && styles.inputError]}
                   value={form.city}
@@ -610,9 +606,9 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Moneda</Text>
+                <Text style={styles.inputLabel}>Moneda *</Text>
                 <TouchableOpacity
-                  style={styles.selectorButton}
+                  style={[styles.selectorButton, errors.currency && styles.inputError]}
                   onPress={() => setShowCurrencyModal(true)}
                 >
                   <Text style={[styles.selectorText, !form.currency && styles.placeholderText]} numberOfLines={1}>
@@ -623,6 +619,7 @@ export default function RegisterScreen() {
                   </Text>
                   <Ionicons name="chevron-down" size={20} color="#64748b" />
                 </TouchableOpacity>
+                {errors.currency && <Text style={styles.errorText}>{errors.currency}</Text>}
               </View>
 
               <View style={styles.inputContainer}>
@@ -639,7 +636,7 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Ocupación *</Text>
+                <Text style={styles.inputLabel}>Ocupación</Text>
                 <TouchableOpacity
                   style={[styles.selectorButton, errors.occupation && styles.inputError]}
                   onPress={() => setShowOccupationModal(true)}
@@ -712,7 +709,28 @@ export default function RegisterScreen() {
               </View>
             </View>
 
-            <TouchableOpacity 
+            {/* Términos y Política de Privacidad */}
+            <View style={styles.termsContainer}>
+              <Text style={styles.termsText}>
+                Al registrarte, aceptas nuestros{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://www.abundancelabllc.com/terms')}
+                >
+                  Términos de Servicio
+                </Text>
+                {' '}y nuestra{' '}
+                <Text
+                  style={styles.termsLink}
+                  onPress={() => Linking.openURL('https://www.abundancelabllc.com/privacy')}
+                >
+                  Política de Privacidad
+                </Text>
+                .
+              </Text>
+            </View>
+
+            <TouchableOpacity
               style={[styles.registerButton, submitting && styles.disabledButton]}
               onPress={handleSubmit}
               disabled={submitting}
@@ -1155,5 +1173,22 @@ const styles = StyleSheet.create({
   },
   referralMessageTextError: {
     color: '#dc2626',
+  },
+  // Estilos para términos y privacidad
+  termsContainer: {
+    marginTop: 16,
+    marginBottom: 8,
+    paddingHorizontal: 4,
+  },
+  termsText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  termsLink: {
+    color: '#2563EB',
+    fontWeight: '500',
+    textDecorationLine: 'underline',
   },
 });
