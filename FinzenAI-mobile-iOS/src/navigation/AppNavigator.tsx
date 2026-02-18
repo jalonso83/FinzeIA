@@ -56,6 +56,7 @@ import { useNotificationStore } from '../stores/notificationStore';
 
 // Services
 import notificationService from '../services/notificationService';
+import { revenueCatMobileService } from '../services/revenueCatService';
 
 // Hooks
 import { useBiometric } from '../hooks/useBiometric';
@@ -417,6 +418,13 @@ function MainNavigator({ route }: any) {
       // Cleanup listeners when component unmounts
       notificationService.removeListeners();
     };
+  }, [user]);
+
+  // Initialize RevenueCat when user is authenticated (iOS only)
+  React.useEffect(() => {
+    if (user && Platform.OS === 'ios') {
+      revenueCatMobileService.initialize(user.id);
+    }
   }, [user]);
 
   const handleEnableBiometric = async () => {
@@ -834,7 +842,7 @@ function MainNavigator({ route }: any) {
         type="success"
         title="🎉 ¡Ahora que conoces FinZen AI!"
         message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Acceso a reportes\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
-        buttonText="Ver Planes 👑"
+        buttonText="Ver Planes"
         showSecondaryButton={true}
         secondaryButtonText="Gratis"
         onClose={() => {
@@ -876,7 +884,10 @@ function MainNavigator({ route }: any) {
         buttonText="Cerrar"
         showSecondaryButton={true}
         secondaryButtonText="Cancelar"
-        onClose={() => {
+        onClose={async () => {
+          if (Platform.OS === 'ios') {
+            await revenueCatMobileService.logout();
+          }
           logout();
           setShowLogoutModal(false);
         }}

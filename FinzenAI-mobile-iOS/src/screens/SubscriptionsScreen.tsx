@@ -9,6 +9,7 @@ import {
   TouchableOpacity,
   Alert,
   Linking,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -17,6 +18,8 @@ import PlanCard from '../components/subscriptions/PlanCard';
 import CurrentPlanCard from '../components/subscriptions/CurrentPlanCard';
 import ManageSubscriptionModal from '../components/subscriptions/ManageSubscriptionModal';
 import { SubscriptionPlan, BillingPeriod } from '../types/subscription';
+import { revenueCatMobileService } from '../services/revenueCatService';
+import type { PurchasesOfferings, PurchasesPackage } from 'react-native-purchases';
 import { logger } from '../utils/logger';
 interface SubscriptionsScreenProps {
   onClose?: () => void;
@@ -36,15 +39,28 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     changePlan,
     isTrialing,
     getTrialDaysRemaining,
+    purchaseWithRevenueCat,
+    restoreRevenueCatPurchases,
   } = useSubscriptionStore();
 
   const [showManageModal, setShowManageModal] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<SubscriptionPlan | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [billingPeriod, setBillingPeriod] = useState<BillingPeriod>('yearly');
+  const [rcOfferings, setRcOfferings] = useState<PurchasesOfferings | null>(null);
+  const [restoringPurchases, setRestoringPurchases] = useState(false);
+
+  const isIOS = Platform.OS === 'ios';
 
   useEffect(() => {
     loadData();
+  }, []);
+
+  // Cargar offerings de RevenueCat (iOS only)
+  useEffect(() => {
+    if (isIOS) {
+      loadRCOfferings();
+    }
   }, []);
 
   const loadData = async () => {
@@ -52,6 +68,99 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
       fetchSubscription(),
       fetchPlans(),
     ]);
+  };
+
+  const loadRCOfferings = async () => {
+    try {
+      const offerings = await revenueCatMobileService.getOfferings();
+      setRcOfferings(offerings);
+      logger.log('[RC] Offering actual:', offerings?.current?.identifier);
+      logger.log('[RC] Packages:', offerings?.current?.availablePackages?.map(
+        (pkg) => `${pkg.identifier} (${pkg.product.identifier}) - ${pkg.product.priceString}`
+      ));
+    } catch (error) {
+      logger.error('Error cargando RC offerings:', error);
+    }
+  };
+
+  /**
+   * Obtener el package de RC que corresponde al plan y periodo seleccionado
+   */
+  const getRCPackage = (planId: SubscriptionPlan, period: BillingPeriod): PurchasesPackage | null => {
+    if (!rcOfferings?.current?.availablePackages) {
+      logger.log('[RC] No hay availablePackages en current offering');
+      return null;
+    }
+
+    // Log para debug: ver qué packages hay disponibles
+    logger.log('[RC] Packages disponibles:', rcOfferings.current.availablePackages.map(
+      (pkg) => `${pkg.identifier} -> ${pkg.product.identifier}`
+    ));
+
+    // Mapear planId + period a identificadores
+    const identifierMap: Record<string, string> = {
+      'PREMIUM_monthly': 'premium_monthly',
+      'PREMIUM_yearly': 'premium_yearly',
+      'PRO_monthly': 'pro_monthly',
+      'PRO_yearly': 'pro_yearly',
+    };
+
+    const targetId = identifierMap[`${planId}_${period}`];
+    if (!targetId) return null;
+
+    // Buscar por package identifier O por product identifier
+    return rcOfferings.current.availablePackages.find(
+      (pkg) => pkg.identifier === targetId || pkg.product.identifier === targetId
+    ) || null;
+  };
+
+  /**
+   * Obtener precio formateado desde RC offerings
+   */
+  const getRCPrice = (planId: SubscriptionPlan, period: BillingPeriod): string | null => {
+    const pkg = getRCPackage(planId, period);
+    if (!pkg) return null;
+    return pkg.product.priceString;
+  };
+
+  const processRCPurchase = async (planId: SubscriptionPlan) => {
+    const pkg = getRCPackage(planId, billingPeriod);
+    if (!pkg) {
+      Alert.alert('Error', 'Producto no disponible en este momento');
+      return;
+    }
+
+    setProcessingPlan(planId);
+    try {
+      await purchaseWithRevenueCat(pkg);
+      Alert.alert(
+        '¡Compra Exitosa!',
+        `Ahora tienes acceso a ${planId === 'PREMIUM' ? 'Plus' : 'Pro'}. ¡Disfruta!`,
+        [{ text: '¡Genial!', style: 'default' }]
+      );
+    } catch (error: any) {
+      if (!error.message?.includes('cancelada') && !error.message?.includes('cancelled')) {
+        Alert.alert('Error', error.message || 'No se pudo completar la compra');
+      }
+    } finally {
+      setProcessingPlan(null);
+    }
+  };
+
+  const handleRestorePurchases = async () => {
+    setRestoringPurchases(true);
+    try {
+      await restoreRevenueCatPurchases();
+      Alert.alert(
+        'Compras Restauradas',
+        'Tus compras han sido restauradas exitosamente.',
+        [{ text: 'Entendido' }]
+      );
+    } catch (error: any) {
+      Alert.alert('Error', error.message || 'No se pudieron restaurar las compras');
+    } finally {
+      setRestoringPurchases(false);
+    }
   };
 
   const handleRefresh = async () => {
@@ -119,22 +228,39 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
         ]
       );
     } else {
-      // Usuario ya usó trial - mostrar checkout de Stripe
-      const planPrice = typeof selectedPlan.price === 'object' && selectedPlan.price !== null
-        ? (billingPeriod === 'yearly' ? (selectedPlan.price.yearly ?? 0) : (selectedPlan.price.monthly ?? 0))
-        : (typeof selectedPlan.price === 'number' ? selectedPlan.price : 0);
+      // Usuario ya usó trial - comprar suscripción
 
-      const periodText = billingPeriod === 'yearly' ? 'año' : 'mes';
-      const savingsText = billingPeriod === 'yearly' ? '\n• ¡Ahorras 17% con el plan anual!' : '';
+      if (isIOS) {
+        // iOS: Compra nativa via RevenueCat / App Store
+        const rcPrice = getRCPrice(planId, billingPeriod);
+        const periodText = billingPeriod === 'yearly' ? 'año' : 'mes';
 
-      Alert.alert(
-        'Confirmar Suscripción',
-        `Estás a punto de suscribirte a ${selectedPlan.name} por $${planPrice.toFixed(2)}/${periodText}.${savingsText}\n\n• Cancela en cualquier momento\n• Pago seguro con Stripe\n\n¿Deseas continuar?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          { text: 'Continuar', onPress: () => processCheckout(planId) },
-        ]
-      );
+        Alert.alert(
+          'Confirmar Suscripción',
+          `Estás a punto de suscribirte a ${selectedPlan.name} por ${rcPrice || `$${(billingPeriod === 'yearly' ? selectedPlan.price.yearly : selectedPlan.price.monthly).toFixed(2)}`}/${periodText}.\n\n• Cancela en cualquier momento\n• Pago seguro via App Store`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Continuar', onPress: () => processRCPurchase(planId) },
+          ]
+        );
+      } else {
+        // Android: Mantener flujo Stripe existente
+        const planPrice = typeof selectedPlan.price === 'object' && selectedPlan.price !== null
+          ? (billingPeriod === 'yearly' ? (selectedPlan.price.yearly ?? 0) : (selectedPlan.price.monthly ?? 0))
+          : (typeof selectedPlan.price === 'number' ? selectedPlan.price : 0);
+
+        const periodText = billingPeriod === 'yearly' ? 'año' : 'mes';
+        const savingsText = billingPeriod === 'yearly' ? '\n• ¡Ahorras 17% con el plan anual!' : '';
+
+        Alert.alert(
+          'Confirmar Suscripción',
+          `Estás a punto de suscribirte a ${selectedPlan.name} por $${planPrice.toFixed(2)}/${periodText}.${savingsText}\n\n• Cancela en cualquier momento\n• Pago seguro con Stripe\n\n¿Deseas continuar?`,
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            { text: 'Continuar', onPress: () => processCheckout(planId) },
+          ]
+        );
+      }
     }
   };
 
@@ -311,6 +437,7 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
             subscription={subscription}
             onManage={() => setShowManageModal(true)}
             onViewPayments={() => onViewPayments?.()}
+            rcPriceString={isIOS ? (getRCPrice(subscription.plan as SubscriptionPlan, 'monthly') || undefined) : undefined}
           />
         )}
 
@@ -366,25 +493,65 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
 
         {/* Plans */}
         <View style={styles.plansContainer}>
-          {plans.map((plan) => (
-            <PlanCard
-              key={plan.id}
-              plan={plan}
-              currentPlan={subscription?.plan || 'FREE'}
-              onSelect={handleSelectPlan}
-              disabled={processingPlan !== null}
-              billingPeriod={billingPeriod}
-            />
-          ))}
+          {plans.map((plan) => {
+            const rcPkg = isIOS ? getRCPackage(plan.id as SubscriptionPlan, billingPeriod) : null;
+            return (
+              <PlanCard
+                key={plan.id}
+                plan={plan}
+                currentPlan={subscription?.plan || 'FREE'}
+                onSelect={handleSelectPlan}
+                disabled={processingPlan !== null}
+                billingPeriod={billingPeriod}
+                rcPriceString={rcPkg?.product.priceString || undefined}
+                rcYearlyPriceNum={isIOS && billingPeriod === 'yearly' ? (rcPkg?.product.price || undefined) : undefined}
+              />
+            );
+          })}
         </View>
+
+        {/* Restore Purchases Button (iOS only, required by Apple) */}
+        {isIOS && (
+          <TouchableOpacity
+            style={styles.restoreButton}
+            onPress={handleRestorePurchases}
+            disabled={restoringPurchases}
+          >
+            {restoringPurchases ? (
+              <ActivityIndicator size="small" color="#6C47FF" />
+            ) : (
+              <>
+                <Ionicons name="refresh" size={18} color="#6C47FF" />
+                <Text style={styles.restoreButtonText}>Restaurar Compras</Text>
+              </>
+            )}
+          </TouchableOpacity>
+        )}
 
         {/* Footer Info */}
         <View style={styles.footer}>
           <Text style={styles.footerText}>
             {inTrial
               ? `• Tu trial termina en ${trialDaysLeft} día${trialDaysLeft !== 1 ? 's' : ''}\n• No se te cobrará durante el trial\n• Cancela cuando quieras`
-              : `• Cancela en cualquier momento, sin preguntas\n• Pago seguro con Stripe\n• Acceso instantáneo después de suscribirte`}
+              : isIOS
+                ? `• Cancela en cualquier momento desde Ajustes > Suscripciones\n• El pago se cargará a tu cuenta de Apple ID\n• La suscripción se renueva automáticamente a menos que la canceles al menos 24 horas antes del fin del período actual`
+                : `• Cancela en cualquier momento, sin preguntas\n• Pago seguro con Stripe\n• Acceso instantáneo después de suscribirte`}
           </Text>
+          <View style={styles.legalLinks}>
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.abundancelabllc.com/terms')}
+            >
+              Términos de Uso (EULA)
+            </Text>
+            <Text style={styles.legalSeparator}>|</Text>
+            <Text
+              style={styles.legalLink}
+              onPress={() => Linking.openURL('https://www.abundancelabllc.com/privacy')}
+            >
+              Política de Privacidad
+            </Text>
+          </View>
         </View>
       </ScrollView>
 
@@ -394,6 +561,10 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
           visible={showManageModal}
           onClose={handleManageClose}
           subscription={subscription}
+          rcPrices={isIOS ? {
+            premiumMonthly: getRCPrice('PREMIUM', 'monthly') || undefined,
+            proMonthly: getRCPrice('PRO', 'monthly') || undefined,
+          } : undefined}
         />
       )}
     </SafeAreaView>
@@ -551,6 +722,19 @@ const styles = StyleSheet.create({
   plansContainer: {
     marginBottom: 24,
   },
+  restoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    marginBottom: 16,
+    gap: 8,
+  },
+  restoreButtonText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#6C47FF',
+  },
   footer: {
     backgroundColor: '#fff',
     borderRadius: 16,
@@ -569,6 +753,25 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#6B7280',
     lineHeight: 20,
+  },
+  legalLinks: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginTop: 12,
+    paddingTop: 12,
+    borderTopWidth: 1,
+    borderTopColor: '#E5E7EB',
+  },
+  legalLink: {
+    fontSize: 13,
+    color: '#6C47FF',
+    fontWeight: '500',
+  },
+  legalSeparator: {
+    fontSize: 13,
+    color: '#D1D5DB',
+    marginHorizontal: 8,
   },
 });
 

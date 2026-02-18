@@ -8,6 +8,8 @@ import {
   ScrollView,
   Alert,
   ActivityIndicator,
+  Platform,
+  Linking,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -18,14 +20,19 @@ interface ManageSubscriptionModalProps {
   visible: boolean;
   onClose: () => void;
   subscription: Subscription;
+  rcPrices?: {
+    premiumMonthly?: string;
+    proMonthly?: string;
+  };
 }
 
 const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
   visible,
   onClose,
   subscription,
+  rcPrices,
 }) => {
-  const { cancelSubscription, reactivateSubscription, changePlan, fetchSubscription } = useSubscriptionStore();
+  const { cancelSubscription, reactivateSubscription, changePlan, fetchSubscription, plans } = useSubscriptionStore();
   const [loading, setLoading] = useState(false);
 
   const isPremium = subscription?.plan === 'PREMIUM';
@@ -33,11 +40,25 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
   const isCanceled = subscription?.cancelAtPeriodEnd;
   const isTrialing = subscription?.status === 'TRIALING';
 
-  // Defensive defaults - price puede ser objeto {monthly, yearly} o número
+  // Precios: usar RC (App Store) si disponible, sino fallback a backend
   const priceData = subscription?.planDetails?.price;
-  const planPrice = typeof priceData === 'object' && priceData !== null
+  const backendMonthly = typeof priceData === 'object' && priceData !== null
     ? (priceData.monthly ?? 0)
     : (typeof priceData === 'number' ? priceData : 0);
+
+  // Precio del plan actual (formateado) - RC > backend
+  const currentPlanPriceStr = isPro
+    ? (rcPrices?.proMonthly || `$${backendMonthly.toFixed(2)}`)
+    : (rcPrices?.premiumMonthly || `$${backendMonthly.toFixed(2)}`);
+
+  // Precio del plan alternativo - RC > backend (del store plans)
+  const altPlan = plans.find(p => p.id === (isPremium ? 'PRO' : 'PREMIUM'));
+  const altBackendMonthly = altPlan && typeof altPlan.price === 'object'
+    ? (altPlan.price.monthly ?? 0)
+    : 0;
+  const targetPlanPriceStr = isPremium
+    ? (rcPrices?.proMonthly || `$${altBackendMonthly.toFixed(2)}`)
+    : (rcPrices?.premiumMonthly || `$${altBackendMonthly.toFixed(2)}`);
   // Para trials, usar trialEndsAt; para suscripciones activas, usar currentPeriodEnd
   const endDate = subscription?.status === 'TRIALING' && subscription?.trialEndsAt
     ? subscription.trialEndsAt
@@ -46,7 +67,27 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
     ? new Date(endDate).toLocaleDateString('es-ES')
     : 'N/A';
 
+  const isAppleSubscription = subscription?.paymentProvider === 'APPLE';
+
   const handleCancelSubscription = () => {
+    // Suscripción de Apple: redirigir a gestión de suscripciones de iOS
+    if (isAppleSubscription && !isTrialing) {
+      Alert.alert(
+        'Gestionar Suscripción',
+        'Las suscripciones de App Store se gestionan desde los Ajustes de tu iPhone.\n\n¿Quieres ir a los ajustes de suscripciones?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Ir a Ajustes',
+            onPress: () => {
+              Linking.openURL('https://apps.apple.com/account/subscriptions');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     // Si está en trial, cancelar significa volver a FREE (no hay suscripción de Stripe)
     if (isTrialing) {
       Alert.alert(
@@ -125,15 +166,32 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
   };
 
   const handleChangePlan = () => {
+    // Suscripción de Apple: redirigir a gestión de suscripciones de iOS
+    if (isAppleSubscription && !isTrialing) {
+      Alert.alert(
+        'Cambiar Plan',
+        'Los cambios de plan para suscripciones de App Store se gestionan desde los Ajustes de tu iPhone.\n\n¿Quieres ir a los ajustes de suscripciones?',
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Ir a Ajustes',
+            onPress: () => {
+              Linking.openURL('https://apps.apple.com/account/subscriptions');
+            },
+          },
+        ]
+      );
+      return;
+    }
+
     const targetPlan = isPremium ? 'PRO' : 'PREMIUM';
     const targetPlanName = isPremium ? 'Pro' : 'Plus';
-    const targetPrice = isPremium ? '$19.99' : '$9.99';
 
     // Mensaje diferente para trial vs suscripción pagada
     const title = isTrialing ? 'Cambiar Plan de Prueba' : 'Cambiar Plan';
     const message = isTrialing
       ? `¿Deseas cambiar tu prueba de ${isPremium ? 'Plus' : 'Pro'} a ${targetPlanName}?\n\nTu período de prueba continuará con los días restantes.`
-      : `¿Deseas ${isPremium ? 'mejorar' : 'cambiar'} a ${targetPlanName}?\n\nNuevo precio: ${targetPrice}/mes\n\nEl cambio se aplicará de forma prorrateada.`;
+      : `¿Deseas ${isPremium ? 'mejorar' : 'cambiar'} a ${targetPlanName}?\n\nNuevo precio: ${targetPlanPriceStr}/mes`;
 
     Alert.alert(
       title,
@@ -190,11 +248,11 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
               <View style={styles.planHeader}>
                 <Text style={styles.planName}>{subscription?.plan === 'PREMIUM' ? 'Plus' : subscription?.plan === 'PRO' ? 'Pro' : subscription?.plan === 'FREE' ? 'Gratis' : 'N/A'}</Text>
                 <Text style={styles.planPrice}>
-                  ${(typeof planPrice === 'number' ? planPrice : 0).toFixed(2)}/mes
+                  {currentPlanPriceStr}/mes
                 </Text>
               </View>
               <Text style={styles.planStatus}>
-                Estado: {subscription?.status || 'Desconocido'}
+                Estado: {subscription?.status === 'ACTIVE' ? 'Activo' : subscription?.status === 'TRIALING' ? 'Periodo de prueba' : subscription?.status === 'PAST_DUE' ? 'Pago pendiente' : subscription?.status === 'CANCELED' ? 'Cancelado' : subscription?.status || 'Desconocido'}
                 {isCanceled && ' (Se cancelará al final del período)'}
               </Text>
             </View>
@@ -217,7 +275,7 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
                     {isPremium ? 'Mejorar a Pro' : 'Cambiar a Plus'}
                   </Text>
                   <Text style={styles.actionSubtitle}>
-                    {isPremium ? '$19.99/mes' : '$9.99/mes'} • Prorrateo
+                    {targetPlanPriceStr}/mes{!isAppleSubscription ? ' • Prorrateo' : ''}
                   </Text>
                 </View>
               </View>
@@ -270,8 +328,9 @@ const ManageSubscriptionModal: React.FC<ManageSubscriptionModalProps> = ({
           <View style={styles.infoBox}>
             <Ionicons name="information-circle" size={20} color="#6C47FF" />
             <Text style={styles.infoText}>
-              Los cambios en tu suscripción se aplican de inmediato. Puedes cancelar
-              en cualquier momento y tendrás acceso hasta el final de tu período de facturación.
+              {isAppleSubscription
+                ? 'Tu suscripción se gestiona a través de App Store. Para cancelar o cambiar tu plan, ve a Ajustes > Apple ID > Suscripciones en tu iPhone.'
+                : 'Los cambios en tu suscripción se aplican de inmediato. Puedes cancelar en cualquier momento y tendrás acceso hasta el final de tu período de facturación.'}
             </Text>
           </View>
         </ScrollView>

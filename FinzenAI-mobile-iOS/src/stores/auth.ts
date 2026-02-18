@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { saveToken, removeToken } from '../utils/api'
+import { saveToken, removeToken, setForceLogoutCallback } from '../utils/api'
 import * as SecureStore from 'expo-secure-store'
 
 import { logger } from '../utils/logger';
@@ -97,6 +97,7 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       logout: async () => {
+        logger.log('🚪 Ejecutando logout...');
         await removeToken();
         // No eliminamos credenciales biométricas en logout normal
         // El usuario debe deshabilitarlo manualmente desde settings
@@ -106,6 +107,7 @@ export const useAuthStore = create<AuthState>()(
           isAuthenticated: false,
           isLoading: false,
         });
+        logger.log('✅ Logout completado');
       },
       setLoading: (loading: boolean) =>
         set({
@@ -125,4 +127,11 @@ export const useAuthStore = create<AuthState>()(
       }),
     }
   )
-) 
+)
+
+// Configurar el callback de logout forzado cuando el token es inválido
+// Esto se ejecuta automáticamente cuando el archivo se importa
+setForceLogoutCallback(() => {
+  logger.log('🔒 Force logout triggered from API interceptor');
+  useAuthStore.getState().logout();
+});

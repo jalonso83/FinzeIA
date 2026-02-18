@@ -84,7 +84,7 @@ const ReferralsScreen: React.FC<ReferralsScreenProps> = ({ onClose }) => {
   const handleShare = async () => {
     if (!stats) return;
 
-    const message = `¡Únete a FinZen AI y toma el control de tus finanzas! 🚀\n\nUsa mi código de referido: ${stats.referralCode}\n\nObtendrás ${stats.config.discountPercent}% de descuento en tu primer mes.\n\n${stats.shareUrl}`;
+    const message = `¡Únete a FinZen AI y toma el control de tus finanzas! 🚀\n\nUsa mi código de referido: ${stats.referralCode}\n\nObtendrás ${stats.config.discountPercent}% de descuento en tu primer mes.\n\nIngresa el código al registrarte en la app.`;
 
     try {
       await Share.share({

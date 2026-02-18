@@ -12,12 +12,14 @@ interface CurrentPlanCardProps {
   subscription: Subscription;
   onManage: () => void;
   onViewPayments: () => void;
+  rcPriceString?: string;  // Precio formateado de App Store (e.g. "$4.99")
 }
 
 const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   subscription,
   onManage,
   onViewPayments,
+  rcPriceString,
 }) => {
   const isPremium = subscription.plan === 'PREMIUM';
   const isPro = subscription.plan === 'PRO';
@@ -88,7 +90,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
       {!isFree && (
         <View style={styles.priceContainer}>
           <Text style={styles.price}>
-            ${planPrice.toFixed(2)}
+            {rcPriceString || `$${planPrice.toFixed(2)}`}
           </Text>
           <Text style={styles.period}>/mes</Text>
         </View>

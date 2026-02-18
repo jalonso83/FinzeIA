@@ -15,6 +15,8 @@ interface PlanCardProps {
   onSelect: (planId: SubscriptionPlan) => void;
   disabled?: boolean;
   billingPeriod?: BillingPeriod;
+  rcPriceString?: string;       // Precio formateado de App Store (e.g. "$4.99")
+  rcYearlyPriceNum?: number;    // Precio numérico anual de RC (para calcular equivalente mensual)
 }
 
 const PlanCard: React.FC<PlanCardProps> = ({
@@ -23,6 +25,8 @@ const PlanCard: React.FC<PlanCardProps> = ({
   onSelect,
   disabled = false,
   billingPeriod = 'monthly',
+  rcPriceString,
+  rcYearlyPriceNum,
 }) => {
   // Defensive checks for plan data
   if (!plan || !plan.id) {
@@ -94,15 +98,21 @@ const PlanCard: React.FC<PlanCardProps> = ({
 
       {/* Precio */}
       <View style={styles.priceContainer}>
-        <Text style={styles.currency}>$</Text>
-        <Text style={styles.price}>{planPrice.toFixed(2)}</Text>
+        {rcPriceString ? (
+          <Text style={styles.rcPriceText}>{rcPriceString}</Text>
+        ) : (
+          <>
+            <Text style={styles.currency}>$</Text>
+            <Text style={styles.price}>{planPrice.toFixed(2)}</Text>
+          </>
+        )}
         {!isFree && <Text style={styles.period}>{periodText}</Text>}
       </View>
 
       {/* Equivalente mensual para plan anual */}
-      {!isFree && billingPeriod === 'yearly' && monthlyEquivalent > 0 && (
+      {!isFree && billingPeriod === 'yearly' && (rcYearlyPriceNum || monthlyEquivalent) > 0 && (
         <Text style={styles.monthlyEquivalent}>
-          Solo ${monthlyEquivalent.toFixed(2)}/mes
+          Solo ${(rcYearlyPriceNum ? rcYearlyPriceNum / 12 : monthlyEquivalent).toFixed(2)}/mes
         </Text>
       )}
 
@@ -228,6 +238,11 @@ const styles = StyleSheet.create({
   },
   price: {
     fontSize: 40,
+    fontWeight: '700',
+    color: '#1F2937',
+  },
+  rcPriceText: {
+    fontSize: 36,
     fontWeight: '700',
     color: '#1F2937',
   },

@@ -5,7 +5,9 @@ import { create } from 'zustand';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { subscriptionsAPI } from '../utils/api';
+import { subscriptionsAPI, revenueCatAPI } from '../utils/api';
+import { revenueCatMobileService } from '../services/revenueCatService';
+import type { PurchasesPackage } from 'react-native-purchases';
 import { logger } from '../utils/logger';
 import {
   Subscription,
@@ -52,6 +54,10 @@ interface SubscriptionState {
   cancelSubscription: () => Promise<CancelSubscriptionResponse>;
   reactivateSubscription: () => Promise<void>;
   changePlan: (newPlan: 'PREMIUM' | 'PRO', billingPeriod?: BillingPeriod) => Promise<void>;
+
+  // RevenueCat (In-App Purchases - iOS)
+  purchaseWithRevenueCat: (pkg: PurchasesPackage) => Promise<void>;
+  restoreRevenueCatPurchases: () => Promise<void>;
 
   // Validadores de límites
   canCreateBudget: (currentCount: number) => boolean;
@@ -268,6 +274,58 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
         loading: false
       });
       throw error;
+    }
+  },
+
+  // Comprar con RevenueCat (iOS In-App Purchase)
+  purchaseWithRevenueCat: async (pkg: PurchasesPackage): Promise<void> => {
+    set({ loading: true, error: null });
+    try {
+      // 1. Comprar via SDK nativo (muestra sheet de Apple)
+      const customerInfo = await revenueCatMobileService.purchasePackage(pkg);
+
+      if (!customerInfo) {
+        // Usuario canceló la compra
+        set({ loading: false });
+        return;
+      }
+
+      // 2. Verificar y sincronizar con nuestro backend
+      await revenueCatAPI.verifyPurchase();
+
+      // 3. Refrescar suscripción local
+      await get().fetchSubscription();
+
+      set({ loading: false });
+      logger.log('Compra RevenueCat completada y sincronizada');
+    } catch (error: any) {
+      logger.error('Error en compra RevenueCat:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Error al procesar la compra';
+      set({ error: errorMessage, loading: false });
+      throw new Error(errorMessage);
+    }
+  },
+
+  // Restaurar compras de RevenueCat (iOS)
+  restoreRevenueCatPurchases: async (): Promise<void> => {
+    set({ loading: true, error: null });
+    try {
+      // 1. Restaurar via SDK nativo
+      await revenueCatMobileService.restorePurchases();
+
+      // 2. Sincronizar con nuestro backend
+      await revenueCatAPI.restorePurchases();
+
+      // 3. Refrescar suscripción local
+      await get().fetchSubscription();
+
+      set({ loading: false });
+      logger.log('Compras RevenueCat restauradas y sincronizadas');
+    } catch (error: any) {
+      logger.error('Error restaurando compras RevenueCat:', error);
+      const errorMessage = error.response?.data?.error || error.message || 'Error al restaurar compras';
+      set({ error: errorMessage, loading: false });
+      throw new Error(errorMessage);
     }
   },
 

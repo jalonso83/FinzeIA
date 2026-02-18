@@ -16,6 +16,8 @@ export type SubscriptionStatus =
 
 export type PaymentStatus = 'SUCCEEDED' | 'FAILED' | 'PENDING' | 'REFUNDED';
 
+export type PaymentProvider = 'STRIPE' | 'APPLE' | 'GOOGLE';
+
 export interface PlanLimits {
   budgets: number; // -1 = unlimited
   goals: number; // -1 = unlimited
@@ -85,6 +87,7 @@ export interface Subscription {
   planDetails: PlanDetails;
   zenioUsage: ZenioUsage;
   canUseTrial: boolean;
+  paymentProvider?: PaymentProvider;
 }
 
 export interface Payment {
