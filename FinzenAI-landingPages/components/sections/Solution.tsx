@@ -24,19 +24,15 @@ export default function Solution() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
           }`}
         >
-          {/* App screenshot - phone frame */}
+          {/* App screenshot - 3D mockup */}
           <div className="flex justify-center">
-            <div className="relative w-[270px] h-[540px] md:w-[310px] md:h-[620px] bg-black rounded-[3rem] p-[6px] shadow-2xl border border-white/20">
-              {/* Notch */}
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-10" />
-              <div className="relative w-full h-full rounded-[2.6rem] overflow-hidden">
-                <Image
-                  src="/zenio-screenshot.jpg"
-                  alt="Zenio - Tu copiloto financiero con IA"
-                  fill
-                  className="object-cover"
-                />
-              </div>
+            <div className="relative w-[300px] h-[550px] md:w-[380px] md:h-[680px]">
+              <Image
+                src="/zenio-screenshot.jpg"
+                alt="Zenio - Tu copiloto financiero con IA"
+                fill
+                className="object-contain"
+              />
             </div>
           </div>
 
