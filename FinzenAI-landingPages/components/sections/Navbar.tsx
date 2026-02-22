@@ -38,7 +38,7 @@ export default function Navbar() {
           {/* Desktop: horizontal logo — white over hero, blue after scroll */}
           <div className="hidden md:block relative w-[140px] h-[40px]">
             <Image
-              src={scrolled ? '/logo-finzen-horizontal.png' : '/logo-finzen-white.png'}
+              src={scrolled ? '/logo-finzen-horizontal.png' : '/logo-horizontal-blanco.png'}
               alt="FinZen AI"
               fill
               className="object-contain"
