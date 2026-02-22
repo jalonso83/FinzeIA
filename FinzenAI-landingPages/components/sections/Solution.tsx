@@ -17,7 +17,7 @@ export default function Solution() {
 
   return (
     <section id="solution" className="bg-finzen-blue">
-      <div className="py-16 md:py-24 px-4 md:px-8 max-w-7xl mx-auto">
+      <div className="py-10 md:py-14 px-4 md:px-8 max-w-7xl mx-auto">
         <div
           ref={ref}
           className={`grid md:grid-cols-2 gap-12 items-center transition-all duration-700 ${
