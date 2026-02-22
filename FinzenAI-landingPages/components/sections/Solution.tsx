@@ -24,15 +24,19 @@ export default function Solution() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
           }`}
         >
-          {/* App screenshot */}
+          {/* App screenshot - phone frame */}
           <div className="flex justify-center">
-            <div className="relative w-[260px] h-[520px] md:w-[300px] md:h-[600px] rounded-[2rem] overflow-hidden shadow-2xl">
-              <Image
-                src="/zenio-screenshot.jpeg"
-                alt="Zenio - Tu copiloto financiero con IA"
-                fill
-                className="object-contain"
-              />
+            <div className="relative w-[270px] h-[540px] md:w-[310px] md:h-[620px] bg-black rounded-[3rem] p-[6px] shadow-2xl border border-white/20">
+              {/* Notch */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-10" />
+              <div className="relative w-full h-full rounded-[2.6rem] overflow-hidden">
+                <Image
+                  src="/zenio-screenshot.jpeg"
+                  alt="Zenio - Tu copiloto financiero con IA"
+                  fill
+                  className="object-cover"
+                />
+              </div>
             </div>
           </div>
 
@@ -63,9 +67,12 @@ export default function Solution() {
               ))}
             </div>
 
-            <Button variant="outline-white" size="lg" href={getAppStoreLink('solution')}>
+            <a
+              href="#pricing"
+              className="inline-flex items-center justify-center whitespace-nowrap border-2 border-white text-white rounded-xl font-rubik font-semibold hover:bg-white hover:text-finzen-blue transition-all duration-300 px-8 py-4 text-lg"
+            >
               Empieza con Zenio
-            </Button>
+            </a>
           </div>
         </div>
       </div>
