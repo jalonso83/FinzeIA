@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { Menu, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useScrollSpy } from '@/hooks/useScrollSpy';
-import { NAV_LINKS, SECTION_IDS, getAppStoreLink } from '@/lib/constants';
+import { NAV_LINKS, SECTION_IDS } from '@/lib/constants';
 
 export default function Navbar() {
   const [scrolled, setScrolled] = useState(false);
@@ -36,7 +36,7 @@ export default function Navbar() {
         {/* Logo */}
         <a href="#hero" className="shrink-0">
           {/* Desktop: horizontal logo — white over hero, blue after scroll */}
-          <div className="hidden md:block relative w-[200px] h-[50px]">
+          <div className="hidden md:block relative w-[240px] h-[60px]">
             <Image
               src={scrolled ? '/logo-finzen-horizontal.png' : '/logo-horizontal-blanco.png'}
               alt="FinZen AI"
@@ -84,7 +84,7 @@ export default function Navbar() {
           <Button
             variant="primary"
             size="sm"
-            href={getAppStoreLink('navbar')}
+            href="#final-cta"
           >
             Descargar Gratis
           </Button>
@@ -124,7 +124,7 @@ export default function Navbar() {
           <Button
             variant="primary"
             size="md"
-            href={getAppStoreLink('navbar')}
+            href="#final-cta"
             onClick={() => setMenuOpen(false)}
           >
             Descargar Gratis
