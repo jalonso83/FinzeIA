@@ -39,23 +39,23 @@ export default function Hero() {
               {(device === 'ios' || device === 'desktop') && (
                 <Button
                   variant="primary"
-                  size="lg"
+                  size="md"
                   href={getAppStoreLink('hero')}
-                  icon={<Apple size={20} />}
+                  icon={<Apple size={18} />}
                   onClick={() => trackDownloadIOS('hero')}
                 >
-                  Descargar en App Store
+                  App Store
                 </Button>
               )}
               {(device === 'android' || device === 'desktop') && (
                 <Button
                   variant="outline-white"
-                  size="lg"
+                  size="md"
                   href={getPlayStoreLink('hero')}
-                  icon={<Play size={20} />}
+                  icon={<Play size={18} />}
                   onClick={() => trackDownloadAndroid('hero')}
                 >
-                  Descargar en Google Play
+                  Google Play
                 </Button>
               )}
             </div>

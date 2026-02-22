@@ -34,23 +34,23 @@ export default function FinalCTA() {
           {(device === 'ios' || device === 'desktop') && (
             <Button
               variant="primary"
-              size="lg"
+              size="md"
               href={getAppStoreLink('footer_cta')}
-              icon={<Apple size={20} />}
+              icon={<Apple size={18} />}
               onClick={() => trackDownloadIOS('footer_cta')}
             >
-              Da el primer paso
+              App Store
             </Button>
           )}
           {(device === 'android' || device === 'desktop') && (
             <Button
               variant="outline-white"
-              size="lg"
+              size="md"
               href={getPlayStoreLink('footer_cta')}
-              icon={<Play size={20} />}
+              icon={<Play size={18} />}
               onClick={() => trackDownloadAndroid('footer_cta')}
             >
-              Da el primer paso
+              Google Play
             </Button>
           )}
         </div>
