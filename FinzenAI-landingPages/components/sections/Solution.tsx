@@ -23,14 +23,14 @@ export default function Solution() {
           isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >
-        {/* Image placeholder */}
+        {/* App screenshot */}
         <div className="flex justify-center">
-          <div className="relative w-[260px] h-[520px] md:w-[280px] md:h-[560px] rounded-[2.5rem] bg-finzen-blue/5 border border-finzen-gray/20 overflow-hidden">
+          <div className="relative w-[260px] h-[520px] md:w-[280px] md:h-[560px] rounded-[2.5rem] overflow-hidden shadow-2xl">
             <Image
-              src="/hero-mockup.png"
-              alt="FinZen AI App"
+              src="/zenio-screenshot.jpeg"
+              alt="Zenio - Tu copiloto financiero con IA"
               fill
-              className="object-contain p-2"
+              className="object-cover"
             />
           </div>
         </div>
@@ -47,7 +47,7 @@ export default function Solution() {
             FinZen AI combina inteligencia artificial conversacional con
             gamificación para que manejar tu dinero sea tan natural como enviar
             un mensaje. Sin formularios aburridos, sin gráficas confusas. Solo
-            tú y Zenio, tu asistente financiero disponible 24/7.
+            tú y Zenio, tu copiloto financiero disponible 24/7.
           </p>
 
           {/* Stats */}
