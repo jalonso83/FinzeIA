@@ -1,6 +1,6 @@
 // ─── Store Links ────────────────────────────────────────────────
 
-const APP_STORE_BASE = 'https://apps.apple.com/app/finzen-ai/id0000000000';
+const APP_STORE_BASE = 'https://apps.apple.com/app/finzen-ai/id6758305719';
 const PLAY_STORE_BASE =
   'https://play.google.com/store/apps/details?id=com.jl.alonso.finzenaimobile';
 
