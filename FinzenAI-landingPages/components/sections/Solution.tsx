@@ -28,7 +28,7 @@ export default function Solution() {
           <div className="flex justify-center">
             <div className="relative w-[300px] h-[550px] md:w-[380px] md:h-[680px]">
               <Image
-                src="/zenio-screenshot.jpg"
+                src="/zenio-screenshot.png"
                 alt="Zenio - Tu copiloto financiero con IA"
                 fill
                 className="object-contain"
