@@ -67,19 +67,24 @@ export default function Hero() {
             </p>
           </div>
 
-          {/* Hero mockup placeholder */}
+          {/* Hero phone mockup */}
           <div className="flex justify-center md:justify-end">
-            <div className="relative w-[280px] h-[560px] md:w-[300px] md:h-[600px] lg:w-[340px] lg:h-[680px]">
-              {/* Placeholder glow effect */}
+            <div className="relative">
+              {/* Glow effect */}
               <div className="absolute inset-0 bg-finzen-green/20 rounded-[3rem] blur-3xl" />
-              <div className="relative w-full h-full rounded-[2.5rem] bg-white/10 border border-white/20 overflow-hidden flex items-center justify-center">
-                <Image
-                  src="/hero-mockup.png"
-                  alt="FinZen AI Dashboard"
-                  fill
-                  className="object-contain p-2"
-                  priority
-                />
+              {/* Phone frame */}
+              <div className="relative w-[270px] h-[540px] md:w-[300px] md:h-[600px] lg:w-[340px] lg:h-[680px] bg-black rounded-[3rem] p-[6px] shadow-2xl border border-white/20">
+                {/* Notch */}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-10" />
+                <div className="relative w-full h-full rounded-[2.6rem] overflow-hidden">
+                  <Image
+                    src="/metas-screen.jpeg"
+                    alt="FinZen AI - Metas de ahorro"
+                    fill
+                    className="object-cover"
+                    priority
+                  />
+                </div>
               </div>
             </div>
           </div>
