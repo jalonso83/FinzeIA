@@ -17,7 +17,7 @@ export default function Footer() {
             <div className="flex items-center gap-2 mb-4">
               <div className="relative w-6 h-6">
                 <Image
-                  src="/logo-finzen-icon.png"
+                  src="/isotipo-blanco.png"
                   alt="FinZen AI"
                   fill
                   className="object-contain"
