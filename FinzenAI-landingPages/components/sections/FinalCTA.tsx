@@ -38,6 +38,7 @@ export default function FinalCTA() {
               href={getAppStoreLink('footer_cta')}
               icon={<Apple size={18} />}
               onClick={() => trackDownloadIOS('footer_cta')}
+              className="min-w-[180px]"
             >
               App Store
             </Button>
@@ -49,6 +50,7 @@ export default function FinalCTA() {
               href={getPlayStoreLink('footer_cta')}
               icon={<Play size={18} />}
               onClick={() => trackDownloadAndroid('footer_cta')}
+              className="min-w-[180px]"
             >
               Google Play
             </Button>

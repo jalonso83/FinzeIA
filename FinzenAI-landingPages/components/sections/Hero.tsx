@@ -43,6 +43,7 @@ export default function Hero() {
                   href={getAppStoreLink('hero')}
                   icon={<Apple size={18} />}
                   onClick={() => trackDownloadIOS('hero')}
+                  className="min-w-[180px]"
                 >
                   App Store
                 </Button>
@@ -54,6 +55,7 @@ export default function Hero() {
                   href={getPlayStoreLink('hero')}
                   icon={<Play size={18} />}
                   onClick={() => trackDownloadAndroid('hero')}
+                  className="min-w-[180px]"
                 >
                   Google Play
                 </Button>
