@@ -25,8 +25,8 @@ export default function Solution() {
           }`}
         >
           {/* App screenshot - 3D mockup */}
-          <div className="flex justify-center">
-            <div className="relative w-[320px] h-[580px] md:w-[420px] md:h-[750px]">
+          <div className="flex justify-center md:justify-start md:-ml-8">
+            <div className="relative w-[340px] h-[620px] md:w-[460px] md:h-[820px]">
               <Image
                 src="/zenio-screenshot.png"
                 alt="Zenio - Tu copiloto financiero con IA"
