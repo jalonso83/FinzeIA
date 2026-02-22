@@ -25,12 +25,12 @@ export default function Solution() {
       >
         {/* App screenshot */}
         <div className="flex justify-center">
-          <div className="relative w-[260px] h-[520px] md:w-[280px] md:h-[560px] rounded-[2.5rem] overflow-hidden shadow-2xl">
+          <div className="relative w-[220px] h-[440px] md:w-[240px] md:h-[480px] rounded-[2rem] overflow-hidden shadow-2xl">
             <Image
               src="/zenio-screenshot.jpeg"
               alt="Zenio - Tu copiloto financiero con IA"
               fill
-              className="object-cover"
+              className="object-contain"
             />
           </div>
         </div>
