@@ -35,10 +35,10 @@ export default function Navbar() {
       <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16 md:h-20">
         {/* Logo */}
         <a href="#hero" className="shrink-0">
-          {/* Desktop: horizontal logo */}
+          {/* Desktop: horizontal logo — white over hero, blue after scroll */}
           <div className="hidden md:block relative w-[140px] h-[40px]">
             <Image
-              src="/logo-finzen-horizontal.png"
+              src={scrolled ? '/logo-finzen-horizontal.png' : '/logo-finzen-white.png'}
               alt="FinZen AI"
               fill
               className="object-contain"
