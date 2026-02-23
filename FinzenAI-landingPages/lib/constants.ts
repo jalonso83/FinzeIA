@@ -38,7 +38,7 @@ export const NAV_LINKS = [
 
 // ─── Contact & Social ───────────────────────────────────────────
 
-export const CONTACT_EMAIL = 'hola@finzenai.com';
+export const CONTACT_EMAIL = 'info@finzenai.com';
 export const INSTAGRAM_HANDLE = '@finzenai';
 export const INSTAGRAM_URL = 'https://instagram.com/finzenai';
 export const COMPANY_NAME = 'Abundance Lab LLC';
