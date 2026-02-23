@@ -9,7 +9,7 @@ const steps = [
   {
     icon: Download,
     title: 'Descarga gratis',
-    description: 'Disponible en App Store y Google Play.',
+    description: 'Disponible en App Store.',
   },
   {
     icon: MessageCircle,

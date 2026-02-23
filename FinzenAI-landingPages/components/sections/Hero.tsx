@@ -36,18 +36,17 @@ export default function Hero() {
 
             {/* CTAs conditioned by device */}
             <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start mb-8">
-              {(device === 'ios' || device === 'desktop') && (
-                <Button
-                  variant="primary"
-                  size="md"
-                  href={getAppStoreLink('hero')}
-                  icon={<Apple size={18} />}
-                  onClick={() => trackDownloadIOS('hero')}
-                  className="min-w-[180px]"
-                >
-                  App Store
-                </Button>
-              )}
+              <Button
+                variant="primary"
+                size="md"
+                href={getAppStoreLink('hero')}
+                icon={<Apple size={18} />}
+                onClick={() => trackDownloadIOS('hero')}
+                className="min-w-[180px]"
+              >
+                App Store
+              </Button>
+              {/* Google Play — oculto temporalmente
               {(device === 'android' || device === 'desktop') && (
                 <Button
                   variant="outline-white"
@@ -60,6 +59,7 @@ export default function Hero() {
                   Google Play
                 </Button>
               )}
+              */}
             </div>
 
             <p className="text-white/50 text-sm font-rubik">

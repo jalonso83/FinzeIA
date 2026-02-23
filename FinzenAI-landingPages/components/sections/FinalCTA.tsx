@@ -31,18 +31,17 @@ export default function FinalCTA() {
         </p>
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          {(device === 'ios' || device === 'desktop') && (
-            <Button
-              variant="primary"
-              size="md"
-              href={getAppStoreLink('footer_cta')}
-              icon={<Apple size={18} />}
-              onClick={() => trackDownloadIOS('footer_cta')}
-              className="min-w-[180px]"
-            >
-              App Store
-            </Button>
-          )}
+          <Button
+            variant="primary"
+            size="md"
+            href={getAppStoreLink('footer_cta')}
+            icon={<Apple size={18} />}
+            onClick={() => trackDownloadIOS('footer_cta')}
+            className="min-w-[180px]"
+          >
+            App Store
+          </Button>
+          {/* Google Play — oculto temporalmente
           {(device === 'android' || device === 'desktop') && (
             <Button
               variant="outline-white"
@@ -55,6 +54,7 @@ export default function FinalCTA() {
               Google Play
             </Button>
           )}
+          */}
         </div>
       </div>
     </section>
