@@ -53,9 +53,9 @@ const plans: PricingPlan[] = [
     name: 'Plus',
     badge: 'Más popular',
     badgeVariant: 'highlight',
-    price: '$4.99',
-    period: '/mes',
-    annual: 'o $49.99/año — Paga 10 meses, llévate 12',
+    price: '$49.99',
+    period: '/año',
+    annual: 'Solo $4.17/mes · Paga 10 meses, llévate 12',
     features: [
       { text: 'Todo de Gratis +' },
       { text: 'Presupuestos ilimitados' },
@@ -75,9 +75,9 @@ const plans: PricingPlan[] = [
     name: 'PRO',
     badge: 'Automatización total',
     badgeVariant: 'subtle',
-    price: '$9.99',
-    period: '/mes',
-    annual: 'o $99.99/año — Paga 10 meses, llévate 12',
+    price: '$99.99',
+    period: '/año',
+    annual: 'Solo $8.33/mes · Paga 10 meses, llévate 12',
     features: [
       { text: 'Todo de Plus +' },
       { text: 'Sincronización de email (Gmail/Outlook)' },
@@ -125,7 +125,7 @@ function PricingCard({ plan, index }: { plan: PricingPlan; index: number }) {
             )}
           </div>
           {plan.annual && (
-            <p className="text-finzen-gray text-sm mt-1">{plan.annual}</p>
+            <p className="text-finzen-green font-semibold text-sm mt-2">{plan.annual}</p>
           )}
         </div>
 
@@ -175,6 +175,9 @@ export default function Pricing() {
       <p className="text-finzen-gray text-sm text-center mt-8">
         Prueba gratuita de 7 días. Sin tarjeta de crédito. Cancela cuando
         quieras.
+      </p>
+      <p className="text-finzen-gray/50 text-xs text-center mt-4">
+        FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un asistente de IA que te ayuda a organizar tus finanzas.
       </p>
     </SectionWrapper>
   );

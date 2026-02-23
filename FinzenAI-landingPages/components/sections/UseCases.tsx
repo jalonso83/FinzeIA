@@ -8,28 +8,28 @@ import { useInView } from '@/hooks/useInView';
 
 const cases = [
   {
-    name: 'María',
-    age: '22 años',
-    role: 'Universitaria',
+    name: 'Estudiante universitario',
+    age: '',
+    role: 'Trabaja medio tiempo',
     story:
-      'Trabajaba medio tiempo y sentía que su dinero se evaporaba. Con el Detector de Gastos Hormiga descubrió que gastaba RD$4,000 al mes solo en cafés y delivery. En 2 meses, redirigió ese dinero y creó su primer fondo de emergencia.',
-    highlight: 'Fondo de emergencia creado en 2 meses',
+      'Sientes que tu dinero se evapora sin saber a dónde va. Con el Detector de Gastos Hormiga puedes descubrir esos cafecitos y deliveries que suman miles al mes. Redirige ese dinero y empieza tu primer fondo de emergencia.',
+    highlight: 'Identifica gastos invisibles al instante',
   },
   {
-    name: 'Carlos',
-    age: '28 años',
-    role: 'Profesional joven',
+    name: 'Profesional joven',
+    age: '',
+    role: 'Gana bien pero vive al día',
     story:
-      'Ganaba bien pero vivía al día sin entender por qué. Con los presupuestos por categoría y los recordatorios de pago, organizó sus finanzas. En 6 meses construyó un fondo de emergencia de 3 meses de gastos.',
-    highlight: 'Fondo de 3 meses de gastos en 6 meses',
+      'Ganas un buen salario pero no entiendes por qué siempre estás ajustado. Con presupuestos por categoría y recordatorios de pago, organiza tus finanzas y empieza a construir tu fondo de emergencia mes a mes.',
+    highlight: 'Presupuestos claros por categoría',
   },
   {
-    name: 'Ana y Pedro',
-    age: 'Pareja',
-    role: 'Comparten apartamento',
+    name: 'Pareja joven',
+    age: '',
+    role: 'Comparten gastos',
     story:
-      'Manejaban el dinero por separado, lo que generaba conflictos. Con FinZen AI, ambos ven sus gastos en tiempo real y ahora ahorran juntos RD$5,000 al mes para su próximo viaje.',
-    highlight: 'Ahorran RD$5,000/mes juntos',
+      'Manejar el dinero por separado genera conflictos. Con FinZen AI, ambos pueden ver sus gastos en tiempo real, definir metas juntos y ahorrar para ese viaje o apartamento que tanto quieren.',
+    highlight: 'Metas de ahorro compartidas',
   },
 ];
 
@@ -43,10 +43,10 @@ export default function UseCases() {
   return (
     <SectionWrapper id="use-cases" background="white">
       <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-finzen-black text-center mb-4">
-        Personas reales, resultados reales
+        ¿Te identificas?
       </h2>
       <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto">
-        Historias de cómo FinZen AI está cambiando la relación con el dinero.
+        Así es como FinZen AI puede ayudarte según tu situación.
       </p>
 
       <div
@@ -64,7 +64,7 @@ export default function UseCases() {
                   {c.name}
                 </h3>
                 <p className="text-finzen-gray text-sm">
-                  {c.age} · {c.role}
+                  {c.role}
                 </p>
               </div>
               <p className="text-finzen-black text-base leading-relaxed flex-grow">
@@ -87,7 +87,7 @@ export default function UseCases() {
                 {cases[current].name}
               </h3>
               <p className="text-finzen-gray text-sm">
-                {cases[current].age} · {cases[current].role}
+                {cases[current].role}
               </p>
             </div>
             <p className="text-finzen-black text-base leading-relaxed">

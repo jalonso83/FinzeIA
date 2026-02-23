@@ -78,7 +78,7 @@ export default function PainPoints() {
         }`}
       >
         <p className="text-finzen-black text-lg md:text-xl font-rubik leading-relaxed">
-          No es tu culpa. Nadie te enseñó a manejar tu dinero — y las
+          No es tu culpa. Nadie te enseñó a manejar tu dinero, y las
           herramientas financieras tradicionales no fueron diseñadas para ti.{' '}
           <span className="font-semibold text-finzen-blue">Hasta ahora.</span>
         </p>

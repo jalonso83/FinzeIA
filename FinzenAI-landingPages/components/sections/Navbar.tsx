@@ -81,13 +81,12 @@ export default function Navbar() {
 
         {/* Desktop CTA */}
         <div className="hidden md:block">
-          <Button
-            variant="primary"
-            size="sm"
+          <a
             href="#final-cta"
+            className="inline-flex items-center justify-center whitespace-nowrap bg-finzen-green text-white rounded-xl font-rubik font-semibold hover:opacity-90 transition-all duration-300 px-4 py-2 text-sm"
           >
             Descargar Gratis
-          </Button>
+          </a>
         </div>
 
         {/* Mobile hamburger */}
@@ -121,14 +120,13 @@ export default function Navbar() {
               {link.label}
             </a>
           ))}
-          <Button
-            variant="primary"
-            size="md"
+          <a
             href="#final-cta"
+            className="inline-flex items-center justify-center whitespace-nowrap bg-finzen-green text-white rounded-xl font-rubik font-semibold hover:opacity-90 transition-all duration-300 px-6 py-3 text-base"
             onClick={() => setMenuOpen(false)}
           >
             Descargar Gratis
-          </Button>
+          </a>
         </div>
       </div>
     </nav>

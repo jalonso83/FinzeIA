@@ -27,7 +27,7 @@ const faqs = [
     id: 'faq-4',
     question: '¿En qué idioma funciona Zenio?',
     answer:
-      'Zenio habla español latinoamericano. Entiende cómo hablas naturalmente — fechas, montos, categorías. Sin necesidad de comandos especiales.',
+      'Zenio habla español latinoamericano. Entiende cómo hablas naturalmente: fechas, montos, categorías. Sin necesidad de comandos especiales.',
   },
   {
     id: 'faq-5',

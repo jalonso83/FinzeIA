@@ -39,10 +39,10 @@ export default function ZenioShowcase() {
     <section id="zenio" className="bg-finzen-blue">
       <div className="py-16 md:py-24 px-4 md:px-8 max-w-7xl mx-auto">
         <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-white text-center mb-3">
-          Conoce a Zenio, tu asistente financiero
+          Conoce a Zenio, tu copiloto financiero
         </h2>
         <p className="text-white/70 text-center mb-12 max-w-2xl mx-auto text-lg">
-          Como tener un amigo que sabe de dinero — disponible 24/7
+          Como tener un amigo que sabe de dinero, disponible 24/7
         </p>
 
         <div
@@ -100,11 +100,14 @@ export default function ZenioShowcase() {
             <div className="mt-8 pt-6 border-t border-white/10">
               <p className="text-white/80 text-base italic">
                 A diferencia de otras apps de finanzas, con FinZen AI no llenas
-                formularios — solo hablas.
+                formularios. Solo hablas.
               </p>
             </div>
           </div>
         </div>
+        <p className="text-white/30 text-xs text-center mt-10">
+          FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un asistente de IA que te ayuda a organizar tus finanzas.
+        </p>
       </div>
     </section>
   );

@@ -17,9 +17,9 @@ const features = [
   {
     icon: MessageCircle,
     color: 'text-finzen-green',
-    title: 'Zenio AI, tu asistente financiero',
+    title: 'Zenio AI, tu copiloto financiero',
     description:
-      'Habla con Zenio como si fuera un amigo. Dile "Gasté 500 en comida" y listo — se registra solo. Pregúntale lo que quieras sobre finanzas, te responde sin juzgarte.',
+      'Habla con Zenio como si fuera un amigo. Dile "Gasté 500 en comida" y listo, se registra solo. Pregúntale lo que quieras sobre finanzas, te responde sin juzgarte.',
   },
   {
     icon: LayoutDashboard,
@@ -40,7 +40,7 @@ const features = [
     color: 'text-finzen-blue',
     title: 'Metas de ahorro',
     description:
-      'Vacaciones, fondo de emergencia, tu primer carro — crea metas con fecha y monto, contribuye cuando puedas y visualiza tu progreso.',
+      'Vacaciones, fondo de emergencia, tu primer carro. Crea metas con fecha y monto, contribuye cuando puedas y visualiza tu progreso.',
   },
   {
     icon: Search,

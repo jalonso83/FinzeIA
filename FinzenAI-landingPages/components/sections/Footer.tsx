@@ -73,7 +73,9 @@ export default function Footer() {
             <ul className="space-y-3">
               <li>
                 <a
-                  href="/privacidad"
+                  href="https://www.abundancelabllc.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-white/60 hover:text-white text-sm transition-colors"
                 >
                   Política de Privacidad
@@ -81,7 +83,9 @@ export default function Footer() {
               </li>
               <li>
                 <a
-                  href="/terminos"
+                  href="https://www.abundancelabllc.com/terms"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="text-white/60 hover:text-white text-sm transition-colors"
                 >
                   Términos de Uso

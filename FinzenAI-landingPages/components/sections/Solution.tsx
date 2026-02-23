@@ -48,7 +48,7 @@ export default function Solution() {
               FinZen AI: tu dinero, tus reglas
             </h2>
             <p className="text-white/70 text-lg mb-6">
-              Una app que se adapta a ti — no al revés
+              Una app que se adapta a ti, no al revés
             </p>
             <p className="text-white/80 text-base md:text-lg font-rubik leading-relaxed mb-8">
               FinZen AI combina inteligencia artificial conversacional con

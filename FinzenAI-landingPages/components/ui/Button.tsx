@@ -39,7 +39,7 @@ export default function Button({
   className = '',
   onClick,
 }: ButtonProps) {
-  const classes = `inline-flex items-center justify-center gap-2 ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+  const classes = `inline-flex items-center justify-center gap-2 whitespace-nowrap ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
 
   if (href) {
     return (

@@ -16,13 +16,13 @@ const playfairDisplay = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://finzenai.com'),
-  title: 'FinZen AI — El Amigo que Sabe de Dinero que Siempre Quisiste Tener',
+  title: 'FinZen AI | El Amigo que Sabe de Dinero que Siempre Quisiste Tener',
   description:
-    'Registra gastos hablando, controla presupuestos y ahorra con Zenio, tu asistente financiero con IA. Descarga gratis en App Store y Google Play.',
+    'Registra gastos hablando, controla presupuestos y ahorra con Zenio, tu copiloto financiero con IA. Descarga gratis en App Store y Google Play.',
   keywords:
     'finanzas personales, app finanzas, IA financiera, control de gastos, presupuesto personal, ahorro inteligente, copiloto financiero, Zenio, gastos hormiga',
   openGraph: {
-    title: 'FinZen AI — Tu Copiloto Financiero con IA',
+    title: 'FinZen AI | Tu Copiloto Financiero con IA',
     description:
       'Registra gastos hablando, controla presupuestos y ahorra con Zenio.',
     images: ['/og-image.png'],
@@ -31,7 +31,7 @@ export const metadata: Metadata = {
   },
   twitter: {
     card: 'summary_large_image',
-    title: 'FinZen AI — Tu Copiloto Financiero con IA',
+    title: 'FinZen AI | Tu Copiloto Financiero con IA',
     description:
       'Registra gastos hablando, controla presupuestos y ahorra con Zenio.',
     images: ['/og-image.png'],
