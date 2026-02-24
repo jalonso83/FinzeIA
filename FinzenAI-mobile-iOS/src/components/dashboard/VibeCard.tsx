@@ -34,6 +34,7 @@ const VibeCard: React.FC = () => {
   const [vibeData, setVibeData] = useState<VibeData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [hasData, setHasData] = useState(true);
   const [showInfoModal, setShowInfoModal] = useState(false);
   
   // Hook para moneda del usuario
@@ -170,12 +171,19 @@ const VibeCard: React.FC = () => {
       });
 
       const data = response.data;
-      
+
       if (data.metrics) {
+        if (data.metrics.totalTransactions === 0) {
+          setHasData(false);
+          setVibeData(null);
+          return;
+        }
+
+        setHasData(true);
         const volatility = data.metrics.volatility || 0;
         const burnRate = data.metrics.burnRate || 0;
         const runway = data.metrics.runway;
-        
+
         const calculatedVibeData = calculateVibeData(volatility, burnRate, runway);
         setVibeData(calculatedVibeData);
       }
@@ -209,7 +217,7 @@ const VibeCard: React.FC = () => {
     );
   }
 
-  if (error || !vibeData) {
+  if (error) {
     return (
       <View style={styles.container}>
         <View style={styles.header}>
@@ -217,9 +225,26 @@ const VibeCard: React.FC = () => {
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={24} color="#dc2626" />
-          <Text style={styles.errorText}>No hay datos suficientes</Text>
+          <Text style={styles.errorText}>No se pudieron cargar los datos</Text>
         </View>
       </View>
+    );
+  }
+
+  if (!hasData || !vibeData) {
+    return (
+      <TouchableOpacity style={styles.container} onPress={loadVibeData}>
+        <View style={styles.header}>
+          <Text style={styles.title}>Tu Vibe Financiero</Text>
+        </View>
+        <View style={styles.neutralContent}>
+          <Text style={styles.neutralEmoji}>🚀</Text>
+          <Text style={styles.neutralTitle}>Tu vibe está por descubrirse</Text>
+          <Text style={styles.neutralText}>
+            Registra tu primer ingreso o gasto para conocer tu Vibe Financiero
+          </Text>
+        </View>
+      </TouchableOpacity>
     );
   }
 
@@ -494,6 +519,29 @@ const styles = StyleSheet.create({
     marginLeft: 8,
     fontSize: 14,
     color: '#dc2626',
+  },
+  // Estado neutro (sin transacciones)
+  neutralContent: {
+    alignItems: 'center',
+    paddingVertical: 16,
+  },
+  neutralEmoji: {
+    fontSize: 40,
+    marginBottom: 8,
+  },
+  neutralTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+    marginBottom: 6,
+    textAlign: 'center',
+  },
+  neutralText: {
+    fontSize: 13,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
   },
   // Estilos del modal
   modalOverlay: {

@@ -222,10 +222,13 @@ export const authAPI = {
   }) =>
     api.post('/auth/register', userData),
   
-  verifyEmail: (token: string) => 
+  verifyEmail: (token: string) =>
     api.post('/auth/verify-email', { token }),
-  
-  logout: () => 
+
+  resendVerification: (email: string) =>
+    api.post('/auth/resend-verification', { email }),
+
+  logout: () =>
     api.post('/auth/logout'),
 
   getProfile: () => 

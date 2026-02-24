@@ -324,7 +324,36 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
       );
     } catch (error: any) {
       logger.error('Error iniciando trial:', error);
-      Alert.alert('Error', error.message || 'No se pudo iniciar el período de prueba');
+
+      // Refrescar suscripción para obtener canUseTrial actualizado del backend
+      await fetchSubscription();
+
+      // Si el trial falló por dispositivo ya usado, ofrecer compra directa
+      const isDeviceOrTrialUsed =
+        error.message?.includes('dispositivo') ||
+        error.message?.includes('período de prueba');
+
+      if (isDeviceOrTrialUsed) {
+        Alert.alert(
+          'Trial no disponible',
+          'Este dispositivo ya utilizó el período de prueba. ¿Deseas suscribirte directamente?',
+          [
+            { text: 'Cancelar', style: 'cancel' },
+            {
+              text: 'Suscribirme',
+              onPress: () => {
+                if (isIOS) {
+                  processRCPurchase(planId);
+                } else {
+                  processCheckout(planId);
+                }
+              },
+            },
+          ]
+        );
+      } else {
+        Alert.alert('Error', error.message || 'No se pudo iniciar el período de prueba');
+      }
     } finally {
       setProcessingPlan(null);
     }
