@@ -33,11 +33,14 @@
       }
     },
     "production": {
+      "autoIncrement": true,
       "android": {
-        "buildType": "app-bundle"
+        "buildType": "app-bundle",
+        "autoIncrement": "versionCode"
       },
       "ios": {
-        "distribution": "store"
+        "distribution": "store",
+        "autoIncrement": "buildNumber"
       }
     }
   },
