@@ -10,7 +10,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#2563EB',
     screen: 'Dashboard',
     duration: 30,
-    lastUpdated: '2025-01-15',
+    lastUpdated: '2026-01-15',
     tags: ['dashboard', 'inicio', 'resumen'],
     slides: [
       {
@@ -49,7 +49,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#1E40AF',
     screen: 'Zenio',
     duration: 45,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['zenio', 'ia', 'asistente', 'chat', 'voz'],
     slides: [
       {
@@ -112,7 +112,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#059669',
     screen: 'Budgets',
     duration: 40,
-    lastUpdated: '2025-01-15',
+    lastUpdated: '2026-01-15',
     tags: ['presupuestos', 'limites', 'control'],
     slides: [
       {
@@ -150,7 +150,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#10B981',
     screen: 'Goals',
     duration: 35,
-    lastUpdated: '2025-01-15',
+    lastUpdated: '2026-01-15',
     tags: ['metas', 'ahorro', 'objetivos'],
     slides: [
       {
@@ -188,7 +188,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#3B82F6',
     screen: 'Transactions',
     duration: 30,
-    lastUpdated: '2025-01-15',
+    lastUpdated: '2026-01-15',
     tags: ['transacciones', 'gastos', 'ingresos'],
     slides: [
       {
@@ -226,7 +226,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#0EA5E9',
     screen: 'EmailSyncSettings',
     duration: 50,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['email', 'banco', 'sincronización', 'automático', 'gmail', 'outlook', 'hotmail', 'pro'],
     slides: [
       {
@@ -288,7 +288,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#F59E0B',
     screen: 'NotificationSettings',
     duration: 35,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['notificaciones', 'alertas', 'push', 'recordatorios', 'gastos hormiga'],
     slides: [
       {
@@ -350,7 +350,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#EF4444',
     screen: 'Reminders',
     duration: 40,
-    lastUpdated: '2025-01-20',
+    lastUpdated: '2026-01-20',
     tags: ['recordatorios', 'pagos', 'tarjetas', 'préstamos', 'servicios', 'alertas'],
     slides: [
       {
@@ -412,7 +412,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#1E40AF',
     screen: 'Gamification',
     duration: 35,
-    lastUpdated: '2025-01-18',
+    lastUpdated: '2026-01-18',
     tags: ['gamificación', 'puntos', 'logros', 'niveles', 'recompensas'],
     slides: [
       {
@@ -458,7 +458,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#EC4899',
     screen: 'Subscription',
     duration: 35,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['suscripción', 'premium', 'planes', 'pro', 'plus', 'gratis', 'trial'],
     slides: [
       {
@@ -513,7 +513,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#6366F1',
     screen: 'Profile',
     duration: 25,
-    lastUpdated: '2025-01-18',
+    lastUpdated: '2026-01-18',
     tags: ['perfil', 'cuenta', 'configuración', 'datos'],
     slides: [
       {
@@ -560,7 +560,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#DC2626',
     screen: 'Calculators',
     duration: 40,
-    lastUpdated: '2025-01-15',
+    lastUpdated: '2026-01-15',
     tags: ['calculadoras', 'herramientas', 'simuladores'],
     slides: [
       {
@@ -606,7 +606,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#F59E0B',
     screen: 'AntExpenseDetective',
     duration: 40,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['gastos-hormiga', 'análisis', 'ahorro', 'alertas'],
     slides: [
       {
@@ -668,7 +668,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#0EA5E9',
     screen: 'Reports',
     duration: 25,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['exportar', 'csv', 'excel', 'datos', 'reportes', 'plus', 'pro'],
     slides: [
       {
@@ -714,7 +714,7 @@ export const TUTORIALS: Tutorial[] = [
     color: '#8B5CF6',
     screen: 'Reports',
     duration: 30,
-    lastUpdated: '2025-01-19',
+    lastUpdated: '2026-01-19',
     tags: ['reportes', 'análisis', 'tendencias', 'gráficos', 'ia', 'plus', 'pro'],
     slides: [
       {

@@ -31,6 +31,9 @@ export default function LoginScreen() {
   const [loadingBiometric, setLoadingBiometric] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [rememberEmail, setRememberEmail] = useState(false);
+  const [needsVerification, setNeedsVerification] = useState(false);
+  const [resendingEmail, setResendingEmail] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
   const [showBiometricPrompt, setShowBiometricPrompt] = useState(false);
 
   // Estados para modales
@@ -252,7 +255,8 @@ export default function LoginScreen() {
       if (error.response?.status === 401) {
         errorMessage = 'Email o contraseña incorrectos';
       } else if (error.response?.status === 403) {
-        errorMessage = 'Por favor verifica tu email antes de iniciar sesión';
+        setNeedsVerification(true);
+        errorMessage = '';
       } else if (error.response?.status === 400) {
         errorMessage = error.response.data.message || 'Datos inválidos';
       } else if (error.response?.status === 500) {
@@ -264,6 +268,20 @@ export default function LoginScreen() {
       setErrors({ api: errorMessage });
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResendVerification = async () => {
+    if (!email) return;
+    setResendingEmail(true);
+    setResendSuccess(false);
+    try {
+      await authAPI.resendVerification(email);
+      setResendSuccess(true);
+    } catch (error) {
+      // Silencioso - el backend siempre devuelve 200 por seguridad
+    } finally {
+      setResendingEmail(false);
     }
   };
 
@@ -315,9 +333,8 @@ export default function LoginScreen() {
                     value={email}
                     onChangeText={(text) => {
                       setEmail(text);
-                      if (errors.email) {
-                        setErrors({ ...errors, email: '' });
-                      }
+                      if (errors.email) setErrors({ ...errors, email: '' });
+                      if (needsVerification) { setNeedsVerification(false); setResendSuccess(false); }
                     }}
                     placeholder="tu@email.com"
                     placeholderTextColor="#9ca3af"
@@ -338,9 +355,8 @@ export default function LoginScreen() {
                     value={password}
                     onChangeText={(text) => {
                       setPassword(text);
-                      if (errors.password) {
-                        setErrors({ ...errors, password: '' });
-                      }
+                      if (errors.password) setErrors({ ...errors, password: '' });
+                      if (needsVerification) { setNeedsVerification(false); setResendSuccess(false); }
                     }}
                     placeholder="••••••••"
                     placeholderTextColor="#9ca3af"
@@ -381,7 +397,31 @@ export default function LoginScreen() {
                 <Text style={styles.rememberText}>Recordar email</Text>
               </TouchableOpacity>
 
-              {errors.api && <Text style={styles.apiErrorText}>{errors.api}</Text>}
+              {needsVerification && (
+                <View style={styles.verificationContainer}>
+                  <Ionicons name="mail-outline" size={28} color="#2563eb" style={styles.verificationIcon} />
+                  <Text style={styles.verificationText}>
+                    Tu cuenta aún no está activada. Revisa tu correo (incluyendo spam) y confirma tu cuenta para poder iniciar sesión.
+                  </Text>
+                  {resendSuccess ? (
+                    <Text style={styles.resendSuccessText}>¡Correo enviado! Revisa tu bandeja</Text>
+                  ) : (
+                    <TouchableOpacity
+                      style={styles.resendButton}
+                      onPress={handleResendVerification}
+                      disabled={resendingEmail}
+                    >
+                      {resendingEmail ? (
+                        <ActivityIndicator color="#2563eb" size="small" />
+                      ) : (
+                        <Text style={styles.resendButtonText}>Reenviar correo de verificación</Text>
+                      )}
+                    </TouchableOpacity>
+                  )}
+                </View>
+              )}
+
+              {errors.api ? <Text style={styles.apiErrorText}>{errors.api}</Text> : null}
 
               <TouchableOpacity
                 style={[styles.loginButton, loading && styles.disabledButton]}
@@ -668,5 +708,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     marginLeft: 8,
+  },
+  // Estilos para verificación de email
+  verificationContainer: {
+    backgroundColor: '#eff6ff',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 12,
+    padding: 14,
+    marginBottom: 12,
+    alignItems: 'center',
+  },
+  verificationIcon: {
+    marginBottom: 8,
+  },
+  verificationText: {
+    fontSize: 13,
+    color: '#1e40af',
+    textAlign: 'center',
+    lineHeight: 19,
+    marginBottom: 10,
+  },
+  resendButton: {
+    paddingVertical: 8,
+    paddingHorizontal: 16,
+  },
+  resendButtonText: {
+    fontSize: 14,
+    color: '#2563eb',
+    fontWeight: '600',
+  },
+  resendSuccessText: {
+    fontSize: 13,
+    color: '#16a34a',
+    fontWeight: '500',
+    textAlign: 'center',
   },
 });

@@ -274,14 +274,40 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose }) =>
       });
     } catch (error: any) {
       logger.error('Error iniciando trial:', error);
-      setModalConfig({
-        visible: true,
-        type: 'error',
-        title: 'Error',
-        message: error.message || 'No se pudo iniciar el período de prueba',
-        buttonText: 'Entendido',
-        onClose: () => setModalConfig({ ...modalConfig, visible: false }),
-      });
+
+      // Refrescar suscripción para obtener canUseTrial actualizado del backend
+      await fetchSubscription();
+
+      // Si el trial falló por dispositivo ya usado, ofrecer compra directa
+      const isDeviceOrTrialUsed =
+        error.message?.includes('dispositivo') ||
+        error.message?.includes('período de prueba');
+
+      if (isDeviceOrTrialUsed) {
+        setModalConfig({
+          visible: true,
+          type: 'warning',
+          title: 'Trial no disponible',
+          message: 'Este dispositivo ya utilizó el período de prueba. ¿Deseas suscribirte directamente?',
+          buttonText: 'Suscribirme',
+          showSecondaryButton: true,
+          secondaryButtonText: 'Cancelar',
+          onSecondaryPress: () => setModalConfig({ ...modalConfig, visible: false }),
+          onClose: () => {
+            setModalConfig({ ...modalConfig, visible: false });
+            processCheckout(planId);
+          },
+        });
+      } else {
+        setModalConfig({
+          visible: true,
+          type: 'error',
+          title: 'Error',
+          message: error.message || 'No se pudo iniciar el período de prueba',
+          buttonText: 'Entendido',
+          onClose: () => setModalConfig({ ...modalConfig, visible: false }),
+        });
+      }
     } finally {
       setProcessingPlan(null);
     }
