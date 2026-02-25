@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     paddingTop: 0,
-    paddingBottom: 6,
+    paddingBottom: 10,
     minWidth: 60,
   },
   tabLabel: {

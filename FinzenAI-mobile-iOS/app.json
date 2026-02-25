@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
-    "version": "1.0.0",
+    "version": "1.0.1",
     "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.jl.alonso.finzenaimobile",
-      "buildNumber": "8",
+      "buildNumber": "10",
       "associatedDomains": [
         "applinks:finzenai-backend-production.up.railway.app"
       ],
@@ -25,7 +25,9 @@
         "NSMicrophoneUsageDescription": "Esta app necesita acceso al micrófono para permitirte hablar con Zenio, tu asistente financiero.",
         "NSSpeechRecognitionUsageDescription": "Esta app necesita acceso al reconocimiento de voz para transcribir tus consultas financieras a Zenio.",
         "NSFaceIDUsageDescription": "Usamos Face ID para que puedas acceder rápida y seguramente a tu cuenta de FinZen AI sin necesidad de escribir tu contraseña cada vez.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {

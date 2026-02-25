@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import { saveToken, removeToken, setForceLogoutCallback } from '../utils/api'
+import { saveToken, removeToken, setForceLogoutCallback, authAPI } from '../utils/api'
 import * as SecureStore from 'expo-secure-store'
 
 import { logger } from '../utils/logger';
@@ -56,16 +56,28 @@ export const useAuthStore = create<AuthState>()(
             return false;
           }
 
-          const user: User = JSON.parse(userDataStr);
+          const cachedUser: User = JSON.parse(userDataStr);
 
           // Iniciar sesión con las credenciales guardadas
           await saveToken(token);
           set({
-            user,
+            user: cachedUser,
             token,
             isAuthenticated: true,
             isLoading: false,
           });
+
+          // Refrescar datos del usuario desde el servidor (onboardingCompleted, etc.)
+          try {
+            const profileResponse = await authAPI.getProfile();
+            const freshUser = profileResponse.data;
+            set({ user: freshUser });
+            // Actualizar credenciales biométricas con datos frescos
+            await SecureStore.setItemAsync('biometric_user', JSON.stringify(freshUser));
+            logger.log('✅ Datos de usuario actualizados desde servidor');
+          } catch (profileError) {
+            logger.log('⚠️ No se pudo refrescar perfil, usando datos en cache');
+          }
 
           logger.log('✅ Login biométrico exitoso');
           return true;
