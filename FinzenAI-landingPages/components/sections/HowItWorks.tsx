@@ -21,7 +21,7 @@ const steps = [
     icon: TrendingUp,
     title: 'Toma el control',
     description:
-      'Ve crecer tu FinScore mientras tus finanzas se organizan solas.',
+      'Ve cómo mejora tu salud financiera mes a mes con tu FinScore — tu indicador personal de bienestar financiero.',
   },
 ];
 

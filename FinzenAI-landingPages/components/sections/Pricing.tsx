@@ -51,7 +51,7 @@ const plans: PricingPlan[] = [
   },
   {
     name: 'Plus',
-    badge: 'Más popular',
+    badge: 'Mejor valor',
     badgeVariant: 'highlight',
     price: '$49.99',
     period: '/año',
