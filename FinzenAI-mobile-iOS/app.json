@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
-    "version": "1.0.1",
+    "version": "1.0.2",
     "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
