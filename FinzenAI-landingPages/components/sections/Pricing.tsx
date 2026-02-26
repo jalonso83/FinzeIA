@@ -1,5 +1,6 @@
 'use client';
 
+import { useState } from 'react';
 import { Check } from 'lucide-react';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 import Card from '@/components/ui/Card';
@@ -17,9 +18,11 @@ interface PricingPlan {
   name: string;
   badge: string;
   badgeVariant: 'subtle' | 'highlight';
-  price: string;
-  period: string;
-  annual: string;
+  monthlyPrice: string;
+  monthlyPeriod: string;
+  annualPrice: string;
+  annualPeriod: string;
+  annualNote: string;
   features: PlanFeature[];
   cta: string;
   ctaVariant: 'primary' | 'secondary';
@@ -32,9 +35,11 @@ const plans: PricingPlan[] = [
     name: 'Gratis',
     badge: 'Para empezar',
     badgeVariant: 'subtle',
-    price: '$0',
-    period: 'Siempre gratis',
-    annual: '',
+    monthlyPrice: '$0',
+    monthlyPeriod: 'Siempre gratis',
+    annualPrice: '$0',
+    annualPeriod: 'Siempre gratis',
+    annualNote: '',
     features: [
       { text: 'Transacciones ilimitadas' },
       { text: '2 presupuestos activos' },
@@ -53,9 +58,11 @@ const plans: PricingPlan[] = [
     name: 'Plus',
     badge: 'Mejor valor',
     badgeVariant: 'highlight',
-    price: '$49.99',
-    period: '/año',
-    annual: 'Solo $4.17/mes · Paga 10 meses, llévate 12',
+    monthlyPrice: '$4.99',
+    monthlyPeriod: '/mes',
+    annualPrice: '$49.99',
+    annualPeriod: '/año',
+    annualNote: 'Solo $4.17/mes · Paga 10 meses, llévate 12',
     features: [
       { text: 'Todo de Gratis +' },
       { text: 'Presupuestos ilimitados' },
@@ -75,9 +82,11 @@ const plans: PricingPlan[] = [
     name: 'PRO',
     badge: 'Automatización total',
     badgeVariant: 'subtle',
-    price: '$99.99',
-    period: '/año',
-    annual: 'Solo $8.33/mes · Paga 10 meses, llévate 12',
+    monthlyPrice: '$9.99',
+    monthlyPeriod: '/mes',
+    annualPrice: '$99.99',
+    annualPeriod: '/año',
+    annualNote: 'Solo $8.33/mes · Paga 10 meses, llévate 12',
     features: [
       { text: 'Todo de Plus +' },
       { text: 'Sincronización de email (Gmail/Outlook)' },
@@ -94,8 +103,65 @@ const plans: PricingPlan[] = [
   },
 ];
 
-function PricingCard({ plan, index }: { plan: PricingPlan; index: number }) {
+function BillingToggle({
+  isAnnual,
+  onToggle,
+}: {
+  isAnnual: boolean;
+  onToggle: () => void;
+}) {
+  return (
+    <div className="flex items-center justify-center gap-3 mb-12">
+      <span
+        className={`text-sm font-medium transition-colors duration-300 ${
+          !isAnnual ? 'text-finzen-black' : 'text-finzen-gray'
+        }`}
+      >
+        Mensual
+      </span>
+
+      <button
+        onClick={onToggle}
+        className="relative w-14 h-7 rounded-full transition-colors duration-300 focus:outline-none focus:ring-2 focus:ring-finzen-blue/30"
+        style={{ backgroundColor: isAnnual ? '#204274' : '#b0b8be' }}
+        aria-label="Cambiar entre facturación mensual y anual"
+      >
+        <span
+          className={`absolute top-0.5 left-0.5 w-6 h-6 bg-white rounded-full shadow-md transition-transform duration-300 ${
+            isAnnual ? 'translate-x-7' : 'translate-x-0'
+          }`}
+        />
+      </button>
+
+      <span
+        className={`text-sm font-medium transition-colors duration-300 ${
+          isAnnual ? 'text-finzen-black' : 'text-finzen-gray'
+        }`}
+      >
+        Anual
+      </span>
+
+      <span className="bg-finzen-green/15 text-finzen-green text-xs font-semibold px-2.5 py-1 rounded-full">
+        Ahorra 17%
+      </span>
+    </div>
+  );
+}
+
+function PricingCard({
+  plan,
+  index,
+  isAnnual,
+}: {
+  plan: PricingPlan;
+  index: number;
+  isAnnual: boolean;
+}) {
   const { ref, isInView } = useInView<HTMLDivElement>();
+
+  const price = isAnnual ? plan.annualPrice : plan.monthlyPrice;
+  const period = isAnnual ? plan.annualPeriod : plan.monthlyPeriod;
+  const showNote = isAnnual && plan.annualNote;
 
   return (
     <div
@@ -117,15 +183,17 @@ function PricingCard({ plan, index }: { plan: PricingPlan; index: number }) {
 
         <div className="mb-6">
           <div className="flex items-baseline gap-1">
-            <span className="font-hendangan text-5xl text-finzen-black">
-              {plan.price}
+            <span className="font-hendangan text-5xl text-finzen-black transition-all duration-300">
+              {price}
             </span>
-            {plan.period && (
-              <span className="text-finzen-gray text-base">{plan.period}</span>
+            {period && (
+              <span className="text-finzen-gray text-base">{period}</span>
             )}
           </div>
-          {plan.annual && (
-            <p className="text-finzen-green font-semibold text-sm mt-2">{plan.annual}</p>
+          {showNote && (
+            <p className="text-finzen-green font-semibold text-sm mt-2">
+              {plan.annualNote}
+            </p>
           )}
         </div>
 
@@ -157,18 +225,30 @@ function PricingCard({ plan, index }: { plan: PricingPlan; index: number }) {
 }
 
 export default function Pricing() {
+  const [isAnnual, setIsAnnual] = useState(true);
+
   return (
     <SectionWrapper id="pricing" background="light">
       <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-finzen-black text-center mb-3">
         Planes que crecen contigo
       </h2>
-      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto">
+      <p className="text-finzen-gray text-center mb-8 max-w-2xl mx-auto">
         Empieza gratis. Actualiza cuando quieras. Sin sorpresas.
       </p>
 
+      <BillingToggle
+        isAnnual={isAnnual}
+        onToggle={() => setIsAnnual(!isAnnual)}
+      />
+
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
         {plans.map((plan, i) => (
-          <PricingCard key={plan.planId} plan={plan} index={i} />
+          <PricingCard
+            key={plan.planId}
+            plan={plan}
+            index={i}
+            isAnnual={isAnnual}
+          />
         ))}
       </div>
 
@@ -177,7 +257,8 @@ export default function Pricing() {
         quieras.
       </p>
       <p className="text-finzen-gray/50 text-xs text-center mt-4">
-        FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un asistente de IA que te ayuda a organizar tus finanzas.
+        FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un
+        asistente de IA que te ayuda a organizar tus finanzas.
       </p>
     </SectionWrapper>
   );

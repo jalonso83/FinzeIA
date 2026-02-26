@@ -39,7 +39,7 @@ export default function FinalCTA() {
             onClick={() => trackDownloadIOS('footer_cta')}
             className="min-w-[180px]"
           >
-            App Store
+            Da el primer paso
           </Button>
           {/* Google Play — oculto temporalmente
           {(device === 'android' || device === 'desktop') && (
