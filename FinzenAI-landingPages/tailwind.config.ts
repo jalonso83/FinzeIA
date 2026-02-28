@@ -15,6 +15,8 @@ const config: Config = {
           white: '#f7f9fa',
           black: '#1a1a1a',
           gray: '#b0b8be',
+          red: '#ef4444',
+          yellow: '#f59e0b',
         }
       },
       fontFamily: {
