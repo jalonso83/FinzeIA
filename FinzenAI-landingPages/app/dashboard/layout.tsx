@@ -3,7 +3,6 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import Image from 'next/image';
 import { LayoutDashboard, BarChart3, LogOut } from 'lucide-react';
 
 const navItems = [
@@ -56,15 +55,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/dashboard" className="shrink-0">
-            <div className="relative w-[180px] h-[45px]">
-              <Image
-                src="/logo-dashboard.png"
-                alt="FinZen AI"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+            <img
+              src="/logo-dashboard.png"
+              alt="FinZen AI"
+              className="h-10 w-auto"
+            />
           </Link>
 
           {/* Nav Tabs */}

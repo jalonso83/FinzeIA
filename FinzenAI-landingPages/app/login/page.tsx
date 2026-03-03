@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
-import Image from 'next/image';
 import Link from 'next/link';
 import { Eye, EyeOff, Lock, Mail, ArrowLeft } from 'lucide-react';
 
@@ -47,15 +46,11 @@ export default function LoginPage() {
       <nav className="bg-white border-b border-finzen-gray/20">
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16">
           <Link href="/" className="shrink-0">
-            <div className="relative w-[180px] h-[45px]">
-              <Image
-                src="/logo-dashboard.png"
-                alt="FinZen AI"
-                fill
-                className="object-contain"
-                priority
-              />
-            </div>
+            <img
+              src="/logo-dashboard.png"
+              alt="FinZen AI"
+              className="h-10 w-auto"
+            />
           </Link>
           <Link
             href="/"
@@ -73,14 +68,11 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-lg border border-finzen-gray/10 p-8">
             {/* Logo */}
             <div className="flex justify-center mb-6">
-              <div className="relative w-32 h-32">
-                <Image
-                  src="/logo-finzen-icon.png"
-                  alt="FinZen AI"
-                  fill
-                  className="object-contain"
-                />
-              </div>
+              <img
+                src="/logo-finzen-icon.png"
+                alt="FinZen AI"
+                className="w-32 h-32 object-contain"
+              />
             </div>
 
             {/* Title */}
