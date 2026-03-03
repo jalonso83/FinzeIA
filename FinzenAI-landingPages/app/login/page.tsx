@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-lg border border-finzen-gray/10 p-8">
             {/* Logo */}
             <div className="flex justify-center mb-6">
-              <div className="relative w-24 h-24">
+              <div className="relative w-32 h-32">
                 <Image
                   src="/logo-finzen-icon.png"
                   alt="FinZen AI"
