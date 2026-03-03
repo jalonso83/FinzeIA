@@ -1,10 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+// Fallback admin emails in case env var fails to load
+const FALLBACK_ADMIN_EMAILS = [
+  'jalonso83@gmail.com',
+  'junior.urena15@gmail.com',
+];
+
+function getAdminEmails(): string[] {
+  const envEmails = process.env.ADMIN_EMAILS;
+  if (envEmails && envEmails.trim().length > 0) {
+    return envEmails.split(',').map(e => e.trim().toLowerCase().replace(/\r/g, ''));
+  }
+  return FALLBACK_ADMIN_EMAILS;
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
-    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    const ADMIN_EMAILS = getAdminEmails();
     const BACKEND_URL = process.env.BACKEND_URL || 'https://finzenai-backend-production.up.railway.app';
 
     if (!email || !password) {
@@ -15,7 +29,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Check whitelist before calling backend
-    if (!ADMIN_EMAILS.includes(email.toLowerCase())) {
+    if (!ADMIN_EMAILS.includes(email.toLowerCase().trim())) {
       return NextResponse.json(
         { error: 'No tienes permisos de administrador' },
         { status: 403 }

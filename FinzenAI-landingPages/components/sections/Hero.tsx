@@ -51,11 +51,11 @@ export default function Hero() {
                   variant="outline-white"
                   size="md"
                   icon={<Play size={18} />}
-                  className="min-w-[180px] opacity-80 cursor-default"
+                  className="min-w-[180px] opacity-80 cursor-default border-2"
                 >
                   Google Play
                 </Button>
-                <span className="text-white/50 text-xs mt-1.5">Próximamente</span>
+                <span className="text-white/50 text-xs mt-3">Próximamente</span>
               </div>
             </div>
 

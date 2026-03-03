@@ -49,7 +49,7 @@ export default function LoginPage() {
           <Link href="/" className="shrink-0">
             <div className="relative w-[180px] h-[45px]">
               <Image
-                src="/logo-finzen-horizontal.png"
+                src="/logo-dashboard.png"
                 alt="FinZen AI"
                 fill
                 className="object-contain"
