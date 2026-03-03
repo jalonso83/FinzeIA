@@ -1,6 +1,7 @@
 'use client';
 
-import { usePathname } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { LayoutDashboard, BarChart3, LogOut } from 'lucide-react';
@@ -10,8 +11,43 @@ const navItems = [
   { label: 'Detalles', href: '/dashboard/detalles', icon: BarChart3 },
 ];
 
+interface AdminUser {
+  name: string;
+  email: string;
+}
+
+function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((w) => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2);
+}
+
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
+  const [user, setUser] = useState<AdminUser | null>(null);
+
+  useEffect(() => {
+    try {
+      const cookie = document.cookie
+        .split('; ')
+        .find((c) => c.startsWith('admin-user='));
+      if (cookie) {
+        const value = decodeURIComponent(cookie.split('=').slice(1).join('='));
+        setUser(JSON.parse(value));
+      }
+    } catch {
+      // ignore parse errors
+    }
+  }, []);
+
+  const handleLogout = async () => {
+    await fetch('/api/auth/logout', { method: 'POST' });
+    router.push('/login');
+  };
 
   return (
     <div className="min-h-screen bg-finzen-white">
@@ -56,11 +92,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* User / Logout */}
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-finzen-blue flex items-center justify-center">
-              <span className="text-white text-xs font-bold">JL</span>
+              <span className="text-white text-xs font-bold">
+                {user ? getInitials(user.name) : '??'}
+              </span>
             </div>
+            <span className="hidden sm:inline text-sm text-finzen-black font-medium">
+              {user?.name || ''}
+            </span>
             <button
               className="flex items-center gap-1.5 text-sm text-finzen-gray hover:text-finzen-red transition-colors"
-              onClick={() => {/* TODO: logout */}}
+              onClick={handleLogout}
             >
               <LogOut size={16} />
               <span className="hidden sm:inline">Salir</span>
