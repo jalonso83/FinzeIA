@@ -73,7 +73,7 @@ export default function LoginPage() {
           <div className="bg-white rounded-2xl shadow-lg border border-finzen-gray/10 p-8">
             {/* Logo */}
             <div className="flex justify-center mb-6">
-              <div className="relative w-16 h-16">
+              <div className="relative w-24 h-24">
                 <Image
                   src="/logo-finzen-icon.png"
                   alt="FinZen AI"
@@ -88,7 +88,7 @@ export default function LoginPage() {
               Panel de Administración
             </h1>
             <p className="text-sm text-finzen-gray text-center mb-8">
-              Acceso exclusivo para el equipo fundador
+              Acceso exclusivo para administradores
             </p>
 
             {/* Form */}

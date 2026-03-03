@@ -46,20 +46,17 @@ export default function Hero() {
               >
                 App Store
               </Button>
-              {/* Google Play — oculto temporalmente
-              {(device === 'android' || device === 'desktop') && (
+              <div className="flex flex-col items-center">
                 <Button
                   variant="outline-white"
                   size="md"
-                  href={getPlayStoreLink('hero')}
                   icon={<Play size={18} />}
-                  onClick={() => trackDownloadAndroid('hero')}
-                  className="min-w-[180px]"
+                  className="min-w-[180px] opacity-80 cursor-default"
                 >
                   Google Play
                 </Button>
-              )}
-              */}
+                <span className="text-white/50 text-xs mt-1.5">Próximamente</span>
+              </div>
             </div>
 
             <p className="text-white/50 text-sm font-rubik">

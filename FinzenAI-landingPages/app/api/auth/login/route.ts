@@ -1,11 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
 
-const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
-const BACKEND_URL = process.env.BACKEND_URL || 'https://finzenai-backend-production.up.railway.app';
-
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
+
+    const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map(e => e.trim().toLowerCase());
+    const BACKEND_URL = process.env.BACKEND_URL || 'https://finzenai-backend-production.up.railway.app';
 
     if (!email || !password) {
       return NextResponse.json(
