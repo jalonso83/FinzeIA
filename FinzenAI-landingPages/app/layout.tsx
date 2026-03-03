@@ -16,6 +16,9 @@ const playfairDisplay = Playfair_Display({
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://finzenai.com'),
+  alternates: {
+    canonical: 'https://finzenai.com',
+  },
   title: 'FinZen AI | El Amigo que Sabe de Dinero que Siempre Quisiste Tener',
   description:
     'Registra gastos hablando, controla presupuestos y ahorra con Zenio, tu copiloto financiero con IA. Descarga gratis en App Store y Google Play.',
