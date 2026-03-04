@@ -42,7 +42,7 @@ export default function Hero() {
                 href={getAppStoreLink('hero')}
                 icon={<Apple size={18} />}
                 onClick={() => trackDownloadIOS('hero')}
-                className="min-w-[180px]"
+                className="min-w-[180px] border-2 border-transparent"
               >
                 App Store
               </Button>
@@ -51,11 +51,11 @@ export default function Hero() {
                   variant="outline-white"
                   size="md"
                   icon={<Play size={18} />}
-                  className="min-w-[180px] opacity-80 cursor-default border-2"
+                  className="min-w-[180px] opacity-80 cursor-default"
                 >
                   Google Play
                 </Button>
-                <span className="text-white/50 text-xs mt-3">Próximamente</span>
+                <span className="text-white/50 text-xs mt-2">Próximamente</span>
               </div>
             </div>
 

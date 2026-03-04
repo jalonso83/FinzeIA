@@ -47,7 +47,7 @@ export default function LoginPage() {
         <div className="max-w-7xl mx-auto px-4 md:px-8 flex items-center justify-between h-16">
           <Link href="/" className="shrink-0">
             <img
-              src="/logo-dashboard.png"
+              src="/logo-horizontal.png"
               alt="FinZen AI"
               className="h-10 w-auto"
             />

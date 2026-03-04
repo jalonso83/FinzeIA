@@ -56,7 +56,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
           {/* Logo */}
           <Link href="/dashboard" className="shrink-0">
             <img
-              src="/logo-dashboard.png"
+              src="/logo-horizontal.png"
               alt="FinZen AI"
               className="h-10 w-auto"
             />
