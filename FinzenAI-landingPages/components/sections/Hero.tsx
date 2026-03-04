@@ -35,14 +35,14 @@ export default function Hero() {
             </p>
 
             {/* CTAs conditioned by device */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start mb-8">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-start mb-8">
               <Button
                 variant="primary"
                 size="md"
                 href={getAppStoreLink('hero')}
                 icon={<Apple size={18} />}
                 onClick={() => trackDownloadIOS('hero')}
-                className="min-w-[180px] border-2 border-transparent"
+                className="min-w-[200px] h-[52px]"
               >
                 App Store
               </Button>
@@ -51,7 +51,7 @@ export default function Hero() {
                   variant="outline-white"
                   size="md"
                   icon={<Play size={18} />}
-                  className="min-w-[180px] opacity-80 cursor-default"
+                  className="min-w-[200px] h-[52px] cursor-default"
                 >
                   Google Play
                 </Button>
