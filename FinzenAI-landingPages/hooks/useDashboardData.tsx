@@ -1,0 +1,75 @@
+'use client';
+
+import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { useRouter } from 'next/navigation';
+import {
+  fetchAllDashboardData,
+  type DateRange,
+  type PulseData,
+  type UsersData,
+  type RevenueData,
+  type EngagementData,
+} from '@/lib/dashboard-api';
+
+interface DashboardState {
+  range: DateRange;
+  setRange: (r: DateRange) => void;
+  pulse: PulseData | null;
+  users: UsersData | null;
+  revenue: RevenueData | null;
+  engagement: EngagementData | null;
+  loading: boolean;
+  error: string | null;
+}
+
+const DashboardContext = createContext<DashboardState | null>(null);
+
+export function DashboardProvider({ children }: { children: ReactNode }) {
+  const router = useRouter();
+  const [range, setRange] = useState<DateRange>('30d');
+  const [pulse, setPulse] = useState<PulseData | null>(null);
+  const [users, setUsers] = useState<UsersData | null>(null);
+  const [revenue, setRevenue] = useState<RevenueData | null>(null);
+  const [engagement, setEngagement] = useState<EngagementData | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchData = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const data = await fetchAllDashboardData(range);
+      setPulse(data.pulse);
+      setUsers(data.users);
+      setRevenue(data.revenue);
+      setEngagement(data.engagement);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      if (msg === 'UNAUTHORIZED') {
+        router.push('/login');
+        return;
+      }
+      setError(msg);
+    } finally {
+      setLoading(false);
+    }
+  }, [range, router]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
+
+  return (
+    <DashboardContext.Provider
+      value={{ range, setRange, pulse, users, revenue, engagement, loading, error }}
+    >
+      {children}
+    </DashboardContext.Provider>
+  );
+}
+
+export function useDashboardData(): DashboardState {
+  const ctx = useContext(DashboardContext);
+  if (!ctx) throw new Error('useDashboardData must be used within DashboardProvider');
+  return ctx;
+}

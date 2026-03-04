@@ -1,17 +1,22 @@
 'use client';
 
-import { funnelData } from '@/lib/dashboard-mock-data';
+interface FunnelStep {
+  etapa: string;
+  valor: number;
+  porcentaje: string;
+}
 
-export default function FunnelChart() {
-  const maxValue = funnelData[0].valor;
+export default function FunnelChart({ data }: { data: FunnelStep[] }) {
+  if (!data.length) return null;
+  const maxValue = data[0].valor;
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
       <h3 className="text-sm font-semibold text-finzen-black mb-5">Funnel de Conversión</h3>
       <div className="space-y-3">
-        {funnelData.map((step, index) => {
-          const widthPercent = Math.max((step.valor / maxValue) * 100, 8);
-          const isLast = index === funnelData.length - 1;
+        {data.map((step, index) => {
+          const widthPercent = maxValue > 0 ? Math.max((step.valor / maxValue) * 100, 8) : 8;
+          const isLast = index === data.length - 1;
 
           return (
             <div key={step.etapa} className="flex items-center gap-4">

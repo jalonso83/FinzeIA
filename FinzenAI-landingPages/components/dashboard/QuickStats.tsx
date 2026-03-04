@@ -1,15 +1,22 @@
 'use client';
 
 import { Clock } from 'lucide-react';
-import { quickStats } from '@/lib/dashboard-mock-data';
 
-export default function QuickStats() {
+interface QuickStatsData {
+  retencionD1: string;
+  retencionD7: string;
+  retencionD30: string;
+  dauMau: string;
+  trialToPaid: string;
+}
+
+export default function QuickStats({ data }: { data: QuickStatsData | null }) {
   const stats = [
-    { label: 'Retención D1', value: quickStats.retencionD1 },
-    { label: 'D7', value: quickStats.retencionD7 },
-    { label: 'D30', value: quickStats.retencionD30 },
-    { label: 'DAU/MAU', value: quickStats.dauMau },
-    { label: 'Trial → Paid', value: quickStats.trialToPaid },
+    { label: 'Retención D1', value: data?.retencionD1 ?? '—' },
+    { label: 'D7', value: data?.retencionD7 ?? '—' },
+    { label: 'D30', value: data?.retencionD30 ?? '—' },
+    { label: 'DAU/MAU', value: data?.dauMau ?? '—' },
+    { label: 'Trial → Paid', value: data?.trialToPaid ?? '—' },
   ];
 
   return (
@@ -23,7 +30,7 @@ export default function QuickStats() {
         ))}
         <div className="flex items-center gap-1.5 ml-auto text-finzen-gray">
           <Clock size={14} />
-          <span className="text-xs">{quickStats.ultimaActualizacion}</span>
+          <span className="text-xs">en vivo</span>
         </div>
       </div>
     </div>

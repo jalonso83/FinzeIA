@@ -1,6 +1,12 @@
 'use client';
 
-import { cohortData } from '@/lib/dashboard-mock-data';
+interface CohortRow {
+  semana: string;
+  d1: number | null;
+  d7: number | null;
+  d14: number | null;
+  d30: number | null;
+}
 
 function getCellColor(value: number | null): string {
   if (value === null) return 'bg-finzen-white text-finzen-gray';
@@ -10,8 +16,17 @@ function getCellColor(value: number | null): string {
   return 'bg-finzen-red/10 text-finzen-red';
 }
 
-export default function CohortHeatmap() {
+export default function CohortHeatmap({ data }: { data: CohortRow[] }) {
   const periods = ['D1', 'D7', 'D14', 'D30'];
+
+  if (!data.length) {
+    return (
+      <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
+        <h3 className="text-sm font-semibold text-finzen-black mb-5">Cohortes de Retención</h3>
+        <p className="text-sm text-finzen-gray">Sin datos de cohortes para este período</p>
+      </div>
+    );
+  }
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
@@ -29,7 +44,7 @@ export default function CohortHeatmap() {
             </tr>
           </thead>
           <tbody>
-            {cohortData.map((row) => (
+            {data.map((row) => (
               <tr key={row.semana}>
                 <td className="text-sm font-medium text-finzen-black py-1.5 pr-4">{row.semana}</td>
                 {[row.d1, row.d7, row.d14, row.d30].map((val, i) => (
