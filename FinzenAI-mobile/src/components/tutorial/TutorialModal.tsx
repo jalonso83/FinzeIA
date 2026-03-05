@@ -10,7 +10,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import TutorialSlide from './TutorialSlide';
 import ProgressBar from './ProgressBar';
@@ -105,6 +105,7 @@ export default function TutorialModal({
         backgroundColor="#1e293b"
         translucent={false}
       />
+      <SafeAreaProvider>
       <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
         {/* Progress Bars */}
         <View style={styles.progressContainer}>
@@ -206,6 +207,7 @@ export default function TutorialModal({
           </TouchableOpacity>
         </View>
       </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

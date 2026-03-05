@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Switch } from 'react-native';
+import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, Alert, KeyboardAvoidingView, Platform, Switch, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import api from '../../utils/api';
+import api, { authAPI } from '../../utils/api';
 import CustomModal from '../modals/CustomModal';
 import { useBiometric } from '../../hooks/useBiometric';
 import { useAuthStore } from '../../stores/auth';
@@ -77,9 +77,16 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   const [errorMessage, setErrorMessage] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
 
+  // Delete account states
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [showDeletePassword, setShowDeletePassword] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState('');
+  const [deleting, setDeleting] = useState(false);
+
   // Hook de biometría
   const { isAvailable, isEnabled, biometricType, enable, disable } = useBiometric();
-  const { clearBiometricCredentials } = useAuthStore();
+  const { logout, clearBiometricCredentials } = useAuthStore();
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -250,6 +257,27 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
         'No se pudo cambiar la configuración de biometría. Intenta nuevamente.',
         [{ text: 'OK' }]
       );
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!deletePassword) {
+      setDeleteError('Ingresa tu contraseña');
+      return;
+    }
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await authAPI.deleteAccount(deletePassword);
+      setShowDeletePassword(false);
+      setDeletePassword('');
+      await clearBiometricCredentials();
+      await logout();
+    } catch (error: any) {
+      const msg = error?.response?.data?.message || 'Error al eliminar la cuenta';
+      setDeleteError(msg);
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -597,6 +625,16 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                 </Text>
               </TouchableOpacity>
             </View>
+
+            {/* Zona de Peligro */}
+            <View style={styles.dangerDivider} />
+            <TouchableOpacity
+              style={styles.deleteAccountButton}
+              onPress={() => setShowDeleteConfirm(true)}
+            >
+              <Ionicons name="trash-outline" size={18} color="#dc2626" />
+              <Text style={styles.deleteAccountText}>Eliminar mi cuenta</Text>
+            </TouchableOpacity>
           </ScrollView>
           </KeyboardAvoidingView>
 
@@ -652,6 +690,83 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
             buttonText="Entendido"
             onClose={() => setShowErrorModal(false)}
           />
+
+          {/* Modal 1: Confirmación de eliminar cuenta */}
+          <Modal visible={showDeleteConfirm} transparent animationType="fade">
+            <View style={styles.deleteOverlay}>
+              <View style={styles.deleteModal}>
+                <View style={styles.deleteIconContainer}>
+                  <Ionicons name="warning" size={40} color="#dc2626" />
+                </View>
+                <Text style={styles.deleteModalTitle}>¿Eliminar tu cuenta?</Text>
+                <Text style={styles.deleteModalText}>
+                  Esta acción es permanente y no se puede deshacer. Se eliminarán todos tus datos: transacciones, presupuestos, metas, historial, suscripción y configuración.
+                </Text>
+                <View style={styles.deleteModalButtons}>
+                  <TouchableOpacity
+                    style={styles.deleteModalCancelBtn}
+                    onPress={() => setShowDeleteConfirm(false)}
+                  >
+                    <Text style={styles.deleteModalCancelText}>Cancelar</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.deleteModalContinueBtn}
+                    onPress={() => {
+                      setShowDeleteConfirm(false);
+                      setDeletePassword('');
+                      setDeleteError('');
+                      setShowDeletePassword(true);
+                    }}
+                  >
+                    <Text style={styles.deleteModalContinueText}>Continuar</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </View>
+          </Modal>
+
+          {/* Modal 2: Confirmar con contraseña */}
+          <Modal visible={showDeletePassword} transparent animationType="fade">
+            <View style={styles.deleteOverlay}>
+              <View style={styles.deleteModal}>
+                <View style={styles.deleteIconContainer}>
+                  <Ionicons name="lock-closed" size={36} color="#dc2626" />
+                </View>
+                <Text style={styles.deleteModalTitle}>Confirma tu identidad</Text>
+                <Text style={styles.deleteModalText}>
+                  Ingresa tu contraseña para confirmar la eliminación de tu cuenta.
+                </Text>
+                <TextInput
+                  style={[styles.deletePasswordInput, deleteError ? styles.deletePasswordInputError : null]}
+                  placeholder="Tu contraseña"
+                  secureTextEntry
+                  value={deletePassword}
+                  onChangeText={(text) => { setDeletePassword(text); setDeleteError(''); }}
+                  autoFocus
+                />
+                {deleteError ? (
+                  <Text style={styles.deleteErrorText}>{deleteError}</Text>
+                ) : null}
+                <TouchableOpacity
+                  style={[styles.deleteConfirmBtn, deleting && styles.disabledButton]}
+                  onPress={handleDeleteAccount}
+                  disabled={deleting}
+                >
+                  {deleting ? (
+                    <ActivityIndicator color="white" size="small" />
+                  ) : (
+                    <Text style={styles.deleteConfirmBtnText}>Eliminar cuenta permanentemente</Text>
+                  )}
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={styles.deleteCancelLink}
+                  onPress={() => { setShowDeletePassword(false); setDeletePassword(''); setDeleteError(''); }}
+                >
+                  <Text style={styles.deleteCancelLinkText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
         </SafeAreaView>
       </Modal>
     </>
@@ -895,5 +1010,137 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#64748b',
     marginLeft: 32,
+  },
+  // Zona de peligro - Eliminar cuenta
+  dangerDivider: {
+    height: 1,
+    backgroundColor: '#e5e7eb',
+    marginTop: 32,
+    marginBottom: 16,
+  },
+  deleteAccountButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 14,
+    gap: 8,
+    marginBottom: 40,
+  },
+  deleteAccountText: {
+    fontSize: 15,
+    color: '#dc2626',
+    fontWeight: '500',
+  },
+  // Modales de eliminación
+  deleteOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  deleteModal: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 28,
+    width: '100%',
+    maxWidth: 360,
+    alignItems: 'center',
+  },
+  deleteIconContainer: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    backgroundColor: '#fef2f2',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 16,
+  },
+  deleteModalTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 10,
+    textAlign: 'center',
+  },
+  deleteModalText: {
+    fontSize: 14,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 21,
+    marginBottom: 24,
+  },
+  deleteModalButtons: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+  },
+  deleteModalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#f3f4f6',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  deleteModalCancelText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#374151',
+  },
+  deleteModalContinueBtn: {
+    flex: 1,
+    backgroundColor: '#fef2f2',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#fecaca',
+  },
+  deleteModalContinueText: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#dc2626',
+  },
+  deletePasswordInput: {
+    width: '100%',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    borderRadius: 12,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    fontSize: 16,
+    color: '#1e293b',
+    marginBottom: 8,
+  },
+  deletePasswordInputError: {
+    borderColor: '#dc2626',
+  },
+  deleteErrorText: {
+    color: '#dc2626',
+    fontSize: 13,
+    marginBottom: 8,
+    alignSelf: 'flex-start',
+  },
+  deleteConfirmBtn: {
+    width: '100%',
+    backgroundColor: '#dc2626',
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: 'center',
+    marginTop: 8,
+  },
+  deleteConfirmBtnText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  deleteCancelLink: {
+    paddingVertical: 14,
+  },
+  deleteCancelLinkText: {
+    fontSize: 15,
+    color: '#64748b',
+    fontWeight: '500',
   },
 });

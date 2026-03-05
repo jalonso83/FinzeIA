@@ -12,6 +12,7 @@ interface Transaction {
   id: string;
   amount: number;
   type: 'INCOME' | 'EXPENSE';
+  category_id?: string;
   category?: {
     id: string;
     name: string;

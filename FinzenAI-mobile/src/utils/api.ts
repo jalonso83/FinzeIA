@@ -136,6 +136,7 @@ export interface Transaction {
   type: 'INCOME' | 'EXPENSE';
   date: string;
   category_id: string;
+  categoryId?: string;
   category?: Category;
   userId: string;
 }
@@ -209,14 +210,14 @@ export const authAPI = {
     lastName: string;
     email: string;
     password: string;
-    phone: string;
-    birthDate: string;
+    phone?: string;
+    birthDate?: string;
     country: string;
-    state: string;
-    city: string;
+    state?: string;
+    city?: string;
     currency: string;
     preferredLanguage: string;
-    occupation: string;
+    occupation?: string;
     company?: string;
     referralCode?: string;
   }) =>
@@ -234,8 +235,8 @@ export const authAPI = {
   getProfile: () => 
     api.get('/auth/profile'),
 
-  updateProfile: (userData: { 
-    name?: string; 
+  updateProfile: (userData: {
+    name?: string;
     lastName?: string;
     phone?: string;
     birthDate?: string;
@@ -246,8 +247,11 @@ export const authAPI = {
     preferredLanguage?: string;
     occupation?: string;
     company?: string;
-  }) => 
+  }) =>
     api.put('/auth/profile', userData),
+
+  deleteAccount: (password: string) =>
+    api.delete('/auth/account', { data: { password } }),
 };
 
 // API de gamificación
