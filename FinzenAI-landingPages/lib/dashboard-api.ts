@@ -68,6 +68,47 @@ export interface EngagementData {
   period: { from: string; to: string };
 }
 
+// ─── Users List (CRM) Types ─────────────────────────────────────
+
+export interface UserListItem {
+  id: string;
+  name: string;
+  lastName: string;
+  email: string;
+  country: string;
+  verified: boolean;
+  createdAt: string;
+  plan: 'FREE' | 'PREMIUM' | 'PRO';
+  subscriptionStatus: string | null;
+  trialEndsAt: string | null;
+  currentPeriodEnd: string | null;
+  transactionCount: number;
+  lastActivity: string | null;
+}
+
+export interface UserListPagination {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
+}
+
+export interface UsersListResponse {
+  users: UserListItem[];
+  pagination: UserListPagination;
+}
+
+export interface UsersListParams {
+  page?: number;
+  limit?: number;
+  search?: string;
+  plan?: string;
+  status?: string;
+  country?: string;
+  sortBy?: string;
+  sortOrder?: 'asc' | 'desc';
+}
+
 // ─── Helpers ────────────────────────────────────────────────────
 
 export function computeDateParams(range: DateRange): { from: string; to: string } {
@@ -103,4 +144,36 @@ export async function fetchAllDashboardData(range: DateRange) {
   ]);
 
   return { pulse, users, revenue, engagement };
+}
+
+// ─── Users List API ─────────────────────────────────────────────
+
+export async function fetchUsersList(params: UsersListParams): Promise<UsersListResponse> {
+  const searchParams = new URLSearchParams();
+  if (params.page) searchParams.set('page', String(params.page));
+  if (params.limit) searchParams.set('limit', String(params.limit));
+  if (params.search) searchParams.set('search', params.search);
+  if (params.plan) searchParams.set('plan', params.plan);
+  if (params.status) searchParams.set('status', params.status);
+  if (params.country) searchParams.set('country', params.country);
+  if (params.sortBy) searchParams.set('sortBy', params.sortBy);
+  if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+
+  const res = await fetch(`/api/admin/users/list?${searchParams.toString()}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as UsersListResponse;
+}
+
+export async function fetchDistinctCountries(): Promise<string[]> {
+  const res = await fetch('/api/admin/users/countries');
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as string[];
 }

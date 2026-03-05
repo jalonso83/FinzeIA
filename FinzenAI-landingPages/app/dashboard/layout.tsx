@@ -3,12 +3,13 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BarChart3, LogOut } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, LogOut } from 'lucide-react';
 import { DashboardProvider } from '@/hooks/useDashboardData';
 
 const navItems = [
   { label: 'Pulso', href: '/dashboard', icon: LayoutDashboard },
   { label: 'Detalles', href: '/dashboard/detalles', icon: BarChart3 },
+  { label: 'Usuarios', href: '/dashboard/usuarios', icon: Users },
 ];
 
 interface AdminUser {
