@@ -234,8 +234,8 @@ export const authAPI = {
   getProfile: () => 
     api.get('/auth/profile'),
 
-  updateProfile: (userData: { 
-    name?: string; 
+  updateProfile: (userData: {
+    name?: string;
     lastName?: string;
     phone?: string;
     birthDate?: string;
@@ -246,8 +246,11 @@ export const authAPI = {
     preferredLanguage?: string;
     occupation?: string;
     company?: string;
-  }) => 
+  }) =>
     api.put('/auth/profile', userData),
+
+  deleteAccount: (password: string) =>
+    api.delete('/auth/account', { data: { password } }),
 };
 
 // API de gamificación

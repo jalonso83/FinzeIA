@@ -162,7 +162,7 @@ export default function RegisterScreen() {
     if (!form.email) newErrors.email = 'El email es obligatorio';
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) newErrors.email = 'Email inválido';
     if (!form.password) newErrors.password = 'La contraseña es obligatoria';
-    else if (form.password.length < 6) newErrors.password = 'Mínimo 6 caracteres';
+    else if (form.password.length < 8) newErrors.password = 'Mínimo 8 caracteres';
     if (!form.confirmPassword) newErrors.confirmPassword = 'Confirma tu contraseña';
     else if (form.password !== form.confirmPassword) newErrors.confirmPassword = 'Las contraseñas no coinciden';
     if (!form.country) newErrors.country = 'El país es obligatorio';

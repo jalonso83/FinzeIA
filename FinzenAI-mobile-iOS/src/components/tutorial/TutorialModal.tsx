@@ -10,7 +10,7 @@ import {
   StatusBar,
   Platform,
 } from 'react-native';
-import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import TutorialSlide from './TutorialSlide';
 import ProgressBar from './ProgressBar';
@@ -40,7 +40,6 @@ export default function TutorialModal({
   const [currentIndex, setCurrentIndex] = useState(0);
   const scrollViewRef = useRef<ScrollView>(null);
   const autoAdvanceTimerRef = useRef<NodeJS.Timeout | null>(null);
-  const insets = useSafeAreaInsets();
 
   const handleNext = () => {
     if (currentIndex < tutorial.slides.length - 1) {
@@ -106,7 +105,8 @@ export default function TutorialModal({
         backgroundColor="#1e293b"
         translucent={false}
       />
-      <View style={[styles.container, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
+      <SafeAreaProvider>
+      <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
         {/* Progress Bars */}
         <View style={styles.progressContainer}>
           {tutorial.slides.map((_, index) => (
@@ -206,7 +206,8 @@ export default function TutorialModal({
             />
           </TouchableOpacity>
         </View>
-      </View>
+      </SafeAreaView>
+      </SafeAreaProvider>
     </Modal>
   );
 }

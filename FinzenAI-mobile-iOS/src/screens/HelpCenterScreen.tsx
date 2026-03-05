@@ -104,7 +104,7 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerTop}>
-          <Text style={styles.title}>Centro de Ayuda</Text>
+          <Text style={styles.title} numberOfLines={1}>Centro de Ayuda</Text>
           <View style={styles.headerRight}>
             <View style={styles.statsContainer}>
               <Text style={styles.statsText}>
@@ -298,6 +298,7 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: 'bold',
     color: '#1e293b',
+    flex: 1,
   },
   headerRight: {
     flexDirection: 'row',
