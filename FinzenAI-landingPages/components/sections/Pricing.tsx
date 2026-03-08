@@ -184,7 +184,7 @@ function PricingCard({
 
         <div className="mb-6">
           <div className="flex items-baseline gap-1">
-            <span className="font-hendangan text-5xl text-finzen-black transition-all duration-300">
+            <span className="font-playfair text-5xl text-finzen-black transition-all duration-300">
               {price}
             </span>
             {period && (

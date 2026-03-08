@@ -20,8 +20,8 @@ const config: Config = {
         }
       },
       fontFamily: {
-        rubik: ['Rubik', 'sans-serif'],
-        hendangan: ['Hendangan', 'Playfair Display', 'serif'],
+        rubik: ['var(--font-rubik)', 'sans-serif'],
+        playfair: ['var(--font-playfair)', 'serif'],
       },
       fontSize: {
         'xs': ['0.75rem', { lineHeight: '1.5', letterSpacing: '0.05em' }],

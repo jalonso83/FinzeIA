@@ -61,7 +61,7 @@ export default function Solution() {
             <div className="grid grid-cols-3 gap-4 mb-8">
               {stats.map((stat) => (
                 <div key={stat.value} className="text-center">
-                  <p className="font-hendangan text-4xl md:text-5xl text-white mb-1">
+                  <p className="font-playfair text-4xl md:text-5xl text-white mb-1">
                     {stat.value}
                   </p>
                   <p className="text-white/60 text-sm">{stat.label}</p>
