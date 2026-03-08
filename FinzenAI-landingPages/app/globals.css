@@ -16,6 +16,14 @@ html {
   scroll-behavior: smooth;
 }
 
+/* Typography enhancements */
+body {
+  font-feature-settings: 'kern' 1, 'liga' 1;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
 /* Hide scrollbar on mobile menu */
 .no-scrollbar::-webkit-scrollbar {
   display: none;
@@ -31,4 +39,70 @@ html {
 }
 .animate-on-scroll.is-visible {
   opacity: 1;
+}
+
+/* Enhanced text shadows for better readability */
+.text-shadow-soft {
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+.text-shadow-medium {
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.15);
+}
+
+.text-shadow-strong {
+  text-shadow: 0 4px 8px rgba(0, 0, 0, 0.25);
+}
+
+/* Better focus indicators */
+*:focus {
+  outline: 2px solid rgba(108, 173, 127, 0.5);
+  outline-offset: 2px;
+}
+
+/* Improved selection colors */
+::selection {
+  background-color: rgba(108, 173, 127, 0.2);
+  color: inherit;
+}
+
+/* Prevent layout shift on animations */
+.transform-gpu {
+  transform: translateZ(0);
+}
+
+/* Simple icon styles */
+.icon-container {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+}
+
+.icon-gradient {
+  background: linear-gradient(135deg, rgba(108, 173, 127, 0.1) 0%, rgba(32, 66, 116, 0.1) 100%);
+  border: 1px solid rgba(108, 173, 127, 0.2);
+  border-radius: 8px;
+}
+
+.icon-hover-effect:hover {
+  transform: scale(1.05);
+}
+
+/* Custom scrollbar for webkit browsers */
+::-webkit-scrollbar {
+  width: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: rgba(176, 184, 190, 0.1);
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(108, 173, 127, 0.6);
+  border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: rgba(108, 173, 127, 0.8);
 }

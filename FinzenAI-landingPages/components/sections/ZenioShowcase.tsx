@@ -1,6 +1,7 @@
 'use client';
 
 import { Check } from 'lucide-react';
+import Icon from '@/components/ui/Icon';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 import { useInView } from '@/hooks/useInView';
 
@@ -38,10 +39,10 @@ export default function ZenioShowcase() {
   return (
     <section id="zenio" className="bg-finzen-blue">
       <div className="py-16 md:py-24 px-4 md:px-8 max-w-7xl mx-auto">
-        <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-white text-center mb-3">
+        <h2 className="font-rubik font-bold italic text-3xl md:text-4xl text-white text-center mb-3 tracking-tight animate-fade-in-down" style={{textShadow: '0 2px 4px rgba(0,0,0,0.3)'}}>
           Conoce a Zenio, tu copiloto financiero
         </h2>
-        <p className="text-white/70 text-center mb-12 max-w-2xl mx-auto text-lg">
+        <p className="text-white/70 text-center mb-12 max-w-2xl mx-auto text-lg leading-relaxed font-normal tracking-wide animate-fade-in-up">
           Como tener un amigo que sabe de dinero, disponible 24/7
         </p>
 
@@ -84,13 +85,18 @@ export default function ZenioShowcase() {
           <div>
             <ul className="space-y-4">
               {bullets.map((bullet, i) => (
-                <li key={i} className="flex items-start gap-3">
-                  <Check
-                    size={20}
-                    strokeWidth={2.5}
-                    className="text-finzen-green mt-0.5 shrink-0"
-                  />
-                  <span className="text-white text-base md:text-lg">
+                <li key={i} className="flex items-start gap-3 group hover:transform hover:translate-x-2 transition-all duration-300">
+                  <div className="mt-0.5 shrink-0">
+                    <Icon 
+                      icon={Check} 
+                      color="text-finzen-green" 
+                      variant="filled"
+                      size={16}
+                      animate={false}
+                      className="group-hover:scale-110 transition-transform duration-200"
+                    />
+                  </div>
+                  <span className="text-white text-base md:text-lg leading-relaxed font-normal">
                     {bullet}
                   </span>
                 </li>
@@ -98,7 +104,7 @@ export default function ZenioShowcase() {
             </ul>
 
             <div className="mt-8 pt-6 border-t border-white/10">
-              <p className="text-white/80 text-base italic">
+              <p className="text-white/80 text-base italic leading-relaxed font-light">
                 A diferencia de otras apps de finanzas, con FinZen AI no llenas
                 formularios. Solo hablas.
               </p>

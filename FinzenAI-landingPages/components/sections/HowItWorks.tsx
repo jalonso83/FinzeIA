@@ -30,10 +30,11 @@ export default function HowItWorks() {
 
   return (
     <SectionWrapper id="how-it-works" background="light">
-      <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-finzen-black text-center mb-4">
+      <h2 className="font-rubik font-bold italic text-3xl md:text-4xl text-finzen-black text-center mb-4 tracking-tight animate-fade-in-down"
+          style={{textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
         Empieza en 2 minutos
       </h2>
-      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto">
+      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto leading-relaxed font-normal tracking-wide animate-fade-in-up">
         Tres pasos. Sin complicaciones.
       </p>
 
@@ -54,19 +55,26 @@ export default function HowItWorks() {
               className="flex md:flex-col items-start md:items-center md:text-center gap-4 md:gap-0 relative"
             >
               {/* Step circle */}
-              <div className="w-16 h-16 rounded-full bg-finzen-blue/10 flex items-center justify-center shrink-0 relative z-10 md:mb-6">
-                <Icon icon={step.icon} color="text-finzen-blue" />
+              <div className="w-16 h-16 rounded-full bg-finzen-blue/10 flex items-center justify-center shrink-0 relative z-10 md:mb-6 border border-finzen-blue/20 shadow-lg hover:shadow-xl hover:scale-110 transition-all duration-300 group">
+                <Icon 
+                  icon={step.icon} 
+                  color="text-finzen-blue" 
+                  variant="default"
+                  size={24}
+                  animate={false}
+                  className="group-hover:text-finzen-green transition-colors duration-300"
+                />
               </div>
 
               <div>
                 {/* Step number */}
-                <span className="text-finzen-green text-sm font-semibold mb-1 block">
+                <span className="text-finzen-green text-sm font-bold mb-1 block tracking-wider uppercase">
                   Paso {i + 1}
                 </span>
-                <h3 className="font-rubik font-semibold text-xl text-finzen-black mb-2">
+                <h3 className="font-rubik font-bold text-xl text-finzen-black mb-2 tracking-tight" style={{textShadow: '0 1px 2px rgba(0,0,0,0.05)'}}>
                   {step.title}
                 </h3>
-                <p className="text-finzen-gray text-base">
+                <p className="text-finzen-gray text-base leading-relaxed font-normal">
                   {step.description}
                 </p>
               </div>

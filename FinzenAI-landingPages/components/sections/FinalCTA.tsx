@@ -1,7 +1,8 @@
 'use client';
 
-import { Apple, Play } from 'lucide-react';
+import { Play } from 'lucide-react';
 import Button from '@/components/ui/Button';
+import AppleLogo from '@/components/ui/AppleLogo';
 import { useDeviceDetect } from '@/hooks/useDeviceDetect';
 import { getAppStoreLink, getPlayStoreLink } from '@/lib/constants';
 import { trackDownloadIOS, trackDownloadAndroid } from '@/lib/analytics';
@@ -35,7 +36,7 @@ export default function FinalCTA() {
             variant="primary"
             size="md"
             href={getAppStoreLink('footer_cta')}
-            icon={<Apple size={18} />}
+            icon={<AppleLogo size={18} />}
             onClick={() => trackDownloadIOS('footer_cta')}
             className="min-w-[180px]"
           >

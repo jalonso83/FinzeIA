@@ -33,18 +33,24 @@ function AnimatedCard({
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ${
+      className={`transition-all duration-700 transform ${
         isInView
-          ? 'opacity-100 translate-y-0'
-          : 'opacity-0 translate-y-5'
+          ? 'opacity-100 translate-y-0 scale-100'
+          : 'opacity-0 translate-y-5 scale-95'
       }`}
       style={{ transitionDelay: `${index * 150}ms` }}
     >
-      <Card className="text-center h-full">
+      <Card className="text-center h-full group hover:shadow-xl hover:-translate-y-2 transition-all duration-400">
         <div className="flex justify-center mb-4">
-          <Icon icon={point.icon} color="text-finzen-green" />
+          <Icon 
+            icon={point.icon} 
+            color="text-finzen-green" 
+            variant="gradient"
+            size={40}
+            animate={false}
+          />
         </div>
-        <p className="text-finzen-black font-rubik text-base md:text-lg">
+        <p className="text-finzen-black font-rubik font-medium text-base md:text-lg leading-relaxed tracking-normal">
           {point.text}
         </p>
       </Card>
@@ -58,10 +64,11 @@ export default function PainPoints() {
 
   return (
     <SectionWrapper id="pain-points" background="white">
-      <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-finzen-black text-center mb-4">
+      <h2 className="font-rubik font-bold italic text-3xl md:text-4xl text-finzen-black text-center mb-4 tracking-tight animate-fade-in-down"
+          style={{textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
         Seamos honestos...
       </h2>
-      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto">
+      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto leading-relaxed font-normal tracking-wide animate-fade-in-up">
         Si alguna de estas te suena, no estás solo.
       </p>
 
@@ -73,14 +80,14 @@ export default function PainPoints() {
 
       <div
         ref={closingRef}
-        className={`max-w-3xl mx-auto text-center transition-all duration-700 ${
-          closingVisible ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+        className={`max-w-3xl mx-auto text-center transition-all duration-700 transform ${
+          closingVisible ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-5 scale-95'
         }`}
       >
-        <p className="text-finzen-black text-lg md:text-xl font-rubik leading-relaxed">
+        <p className="text-finzen-black text-lg md:text-xl font-rubik font-normal leading-relaxed tracking-normal">
           No es tu culpa. Nadie te enseñó a manejar tu dinero, y las
           herramientas financieras tradicionales no fueron diseñadas para ti.{' '}
-          <span className="font-semibold text-finzen-blue">Hasta ahora.</span>
+          <span className="font-bold text-finzen-blue tracking-tight" style={{textShadow: '0 1px 2px rgba(0,0,0,0.05)'}}>Hasta ahora.</span>
         </p>
       </div>
     </SectionWrapper>

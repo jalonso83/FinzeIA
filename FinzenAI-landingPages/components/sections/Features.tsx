@@ -70,19 +70,27 @@ function FeatureCard({
   return (
     <div
       ref={ref}
-      className={`transition-all duration-700 ${
-        isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
+      className={`transition-all duration-700 transform ${
+        isInView ? 'opacity-100 translate-y-0 scale-100' : 'opacity-0 translate-y-5 scale-95'
       }`}
       style={{ transitionDelay: `${index * 100}ms` }}
     >
-      <Card className="h-full">
-        <div className="mb-4">
-          <Icon icon={feature.icon} color={feature.color} />
+      <Card className="h-full group hover:shadow-xl hover:-translate-y-2 transition-all duration-400">
+        <div className="mb-4 flex justify-center">
+          <Icon 
+            icon={feature.icon} 
+            color={feature.color} 
+            variant="gradient" 
+            size={32}
+            animate={false}
+            className="mb-2"
+          />
         </div>
-        <h3 className="font-rubik font-semibold text-xl text-finzen-black mb-2">
+        <h3 className="font-rubik font-bold text-xl text-finzen-black mb-3 tracking-tight leading-tight text-center"
+            style={{textShadow: '0 1px 2px rgba(0,0,0,0.05)'}}>
           {feature.title}
         </h3>
-        <p className="text-finzen-gray text-base leading-relaxed">
+        <p className="text-finzen-gray text-base leading-relaxed font-normal tracking-normal text-center">
           {feature.description}
         </p>
       </Card>
@@ -93,10 +101,11 @@ function FeatureCard({
 export default function Features() {
   return (
     <SectionWrapper id="features" background="white">
-      <h2 className="font-rubik font-semibold italic text-3xl md:text-4xl text-finzen-black text-center mb-4">
+      <h2 className="font-rubik font-bold italic text-3xl md:text-4xl text-finzen-black text-center mb-4 tracking-tight leading-tight animate-fade-in-down"
+          style={{textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
         Esto es lo que Zenio hace por ti
       </h2>
-      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto">
+      <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto leading-relaxed font-normal tracking-wide animate-fade-in-up">
         Todo lo que necesitas para tomar el control de tus finanzas, en un solo
         lugar.
       </p>

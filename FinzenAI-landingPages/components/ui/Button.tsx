@@ -15,19 +15,19 @@ interface ButtonProps {
 
 const variantStyles: Record<ButtonVariant, string> = {
   primary:
-    'bg-finzen-green text-white rounded-xl font-rubik font-semibold hover:opacity-90 transition-all duration-300',
+    'bg-finzen-green text-white rounded-xl font-rubik font-bold hover:opacity-90 hover:scale-105 hover:shadow-lg transition-all duration-300 transform',
   secondary:
-    'border-2 border-finzen-blue text-finzen-blue rounded-xl font-rubik font-semibold hover:bg-finzen-blue hover:text-white transition-all duration-300',
+    'border-2 border-finzen-blue text-finzen-blue rounded-xl font-rubik font-bold hover:bg-finzen-blue hover:text-white hover:scale-105 hover:shadow-lg transition-all duration-300 transform',
   'outline-white':
-    'border-2 border-white text-white rounded-xl font-rubik font-semibold hover:bg-white hover:text-finzen-blue transition-all duration-300',
+    'border-2 border-white text-white rounded-xl font-rubik font-bold hover:bg-white hover:text-finzen-blue hover:scale-105 hover:shadow-lg transition-all duration-300 transform',
   ghost:
-    'text-finzen-blue font-rubik font-semibold hover:underline transition-all duration-300',
+    'text-finzen-blue font-rubik font-semibold hover:underline hover:scale-105 transition-all duration-300 transform tracking-wide',
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-  sm: 'px-4 py-2 text-sm',
-  md: 'px-6 py-3 text-base',
-  lg: 'px-8 py-4 text-lg',
+  sm: 'px-4 py-2 text-sm tracking-wide',
+  md: 'px-6 py-3 text-base tracking-normal',
+  lg: 'px-8 py-4 text-lg tracking-wide',
 };
 
 export default function Button({
@@ -39,7 +39,7 @@ export default function Button({
   className = '',
   onClick,
 }: ButtonProps) {
-  const classes = `inline-flex items-center justify-center gap-2 whitespace-nowrap ${variantStyles[variant]} ${sizeStyles[size]} ${className}`;
+  const classes = `inline-flex items-center justify-center gap-2 whitespace-nowrap ${variantStyles[variant]} ${sizeStyles[size]} ${className} focus:outline-none focus:ring-2 focus:ring-finzen-green/50 focus:ring-offset-2`;
 
   if (href) {
     return (

@@ -84,13 +84,13 @@ export default function Navbar() {
         <div className="hidden md:flex items-center gap-3">
           <Link
             href="/login"
-            className={`flex items-center gap-1.5 text-sm font-medium transition-colors duration-200 ${
+            className={`flex items-center gap-1.5 text-sm font-medium transition-all duration-200 hover:scale-105 ${
               scrolled
                 ? 'text-finzen-gray hover:text-finzen-blue'
                 : 'text-white/70 hover:text-white'
             }`}
           >
-            <LogIn size={16} />
+            <LogIn size={16} className="transition-transform duration-200 hover:rotate-12" />
             Iniciar Sesión
           </Link>
           <a

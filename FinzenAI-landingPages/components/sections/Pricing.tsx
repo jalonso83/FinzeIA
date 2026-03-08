@@ -6,6 +6,7 @@ import SectionWrapper from '@/components/ui/SectionWrapper';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
+import Icon from '@/components/ui/Icon';
 import { useInView } from '@/hooks/useInView';
 import { getAppStoreLink } from '@/lib/constants';
 import { trackPricingPlan } from '@/lib/analytics';
@@ -199,13 +200,18 @@ function PricingCard({
 
         <ul className="space-y-3 mb-8 flex-grow">
           {plan.features.map((feature, i) => (
-            <li key={i} className="flex items-start gap-2">
-              <Check
-                size={18}
-                strokeWidth={2.5}
-                className="text-finzen-green mt-0.5 shrink-0"
-              />
-              <span className="text-finzen-black text-sm">{feature.text}</span>
+            <li key={i} className="flex items-start gap-3 group hover:transform hover:translate-x-1 transition-all duration-200">
+              <div className="mt-0.5 shrink-0">
+                <Icon 
+                  icon={Check} 
+                  color="text-finzen-green" 
+                  variant="filled"
+                  size={14}
+                  animate={false}
+                  className="group-hover:scale-110 transition-transform duration-200"
+                />
+              </div>
+              <span className="text-finzen-black text-sm leading-relaxed font-normal">{feature.text}</span>
             </li>
           ))}
         </ul>
