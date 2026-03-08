@@ -19,6 +19,13 @@ export const metadata: Metadata = {
   alternates: {
     canonical: 'https://finzenai.com',
   },
+  icons: {
+    icon: [
+      { url: '/favicon.ico', sizes: 'any' },
+      { url: '/icon.png', type: 'image/png' },
+    ],
+    apple: '/apple-touch-icon.png',
+  },
   title: 'FinZen AI | El Amigo que Sabe de Dinero que Siempre Quisiste Tener',
   description:
     'Registra gastos hablando, controla presupuestos y ahorra con Zenio, tu copiloto financiero con IA. Descarga gratis en App Store y Google Play.',
