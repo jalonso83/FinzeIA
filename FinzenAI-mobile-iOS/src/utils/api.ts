@@ -95,31 +95,18 @@ api.interceptors.response.use(
     logger.log('Response status:', error.response?.status);
     logger.log('Response data:', error.response?.data);
 
-    // Manejar errores de autenticación
-    if (error.response?.status === 401) {
-      const errorMessage = error.response?.data?.message || '';
+    // Manejar errores de autenticación (401 y 403 con token inválido)
+    const status = error.response?.status;
+    const errorMessage = (error.response?.data?.message || '').toLowerCase();
 
-      // Si el token es inválido (JWT_SECRET rotado, token corrupto, etc.)
-      if (errorMessage.toLowerCase().includes('invalid token') ||
-          errorMessage.toLowerCase().includes('token') ||
-          errorMessage.toLowerCase().includes('jwt')) {
-        logger.log('🔒 Token inválido detectado, forzando logout...');
+    if (status === 401 || (status === 403 && errorMessage.includes('invalid token'))) {
+      const shouldSkipLogout = SKIP_LOGOUT_ENDPOINTS.some(endpoint => url.includes(endpoint));
+
+      if (!shouldSkipLogout) {
+        logger.log('Token invalido detectado, forzando logout...');
         await removeToken();
-
-        // Forzar logout si hay callback configurado
         if (forceLogoutCallback) {
           forceLogoutCallback();
-        }
-      } else {
-        // Verificar si es un endpoint que no debe causar logout
-        const shouldSkipLogout = SKIP_LOGOUT_ENDPOINTS.some(endpoint => url.includes(endpoint));
-
-        if (!shouldSkipLogout) {
-          // Limpiar token y forzar logout solo para endpoints críticos
-          await removeToken();
-          logger.log('Token inválido, limpiando almacenamiento...');
-        } else {
-          logger.log('401 en endpoint no crítico, no se hace logout');
         }
       }
     }
