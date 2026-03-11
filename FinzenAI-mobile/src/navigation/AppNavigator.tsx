@@ -965,10 +965,10 @@ export default function AppNavigator() {
       logger.log('✅ Biometría habilitada exitosamente');
 
       if (user) {
-        const token = await AsyncStorage.getItem('token');
+        const token = useAuthStore.getState().token;
         if (token) {
           await saveBiometricCredentials(user, token);
-          logger.log('🔐 Credenciales guardadas en SecureStore');
+          logger.log('Credenciales biometricas guardadas');
         }
       }
 

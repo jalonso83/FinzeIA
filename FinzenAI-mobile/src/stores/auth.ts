@@ -75,8 +75,18 @@ export const useAuthStore = create<AuthState>()(
             // Actualizar credenciales biométricas con datos frescos
             await SecureStore.setItemAsync('biometric_user', JSON.stringify(freshUser));
             logger.log('✅ Datos de usuario actualizados desde servidor');
-          } catch (profileError) {
-            logger.log('⚠️ No se pudo refrescar perfil, usando datos en cache');
+          } catch (profileError: any) {
+            const status = profileError?.response?.status;
+            if (status === 401 || status === 403) {
+              logger.log('Token biometrico expirado, forzando login limpio');
+              await removeToken();
+              await SecureStore.deleteItemAsync('biometric_user').catch(() => {});
+              await SecureStore.deleteItemAsync('biometric_token').catch(() => {});
+              await SecureStore.deleteItemAsync('biometric_enabled').catch(() => {});
+              set({ user: null, token: null, isAuthenticated: false, isLoading: false });
+              return false;
+            }
+            logger.log('Error de red, usando datos en cache');
           }
 
           logger.log('✅ Login biométrico exitoso');
@@ -109,17 +119,19 @@ export const useAuthStore = create<AuthState>()(
         }
       },
       logout: async () => {
-        logger.log('🚪 Ejecutando logout...');
+        logger.log('Ejecutando logout...');
         await removeToken();
-        // No eliminamos credenciales biométricas en logout normal
-        // El usuario debe deshabilitarlo manualmente desde settings
+        // Limpiar credenciales biométricas para evitar re-login con token expirado
+        await SecureStore.deleteItemAsync('biometric_user').catch(() => {});
+        await SecureStore.deleteItemAsync('biometric_token').catch(() => {});
+        await SecureStore.deleteItemAsync('biometric_enabled').catch(() => {});
         set({
           user: null,
           token: null,
           isAuthenticated: false,
           isLoading: false,
         });
-        logger.log('✅ Logout completado');
+        logger.log('Logout completado');
       },
       setLoading: (loading: boolean) =>
         set({
