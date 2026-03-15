@@ -62,9 +62,9 @@ const IconShowcase = () => {
                         icon={item.icon}
                         color={item.color}
                         variant={variant as any}
-                        animate={variant === 'floating' || variant === 'neon'}
-                        glow={variant === 'floating'}
-                        size="md"
+                        animate={variant === 'gradient' || variant === 'outlined'}
+                        size={24}
+                      />
                   <span className="text-xs text-finzen-gray text-center">
                     {item.icon.name}
                   </span>
