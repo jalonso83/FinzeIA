@@ -801,8 +801,9 @@ export default function TransactionsScreen() {
           setEditingTransaction(null);
         }}
         onSuccess={() => {
-          loadTransactions();
+          setShowForm(false);
           setEditingTransaction(null);
+          loadTransactions();
         }}
         editTransaction={editingTransaction}
       />

@@ -149,6 +149,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     if (visible) {
       loadCategories();
       loadLastExchangeRates();
+
+      // Resetear estados del conversor de moneda
+      setShowConverter(false);
+      setConversionDirection('foreignToBase');
+      setForeignAmount('');
+      setForeignCurrency('USD');
+      setExchangeRate('');
+      setConverterErrors({});
+      setConvertedAmount(null);
+
       if (editTransaction) {
         const categoryId = editTransaction.category?.id || editTransaction.categoryId || '';
 
@@ -208,12 +218,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       const selectedCategory = categories.find(cat => cat.id === formData.categoryId);
       const isCompatible = selectedCategory && (selectedCategory.type === formData.type || selectedCategory.type === 'BOTH');
 
-      // Si la categoría no es compatible, buscar una por defecto o limpiar
+      // Si la categoría no es compatible, buscar una por defecto del mismo tipo
       if (!isCompatible) {
-        setFormData(prev => ({ ...prev, categoryId: '' }));
+        const defaultCat = categories.find(cat => cat.type === formData.type);
+        setFormData(prev => ({ ...prev, categoryId: defaultCat?.id || '' }));
       }
     }
-  }, [categories, editTransaction]);
+  }, [categories]);
 
   const loadCategories = async () => {
     try {
