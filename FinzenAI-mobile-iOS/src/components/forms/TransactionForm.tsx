@@ -18,7 +18,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { categoriesAPI, transactionsAPI, Category, Transaction } from '../../utils/api';
+import { categoriesAPI, transactionsAPI, exchangeRatesAPI, Category, Transaction } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
@@ -65,7 +65,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     date: '',
   });
 
-  // Currency converter state (replicando exactamente la web)
+  // Currency converter state
   const [showConverter, setShowConverter] = useState(false);
   const [conversionDirection, setConversionDirection] = useState<'foreignToBase' | 'baseToForeign'>('foreignToBase');
   const [foreignAmount, setForeignAmount] = useState('');
@@ -74,6 +74,24 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [converterErrors, setConverterErrors] = useState<Record<string, string>>({});
   const [convertedAmount, setConvertedAmount] = useState<number | null>(null);
   const [lastExchangeRates, setLastExchangeRates] = useState<Record<string, number>>({});
+  const [showCurrencyPicker, setShowCurrencyPicker] = useState(false);
+  const [loadingRate, setLoadingRate] = useState(false);
+  const [backendRates, setBackendRates] = useState<Record<string, { rateToDop: number; rateToUsd: number }>>({});
+  const [rateSource, setRateSource] = useState<'auto' | 'manual'>('auto');
+
+  // Monedas disponibles (las más comunes para RD)
+  const AVAILABLE_CURRENCIES = [
+    { code: 'USD', name: 'Dólar USA', flag: '🇺🇸' },
+    { code: 'EUR', name: 'Euro', flag: '🇪🇺' },
+    { code: 'GBP', name: 'Libra Esterlina', flag: '🇬🇧' },
+    { code: 'CAD', name: 'Dólar Canadiense', flag: '🇨🇦' },
+    { code: 'MXN', name: 'Peso Mexicano', flag: '🇲🇽' },
+    { code: 'COP', name: 'Peso Colombiano', flag: '🇨🇴' },
+    { code: 'BRL', name: 'Real Brasileño', flag: '🇧🇷' },
+    { code: 'CHF', name: 'Franco Suizo', flag: '🇨🇭' },
+    { code: 'JPY', name: 'Yen Japonés', flag: '🇯🇵' },
+    { code: 'CNY', name: 'Yuan Chino', flag: '🇨🇳' },
+  ];
   
   // Dashboard store para notificar cambios
   const { onTransactionChange } = useDashboardStore();
@@ -150,17 +168,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       loadCategories();
       loadLastExchangeRates();
 
-      // Resetear estados del conversor de moneda
-      setShowConverter(false);
-      setConversionDirection('foreignToBase');
-      setForeignAmount('');
-      setForeignCurrency('USD');
-      setExchangeRate('');
-      setConverterErrors({});
-      setConvertedAmount(null);
-
       if (editTransaction) {
-        const categoryId = editTransaction.category?.id || editTransaction.categoryId || '';
+        const categoryId = editTransaction.category?.id || editTransaction.category_id || '';
 
         const backendDate = editTransaction.date.split('T')[0]; // YYYY-MM-DD
         const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
@@ -201,16 +210,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   }, [foreignAmount, exchangeRate, foreignCurrency, conversionDirection]);
   
-  // Effect to set exchange rate when foreign currency changes (replicando la web)
+  // Effect to auto-fill exchange rate when foreign currency changes
   useEffect(() => {
-    if (lastExchangeRates[`${currency.code}_${foreignCurrency}`] && conversionDirection === 'foreignToBase') {
-      setExchangeRate(lastExchangeRates[`${currency.code}_${foreignCurrency}`].toString());
-    } else if (lastExchangeRates[`${foreignCurrency}_${currency.code}`] && conversionDirection === 'baseToForeign') {
-      setExchangeRate(lastExchangeRates[`${foreignCurrency}_${currency.code}`].toString());
-    } else {
-      setExchangeRate('');
+    if (showConverter) {
+      autoFillRate(foreignCurrency, conversionDirection);
     }
-  }, [foreignCurrency, conversionDirection, lastExchangeRates]);
+  }, [foreignCurrency, conversionDirection, backendRates]);
   
   // Effect para validar categoría después de cargar las categorías (similar a la web)
   useEffect(() => {
@@ -240,25 +245,79 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
-  // Load last exchange rates from AsyncStorage (equivalente a localStorage en web)
+  // Fetch exchange rates from backend and cache in AsyncStorage
   const loadLastExchangeRates = async () => {
     try {
+      // First load cached rates from AsyncStorage (instant)
       const savedRates = await AsyncStorage.getItem('lastExchangeRates');
       if (savedRates) {
         setLastExchangeRates(JSON.parse(savedRates));
       }
+
+      // Then fetch fresh rates from backend
+      const response = await exchangeRatesAPI.getAll();
+      if (response.data.success && response.data.rates.length > 0) {
+        const ratesMap: Record<string, { rateToDop: number; rateToUsd: number }> = {};
+        response.data.rates.forEach((r) => {
+          ratesMap[r.currency] = { rateToDop: r.rateToDop, rateToUsd: r.rateToUsd };
+        });
+        setBackendRates(ratesMap);
+
+        // Also update lastExchangeRates format for backward compatibility
+        const legacyRates: Record<string, number> = {};
+        response.data.rates.forEach((r) => {
+          legacyRates[`${currency.code}_${r.currency}`] = r.rateToDop;
+        });
+        setLastExchangeRates(legacyRates);
+        await AsyncStorage.setItem('lastExchangeRates', JSON.stringify(legacyRates));
+        await AsyncStorage.setItem('backendRates', JSON.stringify(ratesMap));
+      }
     } catch (error) {
-      logger.error('Error loading saved exchange rates:', error);
+      logger.error('Error loading exchange rates:', error);
+      // Fallback: load cached backend rates
+      try {
+        const cachedBackend = await AsyncStorage.getItem('backendRates');
+        if (cachedBackend) {
+          setBackendRates(JSON.parse(cachedBackend));
+        }
+      } catch (e) {
+        // Silent fail
+      }
     }
   };
 
-  // Open currency converter (replicando la web)
+  // Auto-fill exchange rate from backend rates
+  const autoFillRate = (currencyCode: string, direction: 'foreignToBase' | 'baseToForeign') => {
+    const rateData = backendRates[currencyCode];
+    if (rateData && currency.code === 'DOP') {
+      setExchangeRate(rateData.rateToDop.toFixed(4));
+      setRateSource('auto');
+      return;
+    }
+    // Fallback to legacy cached rates
+    const legacyKey = direction === 'foreignToBase'
+      ? `${currency.code}_${currencyCode}`
+      : `${currencyCode}_${currency.code}`;
+    if (lastExchangeRates[legacyKey]) {
+      setExchangeRate(lastExchangeRates[legacyKey].toString());
+      setRateSource('auto');
+    } else {
+      setExchangeRate('');
+      setRateSource('manual');
+    }
+  };
+
+  // Open currency converter
   const openConverter = () => {
     setShowConverter(true);
     setForeignAmount('');
     setConvertedAmount(null);
     setConverterErrors({});
-    
+    setShowCurrencyPicker(false);
+
+    // Auto-fill rate for current currency
+    autoFillRate(foreignCurrency, conversionDirection);
+
     if (formData.amount && !isNaN(parseFloat(formData.amount)) && parseFloat(formData.amount) > 0 && conversionDirection === 'baseToForeign') {
       setForeignAmount(formData.amount);
     }
@@ -267,6 +326,12 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   // Close currency converter (replicando la web)
   const closeConverter = () => {
     setShowConverter(false);
+    setConversionDirection('foreignToBase');
+    setForeignAmount('');
+    setForeignCurrency('USD');
+    setExchangeRate('');
+    setConverterErrors({});
+    setConvertedAmount(null);
   };
   
   // Toggle conversion direction (replicando la web)
@@ -671,18 +736,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           buttonText="Entendido"
           onClose={() => setShowErrorModal(false)}
         />
-      </SafeAreaView>
-      </Modal>
 
-      {/* Currency Converter Modal (replicando exactamente la web) */}
-      {showConverter && (
-        <Modal
-          visible={showConverter}
-          transparent
-          animationType="slide"
-          onRequestClose={closeConverter}
-        >
-          <View style={styles.converterModalOverlay}>
+        {/* Currency Converter - View superpuesta dentro del mismo Modal (iOS no soporta modales anidados) */}
+        {showConverter && (
+          <View style={styles.converterOverlay}>
             <SafeAreaView style={styles.converterModalContainer}>
               {/* Header */}
               <View style={styles.converterHeader}>
@@ -691,8 +748,58 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   <Ionicons name="close" size={24} color="#64748b" />
                 </TouchableOpacity>
               </View>
-              
-              <ScrollView style={styles.converterContent}>
+
+              <ScrollView style={styles.converterContent} keyboardShouldPersistTaps="handled">
+                {/* Currency Picker */}
+                <View style={styles.converterFormGroup}>
+                  <Text style={styles.converterLabel}>Moneda</Text>
+                  <TouchableOpacity
+                    style={styles.currencyPickerButton}
+                    onPress={() => setShowCurrencyPicker(!showCurrencyPicker)}
+                  >
+                    <Text style={styles.currencyPickerFlag}>
+                      {AVAILABLE_CURRENCIES.find(c => c.code === foreignCurrency)?.flag || '💱'}
+                    </Text>
+                    <Text style={styles.currencyPickerText}>
+                      {foreignCurrency} - {AVAILABLE_CURRENCIES.find(c => c.code === foreignCurrency)?.name || foreignCurrency}
+                    </Text>
+                    <Ionicons
+                      name={showCurrencyPicker ? 'chevron-up' : 'chevron-down'}
+                      size={20}
+                      color="#64748b"
+                    />
+                  </TouchableOpacity>
+
+                  {showCurrencyPicker && (
+                    <View style={styles.currencyPickerDropdown}>
+                      {AVAILABLE_CURRENCIES.filter(c => c.code !== currency.code).map((curr) => (
+                        <TouchableOpacity
+                          key={curr.code}
+                          style={[
+                            styles.currencyPickerOption,
+                            foreignCurrency === curr.code && styles.currencyPickerOptionActive
+                          ]}
+                          onPress={() => {
+                            setForeignCurrency(curr.code);
+                            setShowCurrencyPicker(false);
+                          }}
+                        >
+                          <Text style={styles.currencyPickerOptionFlag}>{curr.flag}</Text>
+                          <Text style={[
+                            styles.currencyPickerOptionText,
+                            foreignCurrency === curr.code && styles.currencyPickerOptionTextActive
+                          ]}>
+                            {curr.code} - {curr.name}
+                          </Text>
+                          {foreignCurrency === curr.code && (
+                            <Ionicons name="checkmark" size={18} color="#2563EB" />
+                          )}
+                        </TouchableOpacity>
+                      ))}
+                    </View>
+                  )}
+                </View>
+
                 {/* Conversion Direction Toggle */}
                 <View style={styles.conversionDirectionToggle}>
                   <TouchableOpacity
@@ -727,7 +834,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
                 {/* Foreign Amount */}
                 <View style={styles.converterFormGroup}>
-                  <Text style={styles.converterLabel}>Monto en {foreignCurrency}</Text>
+                  <Text style={styles.converterLabel}>
+                    Monto en {foreignCurrency}
+                  </Text>
                   <TextInput
                     style={[
                       styles.converterInput,
@@ -746,21 +855,49 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
                 {/* Exchange Rate */}
                 <View style={styles.converterFormGroup}>
-                  <Text style={styles.converterLabel}>Tasa de Cambio</Text>
-                  <TextInput
-                    style={[
-                      styles.converterInput,
-                      converterErrors.exchangeRate && styles.converterInputError
-                    ]}
-                    value={exchangeRate}
-                    onChangeText={setExchangeRate}
-                    placeholder="0.0000"
-                    placeholderTextColor="#9ca3af"
-                    keyboardType="numeric"
-                  />
+                  <View style={styles.rateLabelRow}>
+                    <Text style={[styles.converterLabel, { marginBottom: 0 }]}>
+                      Tasa de Cambio (1 {foreignCurrency} = ? {currency.code})
+                    </Text>
+                    {rateSource === 'auto' && exchangeRate ? (
+                      <View style={styles.autoRateBadge}>
+                        <Ionicons name="cloud-done-outline" size={12} color="#059669" />
+                        <Text style={styles.autoRateBadgeText}>Auto</Text>
+                      </View>
+                    ) : null}
+                  </View>
+                  <View style={styles.rateInputContainer}>
+                    <TextInput
+                      style={[
+                        styles.converterInput,
+                        { flex: 1 },
+                        converterErrors.exchangeRate && styles.converterInputError
+                      ]}
+                      value={exchangeRate}
+                      onChangeText={(text) => {
+                        setExchangeRate(text);
+                        setRateSource('manual');
+                      }}
+                      placeholder="0.0000"
+                      placeholderTextColor="#9ca3af"
+                      keyboardType="numeric"
+                    />
+                    {loadingRate && (
+                      <ActivityIndicator size="small" color="#2563EB" style={styles.rateLoadingIndicator} />
+                    )}
+                  </View>
                   {converterErrors.exchangeRate && (
                     <Text style={styles.converterErrorText}>{converterErrors.exchangeRate}</Text>
                   )}
+                  {rateSource === 'auto' && exchangeRate ? (
+                    <Text style={styles.rateHintText}>
+                      Tasa del día. Puedes editarla si lo deseas.
+                    </Text>
+                  ) : !exchangeRate ? (
+                    <Text style={styles.rateHintTextWarning}>
+                      No hay tasa disponible. Ingresa la tasa manualmente.
+                    </Text>
+                  ) : null}
                 </View>
 
                 {/* Converted Amount Display */}
@@ -782,7 +919,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 >
                   <Text style={styles.converterCancelButtonText}>Cancelar</Text>
                 </TouchableOpacity>
-                
+
                 <LinearGradient
                   colors={['#2563EB', '#1d4ed8']}
                   style={[styles.converterApplyButton, convertedAmount === null && styles.disabledButton]}
@@ -798,8 +935,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
               </View>
             </SafeAreaView>
           </View>
-        </Modal>
-      )}
+        )}
+      </SafeAreaView>
+      </Modal>
     </>
   );
 };
@@ -1050,6 +1188,16 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'flex-end',
   },
+  converterOverlay: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+    zIndex: 999,
+  },
   converterModalContainer: {
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
@@ -1156,6 +1304,100 @@ const styles = StyleSheet.create({
     color: '#2563EB',
   },
   
+  // Currency Picker
+  currencyPickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f8fafc',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+  },
+  currencyPickerFlag: {
+    fontSize: 20,
+  },
+  currencyPickerText: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#1e293b',
+  },
+  currencyPickerDropdown: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    marginTop: 4,
+    maxHeight: 200,
+    overflow: 'hidden',
+  },
+  currencyPickerOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    gap: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f1f5f9',
+  },
+  currencyPickerOptionActive: {
+    backgroundColor: '#eff6ff',
+  },
+  currencyPickerOptionFlag: {
+    fontSize: 18,
+  },
+  currencyPickerOptionText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#374151',
+  },
+  currencyPickerOptionTextActive: {
+    color: '#2563EB',
+    fontWeight: '600',
+  },
+
+  // Rate label and badges
+  rateLabelRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  autoRateBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ecfdf5',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+    gap: 4,
+  },
+  autoRateBadgeText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#059669',
+  },
+  rateInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  rateLoadingIndicator: {
+    marginLeft: 8,
+  },
+  rateHintText: {
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 4,
+  },
+  rateHintTextWarning: {
+    fontSize: 12,
+    color: '#f59e0b',
+    marginTop: 4,
+  },
+
   // Converter Footer
   converterFooter: {
     flexDirection: 'row',
