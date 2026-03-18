@@ -25,13 +25,15 @@
         "NSMicrophoneUsageDescription": "Esta app necesita acceso al micrófono para permitirte hablar con Zenio, tu asistente financiero.",
         "NSSpeechRecognitionUsageDescription": "Esta app necesita acceso al reconocimiento de voz para transcribir tus consultas financieras a Zenio.",
         "NSFaceIDUsageDescription": "Usamos Face ID para que puedas acceder rápida y seguramente a tu cuenta de FinZen AI sin necesidad de escribir tu contraseña cada vez.",
-        "UIBackgroundModes": ["remote-notification"]
+        "UIBackgroundModes": [
+          "remote-notification"
+        ]
       }
     },
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.jl.alonso.finzenaimobile",
-      "versionCode": 1,
+      "versionCode": 2,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -56,7 +58,10 @@
               "pathPrefix": "/checkout"
             }
           ],
-          "category": ["BROWSABLE", "DEFAULT"]
+          "category": [
+            "BROWSABLE",
+            "DEFAULT"
+          ]
         }
       ]
     },

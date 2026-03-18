@@ -623,4 +623,15 @@ export const referralsAPI = {
     api.get<{ success: boolean; pendingRewards: ReferralReward[]; totalPending: number }>('/referrals/rewards'),
 };
 
+// API de tasas de cambio
+export const exchangeRatesAPI = {
+  // Obtener todas las tasas de cambio actuales
+  getAll: () =>
+    api.get<{ success: boolean; rates: Array<{ currency: string; rateToDop: number; rateToUsd: number; date: string; source: string }>; count: number }>('/exchange-rates'),
+
+  // Obtener tasa de una moneda específica
+  getRate: (currency: string) =>
+    api.get<{ success: boolean; rate: { currency: string; rateToDop: number; rateToUsd: number; date: string; source: string } }>(`/exchange-rates/${currency}`),
+};
+
 export default api;
