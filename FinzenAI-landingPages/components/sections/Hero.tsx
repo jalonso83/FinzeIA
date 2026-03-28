@@ -48,17 +48,15 @@ export default function Hero() {
               >
                 App Store
               </Button>
-              <div className="flex flex-col items-center">
-                <Button
-                  variant="outline-white"
-                  size="md"
-                  icon={<Play size={18} />}
-                  className="min-w-[200px] h-[52px] cursor-default transform hover:scale-105 transition-all duration-300"
-                >
-                  Google Play
-                </Button>
-                <span className="text-white/50 text-xs mt-2 font-medium tracking-wide">Próximamente</span>
-              </div>
+              <Button
+                variant="primary"
+                size="md"
+                href="https://play.google.com/store/apps/details?id=com.jl.alonso.finzenaimobile&pcampaignid=web_share"
+                icon={<Play size={18} />}
+                className="min-w-[200px] h-[52px] transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
+              >
+                Google Play
+              </Button>
             </div>
 
             <p className="text-white/50 text-sm font-rubik font-light tracking-wide animate-pulse-soft">

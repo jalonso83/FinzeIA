@@ -47,10 +47,10 @@ export default function DeleteAccountPage() {
               Si no puedes acceder a la app, envía un correo a:
             </p>
             <a
-              href="mailto:support@finzenai.com?subject=Solicitud%20de%20eliminación%20de%20cuenta&body=Solicito%20la%20eliminación%20de%20mi%20cuenta%20asociada%20al%20correo:%20[TU%20EMAIL]"
+              href="mailto:info@finzenai.com?subject=Solicitud%20de%20eliminación%20de%20cuenta&body=Solicito%20la%20eliminación%20de%20mi%20cuenta%20asociada%20al%20correo:%20[TU%20EMAIL]"
               className="inline-block bg-blue-600 text-white font-medium px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors"
             >
-              support@finzenai.com
+              info@finzenai.com
             </a>
             <p className="text-gray-500 text-sm mt-2">
               Incluye el correo electrónico asociado a tu cuenta.

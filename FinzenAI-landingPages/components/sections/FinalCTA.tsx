@@ -42,20 +42,15 @@ export default function FinalCTA() {
           >
             Da el primer paso
           </Button>
-          {/* Google Play — oculto temporalmente
-          {(device === 'android' || device === 'desktop') && (
-            <Button
-              variant="outline-white"
-              size="md"
-              href={getPlayStoreLink('footer_cta')}
-              icon={<Play size={18} />}
-              onClick={() => trackDownloadAndroid('footer_cta')}
-              className="min-w-[180px]"
-            >
-              Google Play
-            </Button>
-          )}
-          */}
+          <Button
+            variant="primary"
+            size="md"
+            href="https://play.google.com/store/apps/details?id=com.jl.alonso.finzenaimobile&pcampaignid=web_share"
+            icon={<Play size={18} />}
+            className="min-w-[180px]"
+          >
+            Google Play
+          </Button>
         </div>
       </div>
     </section>
