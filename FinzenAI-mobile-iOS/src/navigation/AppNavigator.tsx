@@ -358,11 +358,20 @@ function MainNavigator({ route }: any) {
   }, []);
 
   // Verificar si hay un setup pendiente de biometría
+  // Delay largo (2s) para que el check de HelpCenter corra primero y setee cameFromTutorial.
+  // Si cameFromTutorial es true, NO mostrar biometric — el flag se mantiene en AsyncStorage
+  // y se mostrará la próxima vez que el usuario abra la app (sin competir con HelpCenter + Plans).
   React.useEffect(() => {
     const checkPendingBiometricSetup = async () => {
       try {
-        // Pequeño delay para asegurar que la navegación y otros modales se completen primero
-        await new Promise(resolve => setTimeout(resolve, 800));
+        // Esperar 2 segundos para que el check de onboarding/HelpCenter termine primero
+        await new Promise(resolve => setTimeout(resolve, 2000));
+
+        // Si HelpCenter está abierto o se va a abrir (post-onboarding), no mostrar biometric
+        if (showHelpCenter) {
+          logger.log('🔐 Biometric: HelpCenter abierto — se mostrará en próxima sesión');
+          return;
+        }
 
         const pending = await AsyncStorage.getItem('pendingBiometricSetup');
         const bioType = await AsyncStorage.getItem('biometricType');
@@ -370,14 +379,8 @@ function MainNavigator({ route }: any) {
         if (pending === 'true') {
           logger.log('🔔 Detectado setup pendiente de biometría');
           setStoredBiometricType(bioType || 'Face ID');
-
-          // Limpiar el flag ANTES de mostrar el modal
           await AsyncStorage.removeItem('pendingBiometricSetup');
-
-          // Mostrar modal solo si no hay otros modales abiertos
-          if (!showHelpCenter && !showUserMenu && !showProfileModal && !showPlansModal) {
-            setShowBiometricModal(true);
-          }
+          setShowBiometricModal(true);
         }
       } catch (error) {
         logger.error('Error verificando pending biometric setup:', error);
@@ -745,7 +748,7 @@ function MainNavigator({ route }: any) {
           onClose={() => setShowSubscriptionsModal(false)}
           onViewPayments={() => {
             setShowSubscriptionsModal(false);
-            setTimeout(() => setShowPaymentHistory(true), 300);
+            setTimeout(() => setShowPaymentHistory(true), 500);
           }}
         />
       </Modal>
@@ -799,7 +802,7 @@ function MainNavigator({ route }: any) {
           onClose={() => setShowNotifications(false)}
           onOpenSettings={() => {
             setShowNotifications(false);
-            setTimeout(() => setShowNotificationSettings(true), 300);
+            setTimeout(() => setShowNotificationSettings(true), 500);
           }}
         />
       </Modal>
@@ -847,7 +850,7 @@ function MainNavigator({ route }: any) {
         secondaryButtonText="Gratis"
         onClose={() => {
           setShowPlansModal(false);
-          setShowSubscriptionsModal(true);
+          setTimeout(() => setShowSubscriptionsModal(true), 500);
         }}
         onSecondaryPress={() => setShowPlansModal(false)}
       />

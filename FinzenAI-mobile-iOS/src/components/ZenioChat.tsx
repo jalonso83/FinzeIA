@@ -28,7 +28,7 @@ interface ZenioChatProps {
   onClose?: () => void;
   isOnboarding?: boolean;
   initialMessage?: string;
-  onZenioMessage?: (msg: string) => void;
+  onZenioMessage?: (msg: string, responseData?: any) => void;
 }
 
 interface Message {
@@ -167,7 +167,10 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
       const payload: any = {
         message: userMessage,
         isOnboarding: isOnboarding,
-        timezone: userTimezone
+        timezone: userTimezone,
+        // Onboarding v2.1: el backend usa este campo para decidir qué flujo usar.
+        // Apps desplegadas no envían este campo → usan el onboarding actual.
+        ...(isOnboarding && { onboardingVersion: 'v2.1' }),
       };
 
       if (threadId) {
@@ -181,8 +184,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         type: cat.type
       }));
 
-      // Hacer llamada al API de Zenio con payload completo
-      const response = await api.post('/zenio/chat', payload);
+      // Onboarding usa /zenio/v2/chat, chat normal usa /zenio/agents/chat
+      const zenioEndpoint = !isOnboarding ? '/zenio/agents/chat' : '/zenio/v2/chat';
+      const response = await api.post(zenioEndpoint, payload);
 
       if (response.data.message) {
         const zenioResponse = response.data.message;
@@ -211,9 +215,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
           setCurrentlyPlayingId(null);
         }
 
-        // Notificar al parent si hay callback
+        // Notificar al parent si hay callback (pasar texto + data completa del response)
         if (onZenioMessage) {
-          onZenioMessage(zenioResponse);
+          onZenioMessage(zenioResponse, response.data);
         }
 
         setHasSentFirst(true);
