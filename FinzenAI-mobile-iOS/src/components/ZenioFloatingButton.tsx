@@ -180,7 +180,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             autoGreeting: true
           };
 
-          const response = await api.post('/zenio/v2/chat', payload);
+          const response = await api.post('/zenio/agents/chat', payload);
           
           if (response.data.message) {
             setMessages([{
@@ -278,7 +278,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         timezone: userTimezone
       };
 
-      const response = await api.post('/zenio/v2/chat', payload);
+      const response = await api.post('/zenio/agents/chat', payload);
       
       if (response.data.message) {
         const messageId = (Date.now() + 1).toString();

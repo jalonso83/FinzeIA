@@ -273,7 +273,7 @@ export const goalsAPI = {
 // API de Zenio (chat AI)
 export const zenioAPI = {
   chat: (message: string, threadId?: string, isOnboarding?: boolean) =>
-    api.post('/zenio/v2/chat', { message, threadId, isOnboarding }),
+    api.post('/zenio/agents/chat', { message, threadId, isOnboarding }),
 
   updateOnboardingStatus: (completed: boolean) =>
     api.put('/auth/onboarding-status', { onboardingCompleted: completed }),

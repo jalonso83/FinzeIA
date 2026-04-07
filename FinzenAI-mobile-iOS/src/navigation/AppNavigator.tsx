@@ -300,6 +300,9 @@ function MainNavigator({ route }: any) {
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [showPlansModal, setShowPlansModal] = React.useState(false);
   const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
+  // Ref para que el biometric check sepa si estamos en flujo post-onboarding
+  // Un ref funciona en closures (siempre lee el valor actual, no el del montaje)
+  const isPostOnboardingRef = React.useRef(false);
   const [profileData, setProfileData] = React.useState(null);
   const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
@@ -335,6 +338,9 @@ function MainNavigator({ route }: any) {
         if (shouldOpen === 'true') {
           logger.log('✅ Flag es "true", abriendo HelpCenter después del onboarding');
 
+          // Bloquear biometric — estamos en flujo post-onboarding
+          isPostOnboardingRef.current = true;
+
           // Marcar que viene del tutorial para mostrar planes después
           setCameFromTutorial(true);
 
@@ -358,18 +364,19 @@ function MainNavigator({ route }: any) {
   }, []);
 
   // Verificar si hay un setup pendiente de biometría
-  // Delay largo (2s) para que el check de HelpCenter corra primero y setee cameFromTutorial.
-  // Si cameFromTutorial es true, NO mostrar biometric — el flag se mantiene en AsyncStorage
-  // y se mostrará la próxima vez que el usuario abra la app (sin competir con HelpCenter + Plans).
+  // Usa isPostOnboardingRef (ref, no state) para detectar si estamos en flujo post-onboarding.
+  // Si es post-onboarding, NO mostrar biometric ahora — el flag se queda en AsyncStorage
+  // y se mostrará la próxima vez que el usuario abra la app.
   React.useEffect(() => {
     const checkPendingBiometricSetup = async () => {
       try {
-        // Esperar 2 segundos para que el check de onboarding/HelpCenter termine primero
-        await new Promise(resolve => setTimeout(resolve, 2000));
+        // Esperar para que el check de HelpCenter corra primero y marque el ref
+        await new Promise(resolve => setTimeout(resolve, 1500));
 
-        // Si HelpCenter está abierto o se va a abrir (post-onboarding), no mostrar biometric
-        if (showHelpCenter) {
-          logger.log('🔐 Biometric: HelpCenter abierto — se mostrará en próxima sesión');
+        // Si estamos en flujo post-onboarding, NO mostrar biometric
+        // El flag pendingBiometricSetup se queda en AsyncStorage para la próxima sesión
+        if (isPostOnboardingRef.current) {
+          logger.log('🔐 Biometric: flujo post-onboarding activo — se mostrará en próxima sesión');
           return;
         }
 
@@ -377,7 +384,7 @@ function MainNavigator({ route }: any) {
         const bioType = await AsyncStorage.getItem('biometricType');
 
         if (pending === 'true') {
-          logger.log('🔔 Detectado setup pendiente de biometría');
+          logger.log('🔔 Detectado setup pendiente de biometría (no post-onboarding)');
           setStoredBiometricType(bioType || 'Face ID');
           await AsyncStorage.removeItem('pendingBiometricSetup');
           setShowBiometricModal(true);

@@ -83,7 +83,7 @@ export default function ZenioScreen() {
             isOnboarding: false // IMPORTANTE: NO es onboarding, es un saludo normal
           };
 
-          const response = await api.post('/zenio/v2/chat', payload);
+          const response = await api.post('/zenio/agents/chat', payload);
           
           if (response.data.message) {
             // Solo agregar la respuesta de Zenio, NO el mensaje del usuario
@@ -187,7 +187,7 @@ export default function ZenioScreen() {
       // Enviar zona horaria del usuario
       payload.timezone = userTimezone;
 
-      const response = await api.post('/zenio/v2/chat', payload);
+      const response = await api.post('/zenio/agents/chat', payload);
 
       if (response.data.message) {
         const botResponse: Message = {
