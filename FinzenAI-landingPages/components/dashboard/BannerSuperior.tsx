@@ -1,11 +1,27 @@
 'use client';
 
-import { Fuel, DollarSign, Users } from 'lucide-react';
+import { Fuel, DollarSign, Users, Info } from 'lucide-react';
+import { useState } from 'react';
 
 interface BannerData {
   mrrNeto: number;
   mrrCambio: number;
   mau: number;
+}
+
+function Tooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <div className="relative inline-flex" onMouseEnter={() => setShow(true)} onMouseLeave={() => setShow(false)}>
+      <Info size={13} className="opacity-50 cursor-help" />
+      {show && (
+        <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 px-3 py-2 bg-finzen-black text-white text-xs rounded-lg shadow-lg">
+          {text}
+          <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-finzen-black" />
+        </div>
+      )}
+    </div>
+  );
 }
 
 function getRunwayColor(months: number) {
@@ -36,7 +52,7 @@ export default function BannerSuperior({ data }: { data: BannerData | null }) {
           <div className={`w-2.5 h-2.5 rounded-full ${getRunwayDot(RUNWAY_MONTHS)} animate-pulse`} />
           <Fuel size={18} />
           <div>
-            <p className="text-xs font-medium opacity-70">Runway</p>
+            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">Runway</p><Tooltip text="Meses de operación que puedes sostener con el capital actual sin nuevos ingresos." /></div>
             <p className="text-lg font-bold">{RUNWAY_MONTHS} meses</p>
           </div>
         </div>
@@ -45,7 +61,7 @@ export default function BannerSuperior({ data }: { data: BannerData | null }) {
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-finzen-blue/5 text-finzen-blue">
           <DollarSign size={18} />
           <div>
-            <p className="text-xs font-medium opacity-70">MRR Neto</p>
+            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">MRR Neto</p><Tooltip text="Ingreso Mensual Recurrente. Suma de lo que pagan los suscriptores activos cada mes (sin trials)." /></div>
             <p className="text-lg font-bold">
               ${mrrNeto.toFixed(2)}{' '}
               {mrrCambio !== 0 && (
@@ -61,7 +77,7 @@ export default function BannerSuperior({ data }: { data: BannerData | null }) {
         <div className="flex items-center gap-3 px-4 py-2 rounded-lg bg-finzen-blue/5 text-finzen-blue">
           <Users size={18} />
           <div>
-            <p className="text-xs font-medium opacity-70">MAU</p>
+            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">MAU</p><Tooltip text="Monthly Active Users. Usuarios únicos que usaron la app al menos una vez en los últimos 30 días." /></div>
             <p className="text-lg font-bold">{mau}</p>
           </div>
         </div>

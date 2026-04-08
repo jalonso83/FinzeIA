@@ -21,36 +21,42 @@ function buildKpiCards(pulse: any) {
       value: String(pulse.totalUsers),
       change: null,
       changeType: 'neutral' as const,
+      tooltip: 'Número total de usuarios registrados en la plataforma.',
     },
     {
       label: 'Nuevos Registros',
       value: String(pulse.newRegistrations),
       change: regChange !== 0 ? `${regChange > 0 ? '+' : ''}${regChange}%` : null,
       changeType: regChange > 0 ? ('positive' as const) : regChange < 0 ? ('negative' as const) : ('neutral' as const),
+      tooltip: 'Usuarios que se registraron en el período seleccionado. El % compara con el período anterior.',
     },
     {
       label: 'Activados',
       value: String(pulse.activatedUsers),
       change: null,
       changeType: 'neutral' as const,
+      tooltip: 'Usuarios que completaron el onboarding con Zenio y tienen su perfil configurado.',
     },
     {
       label: 'Free → Paid',
       value: `${pulse.freeToPaidRate}%`,
       change: null,
       changeType: 'neutral' as const,
+      tooltip: 'Porcentaje de usuarios en plan gratuito que pasaron a un plan de pago (Plus o Pro).',
     },
     {
       label: 'Churn Rate',
       value: `${pulse.churnRate}%`,
       change: null,
       changeType: pulse.churnRate > 10 ? ('negative' as const) : ('neutral' as const),
+      tooltip: 'Porcentaje de suscripciones pagadas que se cancelaron en el período. Menor es mejor.',
     },
     {
       label: 'Trials Activos',
       value: String(pulse.trialsActive),
       change: null,
       changeType: 'neutral' as const,
+      tooltip: 'Usuarios que están actualmente en período de prueba gratuita de 7 días.',
     },
   ];
 }
