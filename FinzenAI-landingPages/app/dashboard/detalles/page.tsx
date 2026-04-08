@@ -43,11 +43,25 @@ function Section({ title, defaultOpen = true, children }: {
   );
 }
 
-// ─── Stat Box ────────────────────────────────────────────────────
-function StatBox({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
+// ─── Stat Box with Tooltip ────────────────────────────────────────
+function StatBox({ label, value, highlight, tooltip }: { label: string; value: string; highlight?: boolean; tooltip?: string }) {
+  const [showTip, setShowTip] = useState(false);
   return (
-    <div className={`rounded-lg border p-4 ${highlight ? 'border-finzen-green bg-finzen-green/5' : 'border-finzen-gray/20 bg-white'}`}>
-      <p className="text-xs text-finzen-gray font-medium">{label}</p>
+    <div className={`rounded-lg border p-4 relative ${highlight ? 'border-finzen-green bg-finzen-green/5' : 'border-finzen-gray/20 bg-white'}`}>
+      <div className="flex items-center gap-1">
+        <p className="text-xs text-finzen-gray font-medium">{label}</p>
+        {tooltip && (
+          <div className="relative" onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-finzen-gray/40 cursor-help"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            {showTip && (
+              <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-52 px-3 py-2 bg-finzen-black text-white text-xs rounded-lg shadow-lg">
+                {tooltip}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-finzen-black" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       <p className={`text-xl font-bold mt-1 ${highlight ? 'text-finzen-green' : 'text-finzen-black'}`}>{value}</p>
     </div>
   );
@@ -163,14 +177,14 @@ function TabRevenue({ revenue }: { revenue: any }) {
     <div>
       <Section title="Métricas de Revenue">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatBox label="MRR Actual" value={`$${revenue.mrrCurrent?.toFixed(2)}`} highlight />
-          <StatBox label="MRR Anterior" value={`$${revenue.mrrPrevious?.toFixed(2)}`} />
-          <StatBox label="Cambio" value={`${revenue.mrrChange > 0 ? '+' : ''}${revenue.mrrChange}%`} highlight />
-          <StatBox label="ARPU" value={`$${revenue.arpu?.toFixed(2)}`} />
-          <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} />
-          <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} />
-          <StatBox label="Ingresos Total" value={`$${Number(revenue.payments?.totalAmount ?? 0).toFixed(2)}`} />
-          <StatBox label="Total Suscripciones" value={String(totalPaidSubs)} />
+          <StatBox label="MRR Actual" value={`$${revenue.mrrCurrent?.toFixed(2)}`} highlight tooltip="Ingreso Mensual Recurrente actual. Solo suscripciones activas pagando (sin trials)." />
+          <StatBox label="MRR Anterior" value={`$${revenue.mrrPrevious?.toFixed(2)}`} tooltip="MRR del período anterior para comparación." />
+          <StatBox label="Cambio" value={`${revenue.mrrChange > 0 ? '+' : ''}${revenue.mrrChange}%`} highlight tooltip="Variación porcentual del MRR vs período anterior." />
+          <StatBox label="ARPU" value={`$${revenue.arpu?.toFixed(2)}`} tooltip="Average Revenue Per User. Ingreso promedio por suscriptor activo pagando." />
+          <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} tooltip="Número de pagos procesados con éxito en el período." />
+          <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} tooltip="Pagos que no se pudieron procesar (tarjeta rechazada, fondos insuficientes, etc.)." />
+          <StatBox label="Ingresos Total" value={`$${Number(revenue.payments?.totalAmount ?? 0).toFixed(2)}`} tooltip="Suma total de pagos exitosos en el período." />
+          <StatBox label="Total Suscripciones" value={String(totalPaidSubs)} tooltip="Suscripciones activas pagando actualmente." />
         </div>
       </Section>
 
@@ -208,9 +222,9 @@ function TabRevenue({ revenue }: { revenue: any }) {
 
       <Section title="Métricas de Trial">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <StatBox label="Trials Activos" value={String(revenue.trialsActive)} />
-          <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} />
-          <StatBox label="Trial → Paid" value={`${revenue.trialToPaidRate}%`} highlight />
+          <StatBox label="Trials Activos" value={String(revenue.trialsActive)} tooltip="Usuarios en período de prueba gratuita de 7 días." />
+          <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} tooltip="Suscripciones pagadas canceladas en los últimos 30 días." />
+          <StatBox label="Trial → Paid" value={`${revenue.trialToPaidRate}%`} highlight tooltip="Porcentaje de trials que terminaron y se convirtieron en suscripción de pago." />
         </div>
       </Section>
     </div>
@@ -225,12 +239,12 @@ function TabEngagement({ engagement }: { engagement: any }) {
     <div>
       <Section title="Métricas de Engagement">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Consultas Zenio (total)" value={String(engagement.zenioTotalQueries)} highlight />
-          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} />
-          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} />
-          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} />
-          <StatBox label="Referidos Totales" value={String(engagement.referrals?.total ?? 0)} />
-          <StatBox label="Referidos Convertidos" value={String(engagement.referrals?.converted ?? 0)} />
+          <StatBox label="Consultas Zenio (total)" value={String(engagement.zenioTotalQueries)} highlight tooltip="Total de mensajes enviados a Zenio por todos los usuarios." />
+          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} tooltip="Usuarios que registraron al menos 1 transacción en el período." />
+          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo. Mayor = más engagement." />
+          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="Porcentaje de usuarios del período que completaron el onboarding con Zenio." />
+          <StatBox label="Referidos Totales" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido enviadas en el período." />
+          <StatBox label="Referidos Convertidos" value={String(engagement.referrals?.converted ?? 0)} tooltip="Referidos que se registraron y activaron su cuenta." />
         </div>
       </Section>
     </div>
@@ -243,10 +257,10 @@ function TabEconomics() {
     <div>
       <Section title="Costos por Usuario">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatBox label="Costo IA / Usuario" value={unitEconomics.costoIAPorUsuario} />
-          <StatBox label="Costo Infra / Usuario" value={unitEconomics.costoInfraPorUsuario} />
-          <StatBox label="Costo Total / Usuario" value={unitEconomics.costoTotalPorUsuario} />
-          <StatBox label="Margen Bruto" value={unitEconomics.margenBruto} highlight />
+          <StatBox label="Costo IA / Usuario" value={unitEconomics.costoIAPorUsuario} tooltip="Costo mensual de OpenAI (Zenio) por usuario activo." />
+          <StatBox label="Costo Infra / Usuario" value={unitEconomics.costoInfraPorUsuario} tooltip="Costo mensual de infraestructura (Railway, Firebase, etc.) por usuario." />
+          <StatBox label="Costo Total / Usuario" value={unitEconomics.costoTotalPorUsuario} tooltip="Suma de costo IA + infraestructura por usuario al mes." />
+          <StatBox label="Margen Bruto" value={unitEconomics.margenBruto} highlight tooltip="Porcentaje de ingreso que queda después de costos directos. Mayor = más rentable." />
         </div>
       </Section>
 
@@ -308,11 +322,11 @@ function TabSalud() {
     <div>
       <Section title="Estado General">
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Balance en Cuenta" value={financialHealth.balanceCuenta} highlight />
-          <StatBox label="Ingresos Mensuales" value={financialHealth.ingresosMensuales} />
-          <StatBox label="Gastos Mensuales" value={financialHealth.gastosMensuales} />
-          <StatBox label="Runway" value={financialHealth.runway} highlight />
-          <StatBox label="Burn Rate" value={financialHealth.burnRate} />
+          <StatBox label="Balance en Cuenta" value={financialHealth.balanceCuenta} highlight tooltip="Capital disponible actualmente en la cuenta de la empresa." />
+          <StatBox label="Ingresos Mensuales" value={financialHealth.ingresosMensuales} tooltip="Ingresos totales del mes (suscripciones + otros)." />
+          <StatBox label="Gastos Mensuales" value={financialHealth.gastosMensuales} tooltip="Gastos operativos mensuales (infra, IA, servicios, etc.)." />
+          <StatBox label="Runway" value={financialHealth.runway} highlight tooltip="Meses que puedes operar con el capital actual sin nuevos ingresos." />
+          <StatBox label="Burn Rate" value={financialHealth.burnRate} tooltip="Cuánto dinero se consume al mes. Gastos mensuales menos ingresos." />
           <div className="rounded-lg border border-finzen-gray/20 bg-white p-4">
             <p className="text-xs text-finzen-gray font-medium">Estado</p>
             <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-bold ${getEstadoColor(financialHealth.estado)}`}>

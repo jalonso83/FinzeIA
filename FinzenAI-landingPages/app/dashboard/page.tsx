@@ -38,13 +38,6 @@ function buildKpiCards(pulse: any) {
       tooltip: 'Usuarios que completaron el onboarding con Zenio y tienen su perfil configurado.',
     },
     {
-      label: 'Free → Paid',
-      value: `${pulse.freeToPaidRate}%`,
-      change: null,
-      changeType: 'neutral' as const,
-      tooltip: 'Porcentaje de usuarios en plan gratuito que pasaron a un plan de pago (Plus o Pro).',
-    },
-    {
       label: 'Churn Rate',
       value: `${pulse.churnRate}%`,
       change: null,

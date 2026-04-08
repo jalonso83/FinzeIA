@@ -44,7 +44,11 @@ export default function ChartDonut({ title, data, height = 280 }: ChartDonutProp
               ))}
             </Pie>
             <Tooltip
-              formatter={(value) => [`${value}%`, '']}
+              formatter={(value: any) => {
+                const num = Number(value);
+                const pct = total > 0 ? Math.round((num / total) * 100) : 0;
+                return [`${num} (${pct}%)`, ''];
+              }}
               contentStyle={{
                 backgroundColor: '#fff',
                 border: '1px solid #e5e7eb',
@@ -55,17 +59,20 @@ export default function ChartDonut({ title, data, height = 280 }: ChartDonutProp
           </PieChart>
         </ResponsiveContainer>
         <div className="flex flex-col gap-3">
-          {data.map((item) => (
-            <div key={item.name} className="flex items-center gap-2">
-              <div
-                className="w-3 h-3 rounded-full shrink-0"
-                style={{ backgroundColor: item.color }}
-              />
-              <span className="text-sm text-finzen-black">
-                {item.name}: <span className="font-semibold">{item.value}%</span>
-              </span>
-            </div>
-          ))}
+          {data.map((item) => {
+            const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+            return (
+              <div key={item.name} className="flex items-center gap-2">
+                <div
+                  className="w-3 h-3 rounded-full shrink-0"
+                  style={{ backgroundColor: item.color }}
+                />
+                <span className="text-sm text-finzen-black">
+                  {item.name}: <span className="font-semibold">{item.value}</span> <span className="text-finzen-gray">({pct}%)</span>
+                </span>
+              </div>
+            );
+          })}
         </div>
       </div>
     </div>
