@@ -23,21 +23,36 @@ const tabs = [
 ];
 
 // ─── Collapsible Section ─────────────────────────────────────────
-function Section({ title, defaultOpen = true, children }: {
+function Section({ title, defaultOpen = true, children, tooltip }: {
   title: string;
   defaultOpen?: boolean;
   children: React.ReactNode;
+  tooltip?: string;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  const [showTip, setShowTip] = useState(false);
   return (
     <div className="mb-6">
-      <button
-        onClick={() => setOpen(!open)}
-        className="flex items-center gap-2 text-sm font-semibold text-finzen-black hover:text-finzen-blue transition-colors mb-3"
-      >
-        <span className="text-finzen-blue">{open ? '▼' : '▶'}</span>
-        {title}
-      </button>
+      <div className="flex items-center gap-2 mb-3">
+        <button
+          onClick={() => setOpen(!open)}
+          className="flex items-center gap-2 text-sm font-semibold text-finzen-black hover:text-finzen-blue transition-colors"
+        >
+          <span className="text-finzen-blue">{open ? '▼' : '▶'}</span>
+          {title}
+        </button>
+        {tooltip && (
+          <div className="relative" onMouseEnter={() => setShowTip(true)} onMouseLeave={() => setShowTip(false)}>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-finzen-gray/40 cursor-help"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4"/><path d="M12 8h.01"/></svg>
+            {showTip && (
+              <div className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-56 px-3 py-2 bg-finzen-black text-white text-xs rounded-lg shadow-lg whitespace-normal">
+                {tooltip}
+                <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-finzen-black" />
+              </div>
+            )}
+          </div>
+        )}
+      </div>
       {open && <div>{children}</div>}
     </div>
   );
@@ -131,7 +146,10 @@ function buildMrrTrend(revenue: any) {
 function TabUsuarios({ users }: { users: any }) {
   return (
     <div>
-      <Section title="Registros Diarios">
+      <Section
+        title="Registros Diarios"
+        tooltip="Muestra el número de nuevas registraciones por día. Útil para identificar picos de adquisición o efectividad de campañas de marketing."
+      >
         <ChartLine
           title=""
           data={buildUserGrowthData(users)}
@@ -142,11 +160,17 @@ function TabUsuarios({ users }: { users: any }) {
         />
       </Section>
 
-      <Section title="Funnel Completo">
+      <Section
+        title="Funnel Completo"
+        tooltip="Visualiza el camino del usuario desde registro hasta suscripción pagada. Cada etapa muestra cuántos usuarios avanzan, identificando dónde se pierden potenciales clientes."
+      >
         <FunnelChart data={buildFunnelData(users)} />
       </Section>
 
-      <Section title="Cohortes de Retención">
+      <Section
+        title="Cohortes de Retención"
+        tooltip="Agrupa usuarios por semana de registro y muestra qué % se mantienen activos en D1, D7, D14 y D30. Indica qué tan bien retienes usuarios nuevos."
+      >
         <CohortHeatmap data={buildCohortData(users)} />
       </Section>
     </div>
@@ -175,7 +199,10 @@ function TabRevenue({ revenue }: { revenue: any }) {
 
   return (
     <div>
-      <Section title="Métricas de Revenue">
+      <Section
+        title="Métricas de Revenue"
+        tooltip="Resumen de ingresos mensuales recurrentes (MRR), cambios porcentuales, ARPU y estado de pagos. Indicadores clave para medir la salud financiera."
+      >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatBox label="MRR Actual" value={`$${revenue.mrrCurrent?.toFixed(2)}`} highlight tooltip="Ingreso Mensual Recurrente actual. Solo suscripciones activas pagando (sin trials)." />
           <StatBox label="MRR Anterior" value={`$${revenue.mrrPrevious?.toFixed(2)}`} tooltip="MRR del período anterior para comparación." />
@@ -188,7 +215,10 @@ function TabRevenue({ revenue }: { revenue: any }) {
         </div>
       </Section>
 
-      <Section title="MRR Trend">
+      <Section
+        title="MRR Trend"
+        tooltip="Tendencia histórica del Ingreso Mensual Recurrente. Muestra crecimiento o caídas en ingresos pagados a lo largo del tiempo."
+      >
         <ChartLine
           title=""
           data={buildMrrTrend(revenue)}
@@ -197,7 +227,10 @@ function TabRevenue({ revenue }: { revenue: any }) {
         />
       </Section>
 
-      <Section title="Revenue por Plan">
+      <Section
+        title="Revenue por Plan"
+        tooltip="Desglose de ingresos (MRR) por cada plan de suscripción. Muestra qué plan genera más ingresos y cuántos usuarios pagan por cada uno."
+      >
         <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -220,7 +253,10 @@ function TabRevenue({ revenue }: { revenue: any }) {
         </div>
       </Section>
 
-      <Section title="Métricas de Trial">
+      <Section
+        title="Métricas de Trial"
+        tooltip="Información sobre usuarios en período de prueba: cuántos están activos, tasas de cancelación y conversión trial a pago."
+      >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatBox label="Trials Activos" value={String(revenue.trialsActive)} tooltip="Usuarios en período de prueba gratuita de 7 días." />
           <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} tooltip="Suscripciones pagadas canceladas en los últimos 30 días." />
@@ -237,7 +273,10 @@ function TabEngagement({ engagement }: { engagement: any }) {
 
   return (
     <div>
-      <Section title="Métricas de Engagement">
+      <Section
+        title="Métricas de Engagement"
+        tooltip="Indicadores de actividad del usuario: consultas a Zenio, transacciones registradas, tasa de onboarding y referidos. Mide qué tan activos son los usuarios."
+      >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Consultas Zenio (total)" value={String(engagement.zenioTotalQueries)} highlight tooltip="Total de mensajes enviados a Zenio por todos los usuarios." />
           <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} tooltip="Usuarios que registraron al menos 1 transacción en el período." />
@@ -255,7 +294,10 @@ function TabEngagement({ engagement }: { engagement: any }) {
 function TabEconomics() {
   return (
     <div>
-      <Section title="Costos por Usuario">
+      <Section
+        title="Costos por Usuario"
+        tooltip="Desglose de costos operativos por usuario: costo de IA (OpenAI), infraestructura y total. Esencial para calcular rentabilidad."
+      >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatBox label="Costo IA / Usuario" value={unitEconomics.costoIAPorUsuario} tooltip="Costo mensual de OpenAI (Zenio) por usuario activo." />
           <StatBox label="Costo Infra / Usuario" value={unitEconomics.costoInfraPorUsuario} tooltip="Costo mensual de infraestructura (Railway, Firebase, etc.) por usuario." />
@@ -264,7 +306,10 @@ function TabEconomics() {
         </div>
       </Section>
 
-      <Section title="Break-Even">
+      <Section
+        title="Break-Even"
+        tooltip="Progreso hacia el punto de equilibrio: cuántos usuarios activos necesitas para que ingresos = gastos. Objetivo crítico para viabilidad."
+      >
         <div className="bg-white rounded-xl border border-finzen-gray/20 p-5 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
@@ -284,7 +329,10 @@ function TabEconomics() {
         </div>
       </Section>
 
-      <Section title="Desglose de Costos">
+      <Section
+        title="Desglose de Costos"
+        tooltip="Detalle de cada concepto de gasto: OpenAI, infraestructura, servicios, etc. Muestra en qué se invierte cada dólar."
+      >
         <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
           <table className="w-full">
             <thead>
@@ -320,7 +368,10 @@ function TabSalud() {
 
   return (
     <div>
-      <Section title="Estado General">
+      <Section
+        title="Estado General"
+        tooltip="Panorama de la salud financiera: balance disponible, ingresos/gastos mensuales, runway (meses de operación) y burn rate."
+      >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Balance en Cuenta" value={financialHealth.balanceCuenta} highlight tooltip="Capital disponible actualmente en la cuenta de la empresa." />
           <StatBox label="Ingresos Mensuales" value={financialHealth.ingresosMensuales} tooltip="Ingresos totales del mes (suscripciones + otros)." />
