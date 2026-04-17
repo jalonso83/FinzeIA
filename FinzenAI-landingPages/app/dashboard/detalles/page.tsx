@@ -178,11 +178,13 @@ function TabUsuarios({ users }: { users: any }) {
 }
 
 // ─── Tab: Revenue ────────────────────────────────────────────────
-function TabRevenue({ revenue }: { revenue: any }) {
+function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
   if (!revenue) return null;
 
+  const totalUsers = pulse?.totalUsers || 0;
   const totalPaidSubs = (revenue.subscriptionsByStatus?.ACTIVE || 0) +
     (revenue.subscriptionsByStatus?.TRIALING || 0);
+  const subsPorcentaje = totalUsers > 0 ? ((totalPaidSubs / totalUsers) * 100).toFixed(1) : '0';
 
   const revenueByPlanRows = [
     {
@@ -211,7 +213,7 @@ function TabRevenue({ revenue }: { revenue: any }) {
           <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} tooltip="Número de pagos procesados con éxito en el período." />
           <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} tooltip="Pagos que no se pudieron procesar (tarjeta rechazada, fondos insuficientes, etc.)." />
           <StatBox label="Ingresos Total" value={`$${Number(revenue.payments?.totalAmount ?? 0).toFixed(2)}`} tooltip="Suma total de pagos exitosos en el período." />
-          <StatBox label="Total Suscripciones" value={String(totalPaidSubs)} tooltip="Suscripciones activas pagando actualmente." />
+          <StatBox label="Total Suscripciones" value={`${totalPaidSubs} / ${totalUsers} (${subsPorcentaje}%)`} tooltip="Suscripciones activas pagando + trials activos, sobre el total de usuarios registrados." />
         </div>
       </Section>
 
@@ -424,7 +426,7 @@ export default function DashboardDetalles() {
   const renderTab = () => {
     switch (activeTab) {
       case 'usuarios': return <TabUsuarios users={users} />;
-      case 'revenue': return <TabRevenue revenue={revenue} />;
+      case 'revenue': return <TabRevenue revenue={revenue} pulse={pulse} />;
       case 'engagement': return <TabEngagement engagement={engagement} />;
       case 'economics': return <TabEconomics />;
       case 'salud': return <TabSalud />;
