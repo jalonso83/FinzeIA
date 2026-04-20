@@ -168,7 +168,10 @@ export const useSpeech = () => {
     }
   };
 
-  // Zenio habla (Text-to-Speech)
+  // Referencia al sonido actual para poder detenerlo
+  const soundRef = useRef<Audio.Sound | null>(null);
+
+  // Zenio habla — intenta OpenAI TTS (voz fable), fallback a expo-speech nativo
   const speakResponse = async (text: string) => {
     try {
       setState(prev => ({ ...prev, isSpeaking: true, error: null }));
@@ -181,69 +184,109 @@ export const useSpeech = () => {
         shouldDuckAndroid: true,
       });
 
-      // Configuraciones específicas por plataforma
-      const speechOptions: Speech.SpeechOptions = {
-        language: 'es-ES',
-        pitch: Platform.OS === 'ios' ? 1.0 : 1.0, // Pitch natural en ambas plataformas
-        rate: Platform.OS === 'ios' ? 1.1 : 1.4,  // Velocidad aumentada en ambas plataformas
-      };
+      // OpenAI TTS — pide base64 JSON (evita problemas de blob/binary en iOS)
+      let usedOpenAI = false;
+      try {
+        const response = await fetch(`https://finzenai-backend-production.up.railway.app/api/tts/generate`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ text, format: 'base64' }),
+        });
 
-      // Obtener voces disponibles
-      const availableVoices = await Speech.getAvailableVoicesAsync();
-      logger.log('🔊 Voces disponibles:', availableVoices.map(v => `${v.name} (${v.language})`));
+        if (response.ok) {
+          const data = await response.json();
 
-      // Buscar la mejor voz española disponible (priorizando calidad sobre género)
-      const bestSpanishVoice = availableVoices.find(voice =>
-        voice.language.startsWith('es') &&
-        (voice.quality === 'Enhanced' || voice.quality === 'Premium')
-      );
+          if (data.success && data.audio) {
+            const dataUri = `data:audio/mpeg;base64,${data.audio}`;
 
-      // Si no hay voces mejoradas, buscar cualquier voz española nativa
-      const spanishVoice = bestSpanishVoice || availableVoices.find(voice =>
-        voice.language.startsWith('es')
-      );
+            const { sound } = await Audio.Sound.createAsync(
+              { uri: dataUri },
+              { shouldPlay: true }
+            );
+            soundRef.current = sound;
 
-      if (spanishVoice) {
-        speechOptions.voice = spanishVoice.identifier;
-        logger.log('🔊 Usando voz española de calidad:', spanishVoice.name, '- Calidad:', spanishVoice.quality);
-      } else {
-        logger.log('🔊 Usando voz por defecto del sistema');
+            sound.setOnPlaybackStatusUpdate((status) => {
+              if (status.isLoaded && status.didJustFinish) {
+                setState(prev => ({ ...prev, isSpeaking: false }));
+                sound.unloadAsync();
+                soundRef.current = null;
+              }
+            });
+
+            usedOpenAI = true;
+          }
+        }
+      } catch (ttsError: any) {
+        logger.error('TTS error:', ttsError?.message);
       }
 
-      logger.log('🔊 Zenio hablando:', text);
+      // Fallback a expo-speech nativo si OpenAI TTS falló
+      if (!usedOpenAI) {
+        const speechOptions: Speech.SpeechOptions = {
+          language: 'es-ES',
+          pitch: 1.0,
+          rate: 1.1,
+        };
 
-      return new Promise<void>((resolve) => {
-        Speech.speak(text, {
-          ...speechOptions,
-          onDone: () => {
-            setState(prev => ({ ...prev, isSpeaking: false }));
-            logger.log('🔊 Zenio terminó de hablar');
-            resolve();
-          },
-          onError: (error) => {
-            logger.error('Error en speech:', error);
-            setState(prev => ({ 
-              ...prev, 
-              isSpeaking: false, 
-              error: 'Error al reproducir respuesta' 
-            }));
-            resolve();
-          },
+        const availableVoices = await Speech.getAvailableVoicesAsync();
+
+        // Buscar voz masculina española para consistencia con la voz "fable" de OpenAI
+        const maleVoiceNames = ['jorge', 'diego', 'juan', 'carlos', 'andrés', 'andres', 'miguel', 'pedro'];
+        const maleSpanishVoice = availableVoices.find(voice =>
+          voice.language.startsWith('es') &&
+          maleVoiceNames.some(name => voice.name?.toLowerCase().includes(name))
+        );
+
+        // Si no hay masculina, buscar Enhanced/Premium cualquier género
+        const bestSpanishVoice = maleSpanishVoice || availableVoices.find(voice =>
+          voice.language.startsWith('es') &&
+          (voice.quality === 'Enhanced' || voice.quality === 'Premium')
+        );
+        const spanishVoice = bestSpanishVoice || availableVoices.find(voice =>
+          voice.language.startsWith('es')
+        );
+        if (spanishVoice) {
+          speechOptions.voice = spanishVoice.identifier;
+        }
+
+        return new Promise<void>((resolve) => {
+          Speech.speak(text, {
+            ...speechOptions,
+            onDone: () => {
+              setState(prev => ({ ...prev, isSpeaking: false }));
+              resolve();
+            },
+            onError: (error) => {
+              logger.error('Error en speech nativo:', error);
+              setState(prev => ({ ...prev, isSpeaking: false }));
+              resolve();
+            },
+          });
         });
-      });
+      }
     } catch (error) {
       logger.error('Error speaking response:', error);
-      setState(prev => ({ 
-        ...prev, 
-        isSpeaking: false, 
-        error: error instanceof Error ? error.message : 'Error al hablar' 
+      setState(prev => ({
+        ...prev,
+        isSpeaking: false,
+        error: error instanceof Error ? error.message : 'Error al hablar'
       }));
     }
   };
 
-  // Detener speech
-  const stopSpeaking = () => {
+  // Detener speech (tanto OpenAI como nativo)
+  const stopSpeaking = async () => {
     Speech.stop();
+    if (soundRef.current) {
+      try {
+        await soundRef.current.stopAsync();
+        await soundRef.current.unloadAsync();
+      } catch {}
+      soundRef.current = null;
+    }
     setState(prev => ({ ...prev, isSpeaking: false }));
   };
 

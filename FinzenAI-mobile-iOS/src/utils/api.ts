@@ -188,9 +188,9 @@ export const budgetsAPI = {
 
 // API de autenticación
 export const authAPI = {
-  login: (email: string, password: string) => 
-    api.post('/auth/login', { email, password }),
-  
+  login: (email: string, password: string) =>
+    api.post('/auth/login', { email: email.toLowerCase().trim(), password }),
+
   register: (userData: {
     name: string;
     lastName: string;
@@ -207,13 +207,13 @@ export const authAPI = {
     company?: string;
     referralCode?: string;
   }) =>
-    api.post('/auth/register', userData),
-  
+    api.post('/auth/register', { ...userData, email: userData.email.toLowerCase().trim() }),
+
   verifyEmail: (token: string) =>
     api.post('/auth/verify-email', { token }),
 
   resendVerification: (email: string) =>
-    api.post('/auth/resend-verification', { email }),
+    api.post('/auth/resend-verification', { email: email.toLowerCase().trim() }),
 
   logout: () =>
     api.post('/auth/logout'),

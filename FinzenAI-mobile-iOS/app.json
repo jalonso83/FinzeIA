@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
-    "version": "1.0.8",
+    "version": "1.1.0",
     "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.jl.alonso.finzenaimobile",
-      "buildNumber": "24",
+      "buildNumber": "33",
       "associatedDomains": [
         "applinks:finzenai-backend-production.up.railway.app"
       ],

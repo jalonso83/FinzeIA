@@ -306,7 +306,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         logger.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
       }
 
-      if (response.data.threadId && !threadId) {
+      if (response.data.threadId) {
         setThreadId(response.data.threadId);
       }
 
