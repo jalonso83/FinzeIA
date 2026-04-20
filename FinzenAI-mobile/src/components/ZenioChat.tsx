@@ -28,7 +28,7 @@ interface ZenioChatProps {
   onClose?: () => void;
   isOnboarding?: boolean;
   initialMessage?: string;
-  onZenioMessage?: (msg: string) => void;
+  onZenioMessage?: (msg: string, responseData?: any) => void;
 }
 
 interface Message {
@@ -53,11 +53,18 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   const [input, setInput] = useState(isOnboarding ? (initialMessage || 'Hola Zenio, soy nuevo y quiero empezar mi onboarding') : '');
   const [submitting, setSubmitting] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [autoPlay, setAutoPlay] = useState(false);
   const [currentlyPlayingId, setCurrentlyPlayingId] = useState<string | null>(null);
   const [showProModalTTS, setShowProModalTTS] = useState(false);
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Keep ref in sync with state so closures always get the latest value
+  const updateThreadId = (newId: string | null) => {
+    threadIdRef.current = newId;
+    setThreadId(newId);
+  };
 
   // Speech hook
   const speech = useSpeech();
@@ -84,7 +91,7 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         const savedThreadId = await AsyncStorage.getItem(ZENIO_THREAD_KEY);
         if (savedThreadId) {
           logger.log('[ZenioChat] ThreadId recuperado:', savedThreadId);
-          setThreadId(savedThreadId);
+          updateThreadId(savedThreadId);
         }
       } catch (error) {
         logger.error('[ZenioChat] Error cargando threadId:', error);
@@ -167,11 +174,14 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
       const payload: any = {
         message: userMessage,
         isOnboarding: isOnboarding,
-        timezone: userTimezone
+        timezone: userTimezone,
+        // Onboarding v2.1: el backend usa este campo para decidir qué flujo usar.
+        // Apps desplegadas no envían este campo → usan el onboarding actual.
+        ...(isOnboarding && { onboardingVersion: 'v2.1' }),
       };
 
-      if (threadId) {
-        payload.threadId = threadId;
+      if (threadIdRef.current) {
+        payload.threadId = threadIdRef.current;
       }
 
       // Enviar categorías en el payload (solo id, name, type)
@@ -181,16 +191,19 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         type: cat.type
       }));
 
-      // Hacer llamada al API de Zenio con payload completo
-      const response = await api.post('/zenio/chat', payload);
+      // Flag de agentes: usar /zenio/agents/chat cuando NO es onboarding.
+      // Onboarding sigue usando /zenio/v2/chat con onboardingVersion flag.
+      // Apps desplegadas usan /zenio/v2/chat (este cambio solo está en preview).
+      const zenioEndpoint = !isOnboarding ? '/zenio/agents/chat' : '/zenio/v2/chat';
+      const response = await api.post(zenioEndpoint, payload);
 
       if (response.data.message) {
         const zenioResponse = response.data.message;
         const newThreadId = response.data.threadId;
 
         // Actualizar threadId si es nuevo
-        if (newThreadId && newThreadId !== threadId) {
-          setThreadId(newThreadId);
+        if (newThreadId && newThreadId !== threadIdRef.current) {
+          updateThreadId(newThreadId);
         }
 
         // Agregar respuesta de Zenio
@@ -211,9 +224,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
           setCurrentlyPlayingId(null);
         }
 
-        // Notificar al parent si hay callback
+        // Notificar al parent si hay callback (pasar texto + data completa del response)
         if (onZenioMessage) {
-          onZenioMessage(zenioResponse);
+          onZenioMessage(zenioResponse, response.data);
         }
 
         setHasSentFirst(true);

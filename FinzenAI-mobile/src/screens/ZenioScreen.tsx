@@ -35,6 +35,7 @@ export default function ZenioScreen() {
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [showTips, setShowTips] = useState(false);
@@ -44,6 +45,12 @@ export default function ZenioScreen() {
   const { updateZenioUsage, fetchSubscription } = useSubscriptionStore();
 
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Keep ref in sync with state so closures always get the latest value
+  const updateThreadId = (newId: string | null) => {
+    threadIdRef.current = newId;
+    setThreadId(newId);
+  };
 
   // Cargar categorías al montar el componente
   useEffect(() => {
@@ -83,7 +90,7 @@ export default function ZenioScreen() {
             isOnboarding: false // IMPORTANTE: NO es onboarding, es un saludo normal
           };
 
-          const response = await api.post('/zenio/chat', payload);
+          const response = await api.post('/zenio/agents/chat', payload);
           
           if (response.data.message) {
             // Solo agregar la respuesta de Zenio, NO el mensaje del usuario
@@ -96,7 +103,7 @@ export default function ZenioScreen() {
           }
 
           if (response.data.threadId) {
-            setThreadId(response.data.threadId);
+            updateThreadId(response.data.threadId);
           }
 
           // Actualizar uso de Zenio si viene en la respuesta
@@ -171,7 +178,7 @@ export default function ZenioScreen() {
       const userTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       
       let payload: any = { message: messageText };
-      if (threadId) payload.threadId = threadId;
+      if (threadIdRef.current) payload.threadId = threadIdRef.current;
       
       // Enviar categorías en el payload (solo id, name, type)
       payload.categories = categories.map(cat => ({
@@ -183,7 +190,7 @@ export default function ZenioScreen() {
       // Enviar zona horaria del usuario
       payload.timezone = userTimezone;
 
-      const response = await api.post('/zenio/chat', payload);
+      const response = await api.post('/zenio/agents/chat', payload);
       
       if (response.data.message) {
         const botResponse: Message = {
@@ -198,7 +205,7 @@ export default function ZenioScreen() {
 
       // Actualizar threadId si viene en la respuesta
       if (response.data.threadId) {
-        setThreadId(response.data.threadId);
+        updateThreadId(response.data.threadId);
       }
 
       // Actualizar uso de Zenio si viene en la respuesta

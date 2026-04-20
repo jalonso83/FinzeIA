@@ -40,7 +40,7 @@ const CurrentPlanCard: React.FC<CurrentPlanCardProps> = ({
   const planPrice = typeof planDetails.price === 'object' && planDetails.price !== null
     ? (planDetails.price.monthly ?? 0)
     : (typeof planDetails.price === 'number' ? planDetails.price : 0);
-  const limits = subscription.limits || { budgets: 2, goals: 1, zenioQueries: 15 };
+  const limits = subscription.limits || { budgets: 4, goals: 2, zenioQueries: 15 };
 
   const formatDate = (dateString: string | null) => {
     if (!dateString) return 'N/A';

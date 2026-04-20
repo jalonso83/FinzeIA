@@ -472,7 +472,7 @@ export const TUTORIALS: Tutorial[] = [
       {
         id: '2',
         title: 'Plan Gratis',
-        description: 'Transacciones ilimitadas, hasta 2 presupuestos, 1 meta, 15 consultas a Zenio y gamificación básica',
+        description: 'Transacciones ilimitadas, hasta 4 presupuestos, 2 metas, 15 consultas a Zenio y gamificación básica',
         icon: 'person',
         backgroundColor: '#64748B',
         gradientEnd: '#475569',

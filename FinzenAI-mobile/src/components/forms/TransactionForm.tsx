@@ -825,7 +825,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 {/* Foreign Amount */}
                 <View style={styles.converterFormGroup}>
                   <Text style={styles.converterLabel}>
-                    Monto en {foreignCurrency}
+                    Monto en {conversionDirection === 'foreignToBase' ? foreignCurrency : currency.code}
                   </Text>
                   <TextInput
                     style={[
@@ -895,7 +895,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                   <View style={styles.convertedAmountContainer}>
                     <Text style={styles.convertedAmountLabel}>Resultado:</Text>
                     <Text style={styles.convertedAmountValue}>
-                      {currency.symbol}{convertedAmount.toFixed(currency.decimalPlaces)}
+                      {conversionDirection === 'foreignToBase'
+                        ? `${currency.symbol}${convertedAmount.toFixed(currency.decimalPlaces)}`
+                        : `${convertedAmount.toFixed(2)} ${foreignCurrency}`
+                      }
                     </Text>
                   </View>
                 )}

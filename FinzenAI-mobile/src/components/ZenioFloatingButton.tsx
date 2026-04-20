@@ -66,6 +66,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const [loading, setLoading] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
   const [threadId, setThreadId] = useState<string | null>(null);
+  const threadIdRef = useRef<string | null>(null);
   const [hasSentFirst, setHasSentFirst] = useState(false);
   const [categories, setCategories] = useState<any[]>([]);
   const [autoPlay, setAutoPlay] = useState(false);
@@ -78,6 +79,12 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
   const { refreshDashboard, onTransactionChange, onBudgetChange, onGoalChange } = useDashboardStore();
   const insets = useSafeAreaInsets();
   const scrollViewRef = useRef<ScrollView>(null);
+
+  // Keep ref in sync with state so closures always get the latest value
+  const updateThreadId = (newId: string | null) => {
+    threadIdRef.current = newId;
+    setThreadId(newId);
+  };
 
   // Animaciones
   const scale = useRef(new Animated.Value(1)).current;
@@ -176,7 +183,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
             autoGreeting: true
           };
 
-          const response = await api.post('/zenio/chat', payload);
+          const response = await api.post('/zenio/agents/chat', payload);
           
           if (response.data.message) {
             setMessages([{
@@ -188,7 +195,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
           }
 
           if (response.data.threadId) {
-            setThreadId(response.data.threadId);
+            updateThreadId(response.data.threadId);
           }
 
           // Actualizar uso de Zenio si viene en la respuesta
@@ -264,7 +271,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       
       const payload = {
         message: inputText.trim(),
-        threadId,
+        threadId: threadIdRef.current,
         categories: categories.map(cat => ({
           id: cat.id,
           name: cat.name,
@@ -273,7 +280,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         timezone: userTimezone
       };
 
-      const response = await api.post('/zenio/chat', payload);
+      const response = await api.post('/zenio/agents/chat', payload);
       
       if (response.data.message) {
         const messageId = (Date.now() + 1).toString();
@@ -301,8 +308,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
         logger.log('[ZenioFloatingButton] Acciones ejecutadas:', response.data.executedActions);
       }
 
-      if (response.data.threadId && !threadId) {
-        setThreadId(response.data.threadId);
+      if (response.data.threadId) {
+        updateThreadId(response.data.threadId);
       }
 
       // Actualizar uso de Zenio si viene en la respuesta

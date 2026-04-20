@@ -189,9 +189,9 @@ export const budgetsAPI = {
 
 // API de autenticación
 export const authAPI = {
-  login: (email: string, password: string) => 
-    api.post('/auth/login', { email, password }),
-  
+  login: (email: string, password: string) =>
+    api.post('/auth/login', { email: email.toLowerCase().trim(), password }),
+
   register: (userData: {
     name: string;
     lastName: string;
@@ -208,13 +208,13 @@ export const authAPI = {
     company?: string;
     referralCode?: string;
   }) =>
-    api.post('/auth/register', userData),
-  
+    api.post('/auth/register', { ...userData, email: userData.email.toLowerCase().trim() }),
+
   verifyEmail: (token: string) =>
     api.post('/auth/verify-email', { token }),
 
   resendVerification: (email: string) =>
-    api.post('/auth/resend-verification', { email }),
+    api.post('/auth/resend-verification', { email: email.toLowerCase().trim() }),
 
   logout: () =>
     api.post('/auth/logout'),
@@ -274,7 +274,7 @@ export const goalsAPI = {
 // API de Zenio (chat AI)
 export const zenioAPI = {
   chat: (message: string, threadId?: string, isOnboarding?: boolean) => 
-    api.post('/zenio/chat', { message, threadId, isOnboarding }),
+    api.post('/zenio/agents/chat', { message, threadId, isOnboarding }),
   
   updateOnboardingStatus: (completed: boolean) => 
     api.put('/auth/onboarding-status', { onboardingCompleted: completed }),
@@ -518,7 +518,7 @@ export const remindersAPI = {
 export const antExpenseAPI = {
   // Obtener configuración y opciones disponibles
   getConfig: () =>
-    api.get('/zenio/ant-expense-config'),
+    api.get('/zenio/v2/ant-expense-config'),
 
   // Analizar gastos hormiga con parámetros configurables
   analyze: (params?: {
@@ -527,7 +527,7 @@ export const antExpenseAPI = {
     monthsToAnalyze?: number;
     useAI?: boolean;
   }) =>
-    api.get('/zenio/ant-expense-analysis', { params }),
+    api.get('/zenio/v2/ant-expense-analysis', { params }),
 };
 
 // Interfaces para sistema de referidos

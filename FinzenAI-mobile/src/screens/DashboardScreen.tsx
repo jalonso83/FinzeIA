@@ -517,9 +517,9 @@ export default function DashboardScreen() {
               {/* Budgets */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="wallet" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/2</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/4</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeBudgets / 2) * 100)}%
+                  {Math.round((dashboardData.activeBudgets / 4) * 100)}%
                 </Text>
               </View>
 
@@ -528,9 +528,9 @@ export default function DashboardScreen() {
               {/* Goals */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="trophy" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/1</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/2</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeGoals / 1) * 100)}%
+                  {Math.round((dashboardData.activeGoals / 2) * 100)}%
                 </Text>
               </View>
             </View>

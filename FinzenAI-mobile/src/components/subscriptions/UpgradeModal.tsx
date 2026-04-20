@@ -36,13 +36,13 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
         return {
           icon: 'wallet',
           title: 'Límite de Presupuestos',
-          description: 'Has alcanzado el máximo de 2 presupuestos en el plan Gratis.',
+          description: 'Has alcanzado el máximo de 4 presupuestos en el plan Gratis.',
         };
       case 'goals':
         return {
           icon: 'trophy',
           title: 'Límite de Metas',
-          description: 'Has alcanzado el máximo de 1 meta en el plan Gratis.',
+          description: 'Has alcanzado el máximo de 2 metas en el plan Gratis.',
         };
       case 'zenio':
         return {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
-    "version": "1.0.0",
+    "version": "1.0.2",
     "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -33,7 +33,7 @@
     "android": {
       "edgeToEdgeEnabled": true,
       "package": "com.jl.alonso.finzenaimobile",
-      "versionCode": 2,
+      "versionCode": 11,
       "googleServicesFile": "./google-services.json",
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",

@@ -1,0 +1,56 @@
+# dependencies
+node_modules/
+
+# Expo
+.expo/
+dist/
+web-build/
+expo-env.d.ts
+
+# Native
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# Metro
+.metro-health-check*
+
+# debug
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+
+# macOS
+.DS_Store
+*.pem
+
+# local env files
+.env*.local
+
+# typescript
+*.tsbuildinfo
+
+# Firebase (contains API keys)
+google-services.json
+GoogleService-Info.plist
+
+# Windows artifacts
+nul
+desktop.ini
+
+# Directorios hermanos del monorepo (no necesarios para el build Android)
+FinzenAI-backend-temp/
+FinzenAI-mobile-iOS/
+FinzenAI-landingPages/
+FinzenAI-frontend-temp/
+backend/
+.claude/
+
+# Archivos del root del monorepo
+*.md
+*.ps1
+auditoria.md

@@ -26,31 +26,36 @@ export default function OnboardingScreen() {
   const [onboardingFinished, setOnboardingFinished] = useState(false);
   const [showHelpCenter, setShowHelpCenter] = useState(false);
 
-  // Handler para detectar el fin del onboarding desde ZenioChat
-  const handleZenioMessage = async (msg: string) => {
-    // Detectar diferentes formas en que Zenio puede indicar que el onboarding está completo
-    const lowerMsg = msg.toLowerCase();
+  // Rastrear si el backend ya completó el onboarding (v2.1 via flag)
+  const backendCompletedRef = React.useRef(false);
 
-    if (msg && (
-      // Frases del mensaje EXACTO del backend (zenio.ts línea 580)
-      // "¡Perfecto! Ha sido un placer conocerte... Ya tengo toda la información... Tu perfil está listo... ¡Te veo en el dashboard!"
+  // Handler para detectar el fin del onboarding desde ZenioChat
+  const handleZenioMessage = async (msg: string, responseData?: any) => {
+    // Si el backend envía el flag onboardingCompleted, registrarlo pero NO mostrar
+    // el botón "Continuar" todavía — Zenio puede seguir hablando (ej: ofrecer primer gasto).
+    if (responseData?.onboardingCompleted === true) {
+      backendCompletedRef.current = true;
+    }
+
+    // Detección por keywords para mostrar el botón "Continuar".
+    // En v2.1: el flag ya se recibió antes, y ahora Zenio envía el mensaje de cierre.
+    // En onboarding actual: los keywords son la única señal.
+    const lowerMsg = msg.toLowerCase();
+    const completedByKeywords = msg && (
+      // Frases del onboarding actual
       lowerMsg.includes('ya tengo toda la información') ||
       lowerMsg.includes('tu perfil está listo') ||
       lowerMsg.includes('te veo en el dashboard') ||
       lowerMsg.includes('ahora puedes comenzar a usar todas las herramientas') ||
       lowerMsg.includes('ha sido un placer conocerte') ||
       lowerMsg.includes('copiloto financiero personal') ||
-
-      // Palabras clave que SEGURO están en el mensaje final
       (lowerMsg.includes('perfil') && lowerMsg.includes('listo')) ||
       (lowerMsg.includes('toda la información') && lowerMsg.includes('necesito')) ||
       (lowerMsg.includes('herramientas') && lowerMsg.includes('finzen')) ||
-
-      // Otras variaciones posibles
       lowerMsg.includes('perfil completado') ||
       lowerMsg.includes('onboarding completado') ||
       lowerMsg.includes('configuración terminada') ||
-      lowerMsg.includes('todo listo') ||
+      (lowerMsg.includes('todo listo') && lowerMsg.includes('perfil')) ||
       lowerMsg.includes('ya puedes empezar') ||
       lowerMsg.includes('estás listo para usar') ||
       lowerMsg.includes('onboarding finalizado') ||
@@ -60,35 +65,37 @@ export default function OnboardingScreen() {
       lowerMsg.includes('acompañarte en tu camino') ||
       lowerMsg.includes('registrado y preparado') ||
       lowerMsg.includes('cuando estés listo') ||
-      lowerMsg.includes('planificación financiera plena')
-    )) {
-      // Cerrar el teclado inmediatamente para que aparezca el botón "Continuar"
-      Keyboard.dismiss();
+      lowerMsg.includes('planificación financiera plena') ||
+      // Keywords v2.1
+      lowerMsg.includes('presupuestos activos') ||
+      (lowerMsg.includes('meta de') && lowerMsg.includes('en marcha')) ||
+      (lowerMsg.includes('plan de pago') && lowerMsg.includes('activo')) ||
+      lowerMsg.includes('tu perfil está registrado y') ||
+      lowerMsg.includes('— zenio, tu copiloto financiero')
+    );
 
+    if (completedByKeywords) {
+      Keyboard.dismiss();
       setOnboardingFinished(true);
 
-      // Guardar en el backend que el onboarding está completo
-      try {
-        // Obtener el perfil completo del usuario desde el backend
-        const profileResponse = await api.get('/auth/profile');
-        const currentProfile = profileResponse.data;
+      // Si el backend v2.1 ya guardó el onboarding, no hacer PUT redundante.
+      if (!backendCompletedRef.current) {
+        try {
+          const profileResponse = await api.get('/auth/profile');
+          const currentProfile = profileResponse.data;
 
-        // Actualizar solo el campo onboardingCompleted manteniendo el resto de los datos
-        await api.put('/auth/profile', {
-          ...currentProfile,
-          onboardingCompleted: true
-        });
-
-        // NO ACTUALIZAR EL STORE AQUÍ - esperar a que el usuario presione "Continuar"
-        // Si actualizamos el store aquí, el AppNavigator detecta el cambio y navega automáticamente
-        // antes de que aparezca el botón "Continuar"
-      } catch (error: any) {
-        logger.error('Error marcando onboarding como completado:', error.message);
-        Alert.alert(
-          'Advertencia',
-          'No se pudo guardar tu progreso. Por favor verifica tu conexión.',
-          [{ text: 'OK' }]
-        );
+          await api.put('/auth/profile', {
+            ...currentProfile,
+            onboardingCompleted: true
+          });
+        } catch (error: any) {
+          logger.error('Error marcando onboarding como completado:', error.message);
+          Alert.alert(
+            'Advertencia',
+            'No se pudo guardar tu progreso. Por favor verifica tu conexión.',
+            [{ text: 'OK' }]
+          );
+        }
       }
     }
   };
