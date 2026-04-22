@@ -206,8 +206,8 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatBox label="MRR Actual" value={`$${revenue.mrrCurrent?.toFixed(2)}`} highlight tooltip="Ingreso Mensual Recurrente actual. Solo suscripciones activas pagando (sin trials)." />
-          <StatBox label="MRR Anterior" value={`$${revenue.mrrPrevious?.toFixed(2)}`} tooltip="MRR del período anterior para comparación." />
-          <StatBox label="Cambio" value={`${revenue.mrrChange > 0 ? '+' : ''}${revenue.mrrChange}%`} highlight tooltip="Variación porcentual del MRR vs período anterior." />
+          <StatBox label="Stripe" value={`$${revenue.revenueByPlatform?.stripe?.toFixed(2) ?? '0.00'}`} tooltip="Ingresos totales de Stripe (pagos web) en el período." />
+          <StatBox label="RevenueCat" value={`$${revenue.revenueByPlatform?.revenuecat?.toFixed(2) ?? '0.00'}`} tooltip="Ingresos totales de RevenueCat (compras in-app iOS/Android) en el período." />
           <StatBox label="ARPU" value={`$${revenue.arpu?.toFixed(2)}`} tooltip="Average Revenue Per User. Ingreso promedio por suscriptor activo pagando." />
           <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} tooltip="Número de pagos procesados con éxito en el período." />
           <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} tooltip="Pagos que no se pudieron procesar (tarjeta rechazada, fondos insuficientes, etc.)." />
