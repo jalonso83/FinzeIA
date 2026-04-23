@@ -226,13 +226,6 @@ export default function DashboardPulso() {
         />
       </div>
 
-      {/* OpenAI Costs Section */}
-      {openaiCosts && (
-        <div className="mb-6 bg-finzen-gray/5 rounded-xl p-6 border border-finzen-gray/20">
-          <OpenAICostsCard data={openaiCosts} />
-        </div>
-      )}
-
       {/* Quick Stats */}
       <QuickStats data={quickStatsData} />
     </div>
