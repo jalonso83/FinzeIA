@@ -7,6 +7,7 @@ import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import ChartLine from '@/components/dashboard/ChartLine';
 import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
+import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import {
   unitEconomics,
@@ -292,7 +293,7 @@ function TabEngagement({ engagement }: { engagement: any }) {
 }
 
 // ─── Tab: Unit Economics (mock — sin API) ────────────────────────
-function TabEconomics() {
+function TabEconomics({ openaiCosts }: { openaiCosts: any }) {
   return (
     <div>
       <Section
@@ -355,6 +356,15 @@ function TabEconomics() {
           </table>
         </div>
       </Section>
+
+      {openaiCosts && (
+        <Section
+          title="Costos de OpenAI - Detalle Completo"
+          tooltip="Desglose detallado de costos por feature, modelo, usuario y detección de anomalías."
+        >
+          <OpenAICostsCard data={openaiCosts} />
+        </Section>
+      )}
     </div>
   );
 }
@@ -393,7 +403,7 @@ function TabSalud() {
 
 // ─── Main Page ───────────────────────────────────────────────────
 export default function DashboardDetalles() {
-  const { range, setRange, pulse, users, revenue, engagement, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
 
   if (loading && !pulse) {
@@ -427,7 +437,7 @@ export default function DashboardDetalles() {
       case 'usuarios': return <TabUsuarios users={users} />;
       case 'revenue': return <TabRevenue revenue={revenue} pulse={pulse} />;
       case 'engagement': return <TabEngagement engagement={engagement} />;
-      case 'economics': return <TabEconomics />;
+      case 'economics': return <TabEconomics openaiCosts={openaiCosts} />;
       case 'salud': return <TabSalud />;
       default: return null;
     }

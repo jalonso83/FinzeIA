@@ -10,6 +10,15 @@ import QuickStats from '@/components/dashboard/QuickStats';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import { useDashboardData } from '@/hooks/useDashboardData';
 
+function formatCurrency(value: number): string {
+  return new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'USD',
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(value);
+}
+
 // ─── Data transformers ──────────────────────────────────────────
 
 function buildKpiCards(pulse: any) {
@@ -108,6 +117,17 @@ function buildQuickStats(pulse: any) {
   };
 }
 
+function buildOpenAICostKpi(openaiCosts: any) {
+  if (!openaiCosts) return null;
+  return {
+    label: 'Costos OpenAI',
+    value: formatCurrency(openaiCosts.totalCost),
+    change: null,
+    changeType: 'neutral' as const,
+    tooltip: 'Costo total de OpenAI (Zenio, Email Parser, TTS, etc.) en el período.',
+  };
+}
+
 function buildBannerData(pulse: any, revenue: any) {
   if (!pulse) return null;
   return {
@@ -120,7 +140,7 @@ function buildBannerData(pulse: any, revenue: any) {
 // ─── Component ──────────────────────────────────────────────────
 
 export default function DashboardPulso() {
-  const { range, setRange, pulse, users, revenue, engagement, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, loading, error } = useDashboardData();
 
   if (loading && !pulse) {
     return (
@@ -149,6 +169,9 @@ export default function DashboardPulso() {
   const channelData = buildChannelData(engagement);
   const quickStatsData = buildQuickStats(pulse);
   const bannerData = buildBannerData(pulse, revenue);
+  const openaiCostKpi = buildOpenAICostKpi(openaiCosts);
+
+  const allKpiCards = openaiCostKpi ? [...kpiCards, openaiCostKpi] : kpiCards;
 
   return (
     <div className={loading ? 'opacity-60 pointer-events-none' : ''}>
@@ -166,7 +189,7 @@ export default function DashboardPulso() {
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
-        {kpiCards.map((kpi) => (
+        {allKpiCards.map((kpi) => (
           <KPICard key={kpi.label} {...kpi} />
         ))}
       </div>
@@ -192,7 +215,7 @@ export default function DashboardPulso() {
       </div>
 
       {/* Charts Row 2 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
         <ChartDonut
           title="Distribución por Plan"
           data={planDist}
@@ -202,6 +225,13 @@ export default function DashboardPulso() {
           data={channelData}
         />
       </div>
+
+      {/* OpenAI Costs Section */}
+      {openaiCosts && (
+        <div className="mb-6 bg-finzen-gray/5 rounded-xl p-6 border border-finzen-gray/20">
+          <OpenAICostsCard data={openaiCosts} />
+        </div>
+      )}
 
       {/* Quick Stats */}
       <QuickStats data={quickStatsData} />

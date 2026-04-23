@@ -69,6 +69,17 @@ export interface EngagementData {
   period: { from: string; to: string };
 }
 
+export interface OpenAICostsData {
+  totalCost: number;
+  costTrend: { date: string; cost: number }[];
+  costByFeature: Record<string, number>;
+  costByModel: Record<string, number>;
+  costByPlan: Record<string, number>;
+  topUsers: { userId: string; name: string; cost: number }[];
+  anomalies: { feature: string; dailyCost: number; reason: string }[];
+  period: { from: string; to: string };
+}
+
 // ─── Users List (CRM) Types ─────────────────────────────────────
 
 export interface UserListItem {
@@ -137,14 +148,15 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 export async function fetchAllDashboardData(range: DateRange) {
   const { from, to } = computeDateParams(range);
 
-  const [pulse, users, revenue, engagement] = await Promise.all([
+  const [pulse, users, revenue, engagement, openaiCosts] = await Promise.all([
     fetchEndpoint<PulseData>('pulse', from, to),
     fetchEndpoint<UsersData>('users', from, to),
     fetchEndpoint<RevenueData>('revenue', from, to),
     fetchEndpoint<EngagementData>('engagement', from, to),
+    fetchEndpoint<OpenAICostsData>('openai-costs', from, to),
   ]);
 
-  return { pulse, users, revenue, engagement };
+  return { pulse, users, revenue, engagement, openaiCosts };
 }
 
 // ─── Users List API ─────────────────────────────────────────────
