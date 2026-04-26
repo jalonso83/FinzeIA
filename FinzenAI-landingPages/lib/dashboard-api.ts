@@ -12,7 +12,6 @@ export interface PulseData {
   mrrEstimated: number;
   dau: number;
   mau: number;
-  trialToPaidRate: number;
   freeToPaidRate: number;
   retentionD1: number;
   retentionD7: number;
@@ -52,7 +51,6 @@ export interface RevenueData {
   revenueByPlatform: { stripe: number; revenuecat: number };
   trialsActive: number;
   cancellations30d: number;
-  trialToPaidRate: number;
   mrrTrend: { month: string; mrr: number; premium: number; pro: number }[];
   payments: { succeeded: number; failed: number; totalAmount: number };
   period: { from: string; to: string };

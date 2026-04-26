@@ -23,7 +23,6 @@ interface QuickStatsData {
   retencionD7: string;
   retencionD30: string;
   dauMau: string;
-  trialToPaid: string;
 }
 
 export default function QuickStats({ data }: { data: QuickStatsData | null }) {
@@ -32,7 +31,6 @@ export default function QuickStats({ data }: { data: QuickStatsData | null }) {
     { label: 'D7', value: data?.retencionD7 ?? '—', tooltip: 'Porcentaje de usuarios que volvieron a los 7 días de registrarse.' },
     { label: 'D30', value: data?.retencionD30 ?? '—', tooltip: 'Porcentaje de usuarios que siguen activos 30 días después de registrarse.' },
     { label: 'DAU/MAU', value: data?.dauMau ?? '—', tooltip: 'Ratio de usuarios diarios vs mensuales. Mide qué tan "pegajosa" es la app. >20% es bueno.' },
-    { label: 'Trial → Paid', value: data?.trialToPaid ?? '—', tooltip: 'Porcentaje de usuarios que terminaron el trial y se suscribieron a un plan de pago.' },
   ];
 
   return (

@@ -113,7 +113,6 @@ function buildQuickStats(pulse: any) {
     retencionD7: `${pulse.retentionD7}%`,
     retencionD30: `${pulse.retentionD30}%`,
     dauMau: `${dauMau}%`,
-    trialToPaid: `${pulse.trialToPaidRate}%`,
   };
 }
 

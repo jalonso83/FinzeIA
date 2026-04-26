@@ -114,20 +114,24 @@ function buildFunnelData(users: any) {
 
 function buildCohortData(users: any) {
   if (!users?.cohorts) return [];
+  const now = Date.now();
+  const DAY = 86400000;
   return users.cohorts.map((c: any) => {
     const d = new Date(c.week);
     const label = d.toLocaleDateString('es', { day: '2-digit', month: 'short' });
-    const size = c.size || 1;
-    const pct = (v: number) => Math.round((v / size) * 100);
-    // If value is 0 and it's a future period, show null
-    const now = new Date();
-    const weekDate = new Date(c.week);
+    const size = c.size || 0;
+    const weekStart = d.getTime();
+    // For each bucket, only show % if the cohort has had enough time to reach day N.
+    // The cohort is a week, so we use the END of the week (start + 7d) as the youngest user.
+    // A bucket is evaluable when (now - end-of-cohort-week) >= N days.
+    const evaluable = (n: number) => now - (weekStart + 7 * DAY) >= n * DAY;
+    const pct = (v: number) => (size > 0 ? Math.round((v / size) * 100) : 0);
     return {
       semana: label,
-      d1: pct(c.d1),
-      d7: weekDate.getTime() + 7 * 86400000 > now.getTime() && c.d7 === 0 ? null : pct(c.d7),
-      d14: weekDate.getTime() + 14 * 86400000 > now.getTime() && c.d14 === 0 ? null : pct(c.d14),
-      d30: weekDate.getTime() + 30 * 86400000 > now.getTime() && c.d30 === 0 ? null : pct(c.d30),
+      d1: evaluable(1) ? pct(c.d1) : null,
+      d7: evaluable(7) ? pct(c.d7) : null,
+      d14: evaluable(14) ? pct(c.d14) : null,
+      d30: evaluable(30) ? pct(c.d30) : null,
     };
   });
 }
@@ -257,12 +261,11 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
 
       <Section
         title="Métricas de Trial"
-        tooltip="Información sobre usuarios en período de prueba: cuántos están activos, tasas de cancelación y conversión trial a pago."
+        tooltip="Información sobre usuarios en período de prueba: cuántos están activos y tasas de cancelación."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatBox label="Trials Activos" value={String(revenue.trialsActive)} tooltip="Usuarios en período de prueba gratuita de 7 días." />
           <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} tooltip="Suscripciones pagadas canceladas en los últimos 30 días." />
-          <StatBox label="Trial → Paid" value={`${revenue.trialToPaidRate}%`} highlight tooltip="Porcentaje de trials que terminaron y se convirtieron en suscripción de pago." />
         </div>
       </Section>
     </div>

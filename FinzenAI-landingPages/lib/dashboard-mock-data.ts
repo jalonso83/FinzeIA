@@ -115,7 +115,6 @@ export const quickStats = {
   retencionD7: '14%',
   retencionD30: '9%',
   dauMau: '18%',
-  trialToPaid: '42%',
   ultimaActualizacion: 'hace 5 min',
 };
 
