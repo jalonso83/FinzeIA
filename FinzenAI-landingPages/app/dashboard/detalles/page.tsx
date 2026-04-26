@@ -167,7 +167,7 @@ function TabUsuarios({ users }: { users: any }) {
 
       <Section
         title="Funnel Completo"
-        tooltip="Visualiza el camino del usuario desde registro hasta suscripción pagada. Cada etapa muestra cuántos usuarios avanzan, identificando dónde se pierden potenciales clientes."
+        tooltip="Del cohorte de usuarios registrados en el período seleccionado, muestra cuántos avanzaron a cada etapa. El % se calcula vs total registrados (base 100%)."
       >
         <FunnelChart data={buildFunnelData(users)} />
       </Section>
@@ -187,18 +187,18 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
   if (!revenue) return null;
 
   const totalUsers = pulse?.totalUsers || 0;
-  const totalPaidSubs = (pulse?.planDistribution?.['PREMIUM'] || 0) + (pulse?.planDistribution?.['PRO'] || 0);
+  const totalPaidSubs = (revenue.subscribersByPlan?.PREMIUM || 0) + (revenue.subscribersByPlan?.PRO || 0);
   const subsPorcentaje = totalUsers > 0 ? ((totalPaidSubs / totalUsers) * 100).toFixed(1) : '0';
 
   const revenueByPlanRows = [
     {
       plan: `Plus ($4.99/mes)`,
-      usuarios: revenue.mrrTrend?.[revenue.mrrTrend.length - 1]?.premium ?? '—',
+      usuarios: revenue.subscribersByPlan?.PREMIUM ?? 0,
       mrr: `$${revenue.revenueByPlan?.PREMIUM?.toFixed(2) ?? '0.00'}`,
     },
     {
       plan: `Pro ($9.99/mes)`,
-      usuarios: revenue.mrrTrend?.[revenue.mrrTrend.length - 1]?.pro ?? '—',
+      usuarios: revenue.subscribersByPlan?.PRO ?? 0,
       mrr: `$${revenue.revenueByPlan?.PRO?.toFixed(2) ?? '0.00'}`,
     },
   ];
@@ -207,17 +207,20 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
     <div>
       <Section
         title="Métricas de Revenue"
-        tooltip="Resumen de ingresos mensuales recurrentes (MRR), cambios porcentuales, ARPU y estado de pagos. Indicadores clave para medir la salud financiera."
+        tooltip="Resumen de ingresos: arriba el top-line (MRR, ingresos totales, suscripciones, ARPU); abajo el desglose por canal y la salud operativa de los cobros."
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+          {/* ── Fila 1 — Top-line ─────────────────────────────────── */}
           <StatBox label="MRR Actual" value={`$${revenue.mrrCurrent?.toFixed(2)}`} highlight tooltip="Ingreso Mensual Recurrente actual. Solo suscripciones activas pagando (sin trials)." />
+          <StatBox label="Ingresos Total" value={`$${Number(revenue.payments?.totalAmount ?? 0).toFixed(2)}`} highlight tooltip="Suma total de pagos exitosos en el período." />
+          <StatBox label="Total Suscripciones" value={`${totalPaidSubs} / ${totalUsers} (${subsPorcentaje}%)`} highlight tooltip="Usuarios pagando actualmente (Plus o Pro con status ACTIVE), sobre el total de usuarios registrados. NO incluye trials." />
+          <StatBox label="ARPU" value={`$${revenue.arpu?.toFixed(2)}`} highlight tooltip="Average Revenue Per User. Ingreso promedio por suscriptor activo pagando." />
+
+          {/* ── Fila 2 — Canal y salud operativa ──────────────────── */}
           <StatBox label="Stripe" value={`$${revenue.revenueByPlatform?.stripe?.toFixed(2) ?? '0.00'}`} tooltip="Ingresos totales de Stripe (pagos web) en el período." />
           <StatBox label="RevenueCat" value={`$${revenue.revenueByPlatform?.revenuecat?.toFixed(2) ?? '0.00'}`} tooltip="Ingresos totales de RevenueCat (compras in-app iOS/Android) en el período." />
-          <StatBox label="ARPU" value={`$${revenue.arpu?.toFixed(2)}`} tooltip="Average Revenue Per User. Ingreso promedio por suscriptor activo pagando." />
           <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} tooltip="Número de pagos procesados con éxito en el período." />
           <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} tooltip="Pagos que no se pudieron procesar (tarjeta rechazada, fondos insuficientes, etc.)." />
-          <StatBox label="Ingresos Total" value={`$${Number(revenue.payments?.totalAmount ?? 0).toFixed(2)}`} tooltip="Suma total de pagos exitosos en el período." />
-          <StatBox label="Total Suscripciones" value={`${totalPaidSubs} / ${totalUsers} (${subsPorcentaje}%)`} tooltip="Usuarios con plan PREMIUM (Plus) o PRO activos, sobre el total de usuarios registrados." />
         </div>
       </Section>
 
@@ -265,7 +268,7 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
           <StatBox label="Trials Activos" value={String(revenue.trialsActive)} tooltip="Usuarios en período de prueba gratuita de 7 días." />
-          <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} tooltip="Suscripciones pagadas canceladas en los últimos 30 días." />
+          <StatBox label="Cancelaciones (30d)" value={String(revenue.cancellations30d)} tooltip="Usuarios que pagaron hace 30-60 días pero no en los últimos 30 (attrition real basado en pagos). Captura mensuales correctamente; anuales pueden tardar hasta su fecha de no-renovación." />
         </div>
       </Section>
     </div>

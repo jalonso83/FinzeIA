@@ -48,6 +48,7 @@ export interface RevenueData {
   arpu: number;
   subscriptionsByStatus: Record<string, number>;
   revenueByPlan: { PREMIUM: number; PRO: number };
+  subscribersByPlan: { PREMIUM: number; PRO: number };
   revenueByPlatform: { stripe: number; revenuecat: number };
   trialsActive: number;
   cancellations30d: number;

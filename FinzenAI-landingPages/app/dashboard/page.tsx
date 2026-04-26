@@ -44,7 +44,7 @@ function buildKpiCards(pulse: any) {
       value: String(pulse.activatedUsers),
       change: null,
       changeType: 'neutral' as const,
-      tooltip: 'Usuarios que completaron el onboarding con Zenio y tienen su perfil configurado.',
+      tooltip: 'Usuarios del período que registraron al menos una transacción (criterio de activación real).',
     },
     {
       label: 'Churn Rate',
