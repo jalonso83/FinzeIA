@@ -9,7 +9,6 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { financialHealth } from '@/lib/dashboard-mock-data';
 
 const tabs = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
@@ -474,31 +473,65 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
   );
 }
 
-// ─── Tab: Salud Financiera (mock — sin API) ──────────────────────
-function TabSalud() {
+// ─── Tab: Salud Financiera (data real desde backend) ─────────────
+function TabSalud({ financialHealth }: { financialHealth: any }) {
+  if (!financialHealth) return null;
+
   const getEstadoColor = (estado: string) => {
     if (estado === 'Sostenible') return 'text-finzen-green bg-finzen-green/10';
     if (estado === 'Precaución') return 'text-finzen-yellow bg-finzen-yellow/10';
     return 'text-finzen-red bg-finzen-red/10';
   };
 
+  const cashFlowPositive = financialHealth.cashFlowThisMonth >= 0;
+  const runwayLabel = financialHealth.runway !== null
+    ? `${financialHealth.runway} meses`
+    : '∞';
+
   return (
     <div>
       <Section
         title="Estado General"
-        tooltip="Panorama de la salud financiera: balance disponible, ingresos/gastos mensuales, runway (meses de operación) y burn rate."
+        tooltip={`Panorama financiero. Ingreso bruto acumulado desde ${financialHealth.trackingStartDate}. Métricas de mes actual desde ${financialHealth.currentMonth.from}.`}
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Balance en Cuenta" value={financialHealth.balanceCuenta} highlight tooltip="Capital disponible actualmente en la cuenta de la empresa." />
-          <StatBox label="Ingresos Mensuales" value={financialHealth.ingresosMensuales} tooltip="Ingresos totales del mes (suscripciones + otros)." />
-          <StatBox label="Gastos Mensuales" value={financialHealth.gastosMensuales} tooltip="Gastos operativos mensuales (infra, IA, servicios, etc.)." />
-          <StatBox label="Runway" value={financialHealth.runway} highlight tooltip="Meses que puedes operar con el capital actual sin nuevos ingresos." />
-          <StatBox label="Burn Rate" value={financialHealth.burnRate} tooltip="Cuánto dinero se consume al mes. Gastos mensuales menos ingresos." />
+          <StatBox
+            label="Ingreso Bruto Total"
+            value={`$${financialHealth.grossIncomeTotal.toFixed(2)}`}
+            highlight
+            tooltip={`Suma de TODOS los pagos exitosos desde ${financialHealth.trackingStartDate}. Es el dinero total ganado por la empresa hasta la fecha.`}
+          />
+          <StatBox
+            label="Ingresos Mes Actual"
+            value={`$${financialHealth.incomeThisMonth.toFixed(2)}`}
+            tooltip={`Pagos exitosos del mes calendario actual (desde ${financialHealth.currentMonth.from} hasta hoy).`}
+          />
+          <StatBox
+            label="Gastos Mes Actual"
+            value={`$${financialHealth.expensesThisMonth.toFixed(2)}`}
+            tooltip={`Costos fijos ($${financialHealth.fixedExpensesThisMonth.toFixed(2)}) + variables (OpenAI + fees: $${financialHealth.variableExpensesThisMonth.toFixed(2)}) del mes en curso.`}
+          />
+          <StatBox
+            label="Runway"
+            value={runwayLabel}
+            highlight
+            tooltip="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. ∞ si actualmente no hay burn (cash flow positivo)."
+          />
+          <StatBox
+            label="Burn Rate"
+            value={`${financialHealth.burnRate >= 0 ? '$' : '-$'}${Math.abs(financialHealth.burnRate).toFixed(2)}/mes`}
+            tooltip={`Gastos − Ingresos del mes. Positivo = pérdida mensual neta. Negativo = ganancia. Cash Flow Mes: ${cashFlowPositive ? '+' : ''}$${financialHealth.cashFlowThisMonth.toFixed(2)}.`}
+          />
           <div className="rounded-lg border border-finzen-gray/20 bg-white p-4">
             <p className="text-xs text-finzen-gray font-medium">Estado</p>
             <span className={`inline-block mt-2 px-3 py-1 rounded-full text-sm font-bold ${getEstadoColor(financialHealth.estado)}`}>
               {financialHealth.estado}
             </span>
+            <p className="text-xs text-finzen-gray mt-2">
+              {financialHealth.estado === 'Sostenible' && 'Cash flow ≥ 0'}
+              {financialHealth.estado === 'Precaución' && 'Burn activo, runway ≥ 6 meses'}
+              {financialHealth.estado === 'Crítico' && 'Burn activo, runway < 6 meses'}
+            </p>
           </div>
         </div>
       </Section>
@@ -508,7 +541,7 @@ function TabSalud() {
 
 // ─── Main Page ───────────────────────────────────────────────────
 export default function DashboardDetalles() {
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
 
   if (loading && !pulse) {
@@ -543,7 +576,7 @@ export default function DashboardDetalles() {
       case 'revenue': return <TabRevenue revenue={revenue} pulse={pulse} />;
       case 'engagement': return <TabEngagement engagement={engagement} />;
       case 'economics': return <TabEconomics openaiCosts={openaiCosts} unitEconomics={unitEconomics} />;
-      case 'salud': return <TabSalud />;
+      case 'salud': return <TabSalud financialHealth={financialHealth} />;
       default: return null;
     }
   };

@@ -117,6 +117,20 @@ export interface UnitEconomicsData {
   period: { from: string; to: string; days: number };
 }
 
+export interface FinancialHealthData {
+  grossIncomeTotal: number;
+  incomeThisMonth: number;
+  expensesThisMonth: number;
+  fixedExpensesThisMonth: number;
+  variableExpensesThisMonth: number;
+  cashFlowThisMonth: number;
+  burnRate: number;
+  runway: number | null;
+  estado: 'Sostenible' | 'Precaución' | 'Crítico';
+  trackingStartDate: string;
+  currentMonth: { from: string; to: string };
+}
+
 export interface OpenAICostsData {
   totalCost: number;
   costTrend: { date: string; cost: number }[];
@@ -196,16 +210,19 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 export async function fetchAllDashboardData(range: DateRange) {
   const { from, to } = computeDateParams(range);
 
-  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics] = await Promise.all([
+  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth] = await Promise.all([
     fetchEndpoint<PulseData>('pulse', from, to),
     fetchEndpoint<UsersData>('users', from, to),
     fetchEndpoint<RevenueData>('revenue', from, to),
     fetchEndpoint<EngagementData>('engagement', from, to),
     fetchEndpoint<OpenAICostsData>('openai-costs', from, to),
     fetchEndpoint<UnitEconomicsData>('unit-economics', from, to),
+    // Financial health no usa rango (siempre mes actual + bruto acumulado),
+    // pero pasamos los params igual por uniformidad. El backend los ignora.
+    fetchEndpoint<FinancialHealthData>('financial-health', from, to),
   ]);
 
-  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics };
+  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth };
 }
 
 // ─── Users List API ─────────────────────────────────────────────
