@@ -62,10 +62,52 @@ export interface EngagementData {
   totalTransactions: number;
   activeUsers: number;
   onboardingRate: number;
-  zenioTotalQueries: number;
-  referrals: { total: number; converted: number };
+  zenioActiveUsers: number;
+  zenioAdoptionRate: number;
+  streakActiveUsers: number;
+  streakActiveRate: number;
+  timeToFirstTx: {
+    medianHours: number | null;
+    firstTxRate: number;
+    cohortSize: number;
+  };
+  referrals: { total: number; converted: number; conversionRate: number };
   registrationsByChannel: { country: string; count: number }[];
   period: { from: string; to: string };
+}
+
+export interface UnitEconomicsData {
+  fixedCosts: {
+    items: { name: string; category: string; monthlyAmount: number; notes?: string }[];
+    total: number;
+  };
+  variableCosts: {
+    openAI: number;
+    stripeFees: number;
+    revenueCatFees: number;
+    total: number;
+  };
+  totalCostMonthly: number;
+  costPerUser: number;
+  costAIPerUser: number;
+  costInfraPerUser: number;
+  grossMargin: number;
+  breakEven: {
+    usersNeeded: number | null;
+    currentPayingUsers: number;
+    progressPct: number;
+  };
+  mrrCurrent: number;
+  arpu: number;
+  activeUsers: number;
+  breakdown: {
+    concepto: string;
+    category: string;
+    costo: number;
+    type: 'fixed' | 'variable';
+    porcentaje: number;
+  }[];
+  period: { from: string; to: string; days: number };
 }
 
 export interface OpenAICostsData {
@@ -147,15 +189,16 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 export async function fetchAllDashboardData(range: DateRange) {
   const { from, to } = computeDateParams(range);
 
-  const [pulse, users, revenue, engagement, openaiCosts] = await Promise.all([
+  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics] = await Promise.all([
     fetchEndpoint<PulseData>('pulse', from, to),
     fetchEndpoint<UsersData>('users', from, to),
     fetchEndpoint<RevenueData>('revenue', from, to),
     fetchEndpoint<EngagementData>('engagement', from, to),
     fetchEndpoint<OpenAICostsData>('openai-costs', from, to),
+    fetchEndpoint<UnitEconomicsData>('unit-economics', from, to),
   ]);
 
-  return { pulse, users, revenue, engagement, openaiCosts };
+  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics };
 }
 
 // ─── Users List API ─────────────────────────────────────────────

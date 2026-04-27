@@ -12,17 +12,17 @@ export default function OpenAICostsCard({ data }: OpenAICostsCardProps) {
   if (!data) return null;
 
   const costTrendData = data.costTrend.map((d) => ({
-    date: new Date(d.date).toLocaleDateString('es', { day: '2-digit', month: 'short' }),
+    date: new Date(d.date).toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
     costo: d.cost,
   }));
 
+  // Mostrar todos los features y modelos (incluso con $0) ordenados por costo desc.
+  // El backend pad-ea con $0 los conocidos, así el directivo siempre ve la lista completa.
   const topFeatures = Object.entries(data.costByFeature)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 5);
+    .sort(([, a], [, b]) => b - a);
 
   const topModels = Object.entries(data.costByModel)
-    .sort(([, a], [, b]) => b - a)
-    .slice(0, 3);
+    .sort(([, a], [, b]) => b - a);
 
   const hasAnomalies = data.anomalies && data.anomalies.length > 0;
 

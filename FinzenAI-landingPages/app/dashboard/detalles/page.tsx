@@ -9,11 +9,7 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import {
-  unitEconomics,
-  costBreakdown,
-  financialHealth,
-} from '@/lib/dashboard-mock-data';
+import { financialHealth } from '@/lib/dashboard-mock-data';
 
 const tabs = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
@@ -90,7 +86,7 @@ function buildUserGrowthData(users: any) {
   return users.registrationsByDay.map((r: any) => {
     const d = new Date(r.day);
     return {
-      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short' }),
+      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
       registros: r.count,
     };
   });
@@ -118,7 +114,7 @@ function buildCohortData(users: any) {
   const DAY = 86400000;
   return users.cohorts.map((c: any) => {
     const d = new Date(c.week);
-    const label = d.toLocaleDateString('es', { day: '2-digit', month: 'short' });
+    const label = d.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' });
     const size = c.size || 0;
     const weekStart = d.getTime();
     // For each bucket, only show % if the cohort has had enough time to reach day N.
@@ -141,7 +137,7 @@ function buildMrrTrend(revenue: any) {
   return revenue.mrrTrend.map((m: any) => {
     const d = new Date(m.month);
     return {
-      date: d.toLocaleDateString('es', { month: 'short', year: '2-digit' }),
+      date: d.toLocaleDateString('es', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       mrr: m.mrr,
     };
   });
@@ -283,55 +279,82 @@ function TabEngagement({ engagement }: { engagement: any }) {
     <div>
       <Section
         title="Métricas de Engagement"
-        tooltip="Indicadores de actividad del usuario: consultas a Zenio, transacciones registradas, tasa de onboarding y referidos. Mide qué tan activos son los usuarios."
+        tooltip="Actividad y profundidad de uso. Arriba lo que un directivo evalúa primero: base activa, adopción del feature core (Zenio) y formación de hábito (rachas). Abajo: calidad del onboarding, profundidad y viralidad."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Consultas Zenio (total)" value={String(engagement.zenioTotalQueries)} highlight tooltip="Total de mensajes enviados a Zenio por todos los usuarios." />
-          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} tooltip="Usuarios que registraron al menos 1 transacción en el período." />
-          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo. Mayor = más engagement." />
-          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="Porcentaje de usuarios del período que completaron el onboarding con Zenio." />
-          <StatBox label="Referidos Totales" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido enviadas en el período." />
-          <StatBox label="Referidos Convertidos" value={String(engagement.referrals?.converted ?? 0)} tooltip="Referidos que se registraron y activaron su cuenta." />
+          {/* ── Fila 1 — TOP-LINE de engagement (highlight) ───────── */}
+          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Usuarios que registraron al menos 1 transacción (con fecha en el período seleccionado). Mide actividad financiera, no toda actividad en la app." />
+          <StatBox label="Adopción Zenio" value={`${engagement.zenioAdoptionRate}%`} highlight tooltip="% de usuarios activos que conversaron con Zenio en el período. Métrica clave: si la AI es el diferenciador, este % refleja qué tan profundo penetra. Cap a 100% para casos raros donde un user usa Zenio sin registrar tx." />
+          <StatBox label="Racha Activa" value={`${engagement.streakActiveRate}%`} highlight tooltip="% de usuarios activos con racha (streak) viva en el período. Indica formación de hábito vía gamification. Si está estancado, las streaks no están enganchando." />
+
+          {/* ── Fila 2 — Calidad del funnel y profundidad ─────────── */}
+          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que ya completaron el onboarding con Zenio." />
+          <StatBox
+            label="Time-to-First-TX"
+            value={engagement.timeToFirstTx?.medianHours !== null ? `${engagement.timeToFirstTx?.medianHours}h (${engagement.timeToFirstTx?.firstTxRate}%)` : '—'}
+            tooltip="Mediana de horas entre registro y primera transacción del cohorte del período. Entre paréntesis: % del cohorte que llegó a hacer primera tx. Solo cohortes con ≥1h desde registro."
+          />
+          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
+
+          {/* ── Fila 3 — Detalle de Zenio + Viralidad ─────────────── */}
+          <StatBox label="Usuarios usando Zenio" value={String(engagement.zenioActiveUsers)} tooltip="Conteo absoluto de usuarios distintos que conversaron con Zenio en el período (numerador del % Adopción Zenio)." />
+          <StatBox label="Referidos Enviados" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido creadas en el período (top del funnel viral)." />
+          <StatBox label="Conversión Referidos" value={`${engagement.referrals?.converted ?? 0} (${engagement.referrals?.conversionRate ?? 0}%)`} tooltip="Referidos creados en el período que terminaron convirtiéndose en usuarios activos. El % es vs total de referidos enviados (mismo cohorte)." />
         </div>
       </Section>
     </div>
   );
 }
 
-// ─── Tab: Unit Economics (mock — sin API) ────────────────────────
-function TabEconomics({ openaiCosts }: { openaiCosts: any }) {
+// ─── Tab: Unit Economics (data real desde backend) ───────────────
+function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEconomics: any }) {
+  if (!unitEconomics) return null;
+
+  const breakEvenLabel = unitEconomics.breakEven.usersNeeded !== null
+    ? `${unitEconomics.breakEven.currentPayingUsers} / ${unitEconomics.breakEven.usersNeeded}`
+    : `${unitEconomics.breakEven.currentPayingUsers} / —`;
+
+  const progressWidth = unitEconomics.breakEven.usersNeeded !== null
+    ? `${unitEconomics.breakEven.progressPct}%`
+    : '0%';
+
   return (
     <div>
       <Section
         title="Costos por Usuario"
-        tooltip="Desglose de costos operativos por usuario: costo de IA (OpenAI), infraestructura y total. Esencial para calcular rentabilidad."
+        tooltip="Desglose de costos operativos por usuario activo (registró ≥1 tx en el período). Costos variables escalados a equivalente mensual; fijos ya prorrateados."
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatBox label="Costo IA / Usuario" value={unitEconomics.costoIAPorUsuario} tooltip="Costo mensual de OpenAI (Zenio) por usuario activo." />
-          <StatBox label="Costo Infra / Usuario" value={unitEconomics.costoInfraPorUsuario} tooltip="Costo mensual de infraestructura (Railway, Firebase, etc.) por usuario." />
-          <StatBox label="Costo Total / Usuario" value={unitEconomics.costoTotalPorUsuario} tooltip="Suma de costo IA + infraestructura por usuario al mes." />
-          <StatBox label="Margen Bruto" value={unitEconomics.margenBruto} highlight tooltip="Porcentaje de ingreso que queda después de costos directos. Mayor = más rentable." />
+          <StatBox label="Costo IA / Usuario" value={`$${unitEconomics.costAIPerUser.toFixed(2)}`} tooltip="Costo de OpenAI atribuible a cada usuario activo (escalado a mensual). Calculado desde openai_daily_usage." />
+          <StatBox label="Costo Infra / Usuario" value={`$${unitEconomics.costInfraPerUser.toFixed(2)}`} tooltip={`Costos fijos (Railway, Resend, herramientas, etc.) divididos entre usuarios activos. Total fijo: $${unitEconomics.fixedCosts.total.toFixed(2)}/mes.`} />
+          <StatBox label="Costo Total / Usuario" value={`$${unitEconomics.costPerUser.toFixed(2)}`} tooltip="Costo total mensual (fijos + variables) dividido entre usuarios activos. Indicador clave para rentabilidad." />
+          <StatBox label="Margen Bruto" value={`${unitEconomics.grossMargin.toFixed(1)}%`} highlight tooltip="(MRR − costos variables) / MRR × 100. Excluye costos fijos por convención SaaS. Mayor = más rentable a escala." />
         </div>
       </Section>
 
       <Section
         title="Break-Even"
-        tooltip="Progreso hacia el punto de equilibrio: cuántos usuarios activos necesitas para que ingresos = gastos. Objetivo crítico para viabilidad."
+        tooltip="Punto de equilibrio: cuántos suscriptores pagados necesitas para que la contribución (ARPU − costo variable) cubra los costos fijos mensuales."
       >
         <div className="bg-white rounded-xl border border-finzen-gray/20 p-5 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
             <div>
-              <p className="text-sm text-finzen-gray">Progreso al Break-Even</p>
+              <p className="text-sm text-finzen-gray">Progreso al Break-Even (suscriptores pagando)</p>
               <p className="text-lg font-bold text-finzen-black">
-                {unitEconomics.usuariosActuales} / {unitEconomics.breakEvenUsuarios} usuarios
+                {breakEvenLabel} usuarios
               </p>
+              {unitEconomics.breakEven.usersNeeded === null && (
+                <p className="text-xs text-finzen-red mt-1">
+                  Imposible calcular: contribución por user es negativa o cero. Revisar pricing o costos variables.
+                </p>
+              )}
             </div>
-            <span className="text-2xl font-bold text-finzen-blue">{unitEconomics.progresoBreakEven}</span>
+            <span className="text-2xl font-bold text-finzen-blue">{progressWidth}</span>
           </div>
           <div className="w-full bg-finzen-white rounded-full h-4 overflow-hidden">
             <div
               className="h-full rounded-full bg-gradient-to-r from-finzen-blue to-finzen-green transition-all duration-1000"
-              style={{ width: unitEconomics.progresoBreakEven }}
+              style={{ width: progressWidth }}
             />
           </div>
         </div>
@@ -339,25 +362,37 @@ function TabEconomics({ openaiCosts }: { openaiCosts: any }) {
 
       <Section
         title="Desglose de Costos"
-        tooltip="Detalle de cada concepto de gasto: OpenAI, infraestructura, servicios, etc. Muestra en qué se invierte cada dólar."
+        tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien) + variables calculados desde DB. % calculado sobre el total."
       >
         <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
           <table className="w-full">
             <thead>
               <tr className="border-b border-finzen-gray/10">
                 <th className="text-left text-xs font-medium text-finzen-gray p-4">Concepto</th>
-                <th className="text-right text-xs font-medium text-finzen-gray p-4">Costo</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Tipo</th>
+                <th className="text-right text-xs font-medium text-finzen-gray p-4">Costo /mes</th>
                 <th className="text-right text-xs font-medium text-finzen-gray p-4">%</th>
               </tr>
             </thead>
             <tbody>
-              {costBreakdown.map((row) => (
+              {unitEconomics.breakdown.map((row: any) => (
                 <tr key={row.concepto} className="border-b border-finzen-gray/10 last:border-0">
                   <td className="text-sm text-finzen-black p-4">{row.concepto}</td>
-                  <td className="text-sm text-right font-medium text-finzen-black p-4">{row.costo}</td>
-                  <td className="text-sm text-right text-finzen-gray p-4">{row.porcentaje}</td>
+                  <td className="text-xs text-finzen-gray p-4 capitalize">
+                    <span className={`px-2 py-1 rounded ${row.type === 'fixed' ? 'bg-finzen-gray/10' : 'bg-finzen-blue/10 text-finzen-blue'}`}>
+                      {row.type === 'fixed' ? 'Fijo' : 'Variable'}
+                    </span>
+                  </td>
+                  <td className="text-sm text-right font-medium text-finzen-black p-4">${row.costo.toFixed(2)}</td>
+                  <td className="text-sm text-right text-finzen-gray p-4">{row.porcentaje}%</td>
                 </tr>
               ))}
+              <tr className="border-t-2 border-finzen-gray/30 font-bold bg-finzen-white/50">
+                <td className="text-sm text-finzen-black p-4">TOTAL</td>
+                <td></td>
+                <td className="text-sm text-right text-finzen-black p-4">${unitEconomics.totalCostMonthly.toFixed(2)}</td>
+                <td className="text-sm text-right text-finzen-gray p-4">100%</td>
+              </tr>
             </tbody>
           </table>
         </div>
@@ -409,7 +444,7 @@ function TabSalud() {
 
 // ─── Main Page ───────────────────────────────────────────────────
 export default function DashboardDetalles() {
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
 
   if (loading && !pulse) {
@@ -443,7 +478,7 @@ export default function DashboardDetalles() {
       case 'usuarios': return <TabUsuarios users={users} />;
       case 'revenue': return <TabRevenue revenue={revenue} pulse={pulse} />;
       case 'engagement': return <TabEngagement engagement={engagement} />;
-      case 'economics': return <TabEconomics openaiCosts={openaiCosts} />;
+      case 'economics': return <TabEconomics openaiCosts={openaiCosts} unitEconomics={unitEconomics} />;
       case 'salud': return <TabSalud />;
       default: return null;
     }

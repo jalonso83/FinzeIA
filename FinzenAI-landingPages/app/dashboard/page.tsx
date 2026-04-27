@@ -68,7 +68,7 @@ function buildUserGrowthData(users: any) {
   return users.registrationsByDay.map((r: any) => {
     const d = new Date(r.day);
     return {
-      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short' }),
+      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
       registros: r.count,
     };
   });
@@ -79,7 +79,7 @@ function buildMrrTrend(revenue: any) {
   return revenue.mrrTrend.map((m: any) => {
     const d = new Date(m.month);
     return {
-      date: d.toLocaleDateString('es', { month: 'short', year: '2-digit' }),
+      date: d.toLocaleDateString('es', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       mrr: m.mrr,
     };
   });
