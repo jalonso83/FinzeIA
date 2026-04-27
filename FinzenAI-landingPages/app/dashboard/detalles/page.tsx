@@ -318,23 +318,47 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
     ? `${unitEconomics.breakEven.progressPct}%`
     : '0%';
 
+  const cashFlowPositive = unitEconomics.cashFlowMonthly >= 0;
+
   return (
     <div>
+      {/* ── SECCIÓN 1 — SALUD ECONÓMICA (top-line, highlight) ─────── */}
       <Section
-        title="Costos por Usuario"
-        tooltip="Desglose de costos operativos por usuario activo (registró ≥1 tx en el período). Costos variables escalados a equivalente mensual; fijos ya prorrateados."
+        title="Salud Económica"
+        tooltip="Vista ejecutiva: ¿gano dinero? ¿cuánto cuesta mantener el negocio? ¿estoy en break-even?"
       >
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-          <StatBox label="Costo IA / Usuario" value={`$${unitEconomics.costAIPerUser.toFixed(2)}`} tooltip="Costo de OpenAI atribuible a cada usuario activo (escalado a mensual). Calculado desde openai_daily_usage." />
-          <StatBox label="Costo Infra / Usuario" value={`$${unitEconomics.costInfraPerUser.toFixed(2)}`} tooltip={`Costos fijos (Railway, Resend, herramientas, etc.) divididos entre usuarios activos. Total fijo: $${unitEconomics.fixedCosts.total.toFixed(2)}/mes.`} />
-          <StatBox label="Costo Total / Usuario" value={`$${unitEconomics.costPerUser.toFixed(2)}`} tooltip="Costo total mensual (fijos + variables) dividido entre usuarios activos. Indicador clave para rentabilidad." />
-          <StatBox label="Margen Bruto" value={`${unitEconomics.grossMargin.toFixed(1)}%`} highlight tooltip="(MRR − costos variables) / MRR × 100. Excluye costos fijos por convención SaaS. Mayor = más rentable a escala." />
+          <StatBox
+            label="Margen Bruto"
+            value={`${unitEconomics.grossMargin.toFixed(1)}%`}
+            highlight
+            tooltip="(MRR − costos variables) / MRR × 100. Excluye costos fijos por convención SaaS. Indica rentabilidad a escala."
+          />
+          <StatBox
+            label="MRR"
+            value={`$${unitEconomics.mrrCurrent.toFixed(2)}`}
+            highlight
+            tooltip="Ingreso Mensual Recurrente actual (suma normalizada de suscripciones activas pagadas)."
+          />
+          <StatBox
+            label="Costo Total Mensual"
+            value={`$${unitEconomics.totalCostMonthly.toFixed(2)}`}
+            highlight
+            tooltip={`Suma de costos fijos ($${unitEconomics.fixedCosts.total.toFixed(2)}) + variables (OpenAI, fees) escalados a mensual.`}
+          />
+          <StatBox
+            label="Cash Flow Mensual"
+            value={`${cashFlowPositive ? '+' : ''}$${unitEconomics.cashFlowMonthly.toFixed(2)}`}
+            highlight
+            tooltip="MRR − Costo Total. Positivo = profit, negativo = burn. Es la métrica más honesta de viabilidad mensual."
+          />
         </div>
       </Section>
 
+      {/* ── SECCIÓN 2 — BREAK-EVEN ───────────────────────────────── */}
       <Section
         title="Break-Even"
-        tooltip="Punto de equilibrio: cuántos suscriptores pagados necesitas para que la contribución (ARPU − costo variable) cubra los costos fijos mensuales."
+        tooltip="Punto de equilibrio: cuántos suscriptores pagados necesitas para que la contribución (ARPU − costo variable por user) cubra los costos fijos mensuales."
       >
         <div className="bg-white rounded-xl border border-finzen-gray/20 p-5 mb-6">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-4">
@@ -360,6 +384,46 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
         </div>
       </Section>
 
+      {/* ── SECCIÓN 3 — COSTOS POR USUARIO ───────────────────────── */}
+      <Section
+        title="Costos por Usuario"
+        tooltip="Dos lentes: (1) por usuario ACTIVO con tx en período — la economía real. (2) por usuario TOTAL registrado — incluye dormidos, vista más conservadora."
+      >
+        {/* Header con denominadores */}
+        <div className="bg-white rounded-xl border border-finzen-gray/20 p-4 mb-4 flex items-center justify-between">
+          <div>
+            <p className="text-xs text-finzen-gray">Usuarios activos (tx en período)</p>
+            <p className="text-lg font-bold text-finzen-blue">{unitEconomics.activeUsers}</p>
+          </div>
+          <div className="text-finzen-gray text-sm">vs</div>
+          <div>
+            <p className="text-xs text-finzen-gray">Usuarios totales (registrados)</p>
+            <p className="text-lg font-bold text-finzen-black">{unitEconomics.totalUsers}</p>
+          </div>
+        </div>
+
+        {/* Por usuario activo (primario) */}
+        <p className="text-xs font-semibold text-finzen-gray mb-2 uppercase tracking-wide">
+          Por usuario activo ({unitEconomics.activeUsers}) — economía real
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-4">
+          <StatBox label="Costo IA / Usuario" value={`$${unitEconomics.costAIPerUser.toFixed(2)}`} tooltip="Costo OpenAI escalado a mensual / usuarios con ≥1 tx en el período." />
+          <StatBox label="Costo Infra / Usuario" value={`$${unitEconomics.costInfraPerUser.toFixed(2)}`} tooltip={`Costos fijos $${unitEconomics.fixedCosts.total.toFixed(2)} / activos.`} />
+          <StatBox label="Costo Total / Usuario" value={`$${unitEconomics.costPerUser.toFixed(2)}`} tooltip="Costo total mensual / activos. Indicador clave para unit economics." />
+        </div>
+
+        {/* Por usuario total (secundario, más tenue) */}
+        <p className="text-xs font-semibold text-finzen-gray mb-2 uppercase tracking-wide">
+          Por usuario total ({unitEconomics.totalUsers}) — vista conservadora
+        </p>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6 opacity-75">
+          <StatBox label="Costo IA / Total" value={`$${unitEconomics.costAIPerTotalUser.toFixed(2)}`} tooltip="Mismo cálculo pero dividido entre TODOS los usuarios registrados (incluye dormidos)." />
+          <StatBox label="Costo Infra / Total" value={`$${unitEconomics.costInfraPerTotalUser.toFixed(2)}`} tooltip="Costos fijos / total registrados." />
+          <StatBox label="Costo Total / Total" value={`$${unitEconomics.costPerTotalUser.toFixed(2)}`} tooltip="Costo total / total registrados. Vista más optimista del costo unitario." />
+        </div>
+      </Section>
+
+      {/* ── SECCIÓN 4 — DESGLOSE DE COSTOS ───────────────────────── */}
       <Section
         title="Desglose de Costos"
         tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien) + variables calculados desde DB. % calculado sobre el total."

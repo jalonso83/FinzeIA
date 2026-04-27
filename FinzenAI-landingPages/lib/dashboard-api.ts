@@ -88,9 +88,15 @@ export interface UnitEconomicsData {
     total: number;
   };
   totalCostMonthly: number;
+  cashFlowMonthly: number;
+  // Por usuario activo (denominador = activeUsers)
   costPerUser: number;
   costAIPerUser: number;
   costInfraPerUser: number;
+  // Por usuario total (denominador = totalUsers)
+  costPerTotalUser: number;
+  costAIPerTotalUser: number;
+  costInfraPerTotalUser: number;
   grossMargin: number;
   breakEven: {
     usersNeeded: number | null;
@@ -100,6 +106,7 @@ export interface UnitEconomicsData {
   mrrCurrent: number;
   arpu: number;
   activeUsers: number;
+  totalUsers: number;
   breakdown: {
     concepto: string;
     category: string;
