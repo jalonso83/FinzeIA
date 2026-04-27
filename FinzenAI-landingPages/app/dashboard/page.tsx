@@ -127,19 +127,20 @@ function buildOpenAICostKpi(openaiCosts: any) {
   };
 }
 
-function buildBannerData(pulse: any, revenue: any) {
+function buildBannerData(pulse: any, revenue: any, financialHealth: any) {
   if (!pulse) return null;
   return {
     mrrNeto: revenue?.mrrCurrent ?? pulse.mrrEstimated,
     mrrCambio: revenue?.mrrChange ?? 0,
     mau: pulse.mau,
+    runway: financialHealth?.runway ?? null,
   };
 }
 
 // ─── Component ──────────────────────────────────────────────────
 
 export default function DashboardPulso() {
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, financialHealth, loading, error } = useDashboardData();
 
   if (loading && !pulse) {
     return (
@@ -167,7 +168,7 @@ export default function DashboardPulso() {
   const planDist = buildPlanDistribution(pulse);
   const channelData = buildChannelData(engagement);
   const quickStatsData = buildQuickStats(pulse);
-  const bannerData = buildBannerData(pulse, revenue);
+  const bannerData = buildBannerData(pulse, revenue, financialHealth);
   const openaiCostKpi = buildOpenAICostKpi(openaiCosts);
 
   const allKpiCards = openaiCostKpi ? [...kpiCards, openaiCostKpi] : kpiCards;

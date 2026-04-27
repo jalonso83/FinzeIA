@@ -7,6 +7,7 @@ interface BannerData {
   mrrNeto: number;
   mrrCambio: number;
   mau: number;
+  runway: number | null; // null = sin burn (cash flow positivo) → ∞
 }
 
 function Tooltip({ text }: { text: string }) {
@@ -24,36 +25,37 @@ function Tooltip({ text }: { text: string }) {
   );
 }
 
-function getRunwayColor(months: number) {
+function getRunwayColor(months: number | null) {
+  if (months === null) return 'text-finzen-green bg-finzen-green/10'; // ∞ = sin burn
   if (months > 6) return 'text-finzen-green bg-finzen-green/10';
   if (months >= 3) return 'text-finzen-yellow bg-finzen-yellow/10';
   return 'text-finzen-red bg-finzen-red/10';
 }
 
-function getRunwayDot(months: number) {
+function getRunwayDot(months: number | null) {
+  if (months === null) return 'bg-finzen-green';
   if (months > 6) return 'bg-finzen-green';
   if (months >= 3) return 'bg-finzen-yellow';
   return 'bg-finzen-red';
 }
 
-// Runway is a manual metric not computed from DB
-const RUNWAY_MONTHS = 8;
-
 export default function BannerSuperior({ data }: { data: BannerData | null }) {
   const mrrNeto = data?.mrrNeto ?? 0;
   const mrrCambio = data?.mrrCambio ?? 0;
   const mau = data?.mau ?? 0;
+  const runway = data?.runway ?? null;
+  const runwayLabel = runway === null ? '∞ meses' : `${runway} meses`;
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-4 mb-6">
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         {/* Runway */}
-        <div className={`flex items-center gap-3 px-4 py-2 rounded-lg ${getRunwayColor(RUNWAY_MONTHS)}`}>
-          <div className={`w-2.5 h-2.5 rounded-full ${getRunwayDot(RUNWAY_MONTHS)} animate-pulse`} />
+        <div className={`flex items-center gap-3 px-4 py-2 rounded-lg ${getRunwayColor(runway)}`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${getRunwayDot(runway)} animate-pulse`} />
           <Fuel size={18} />
           <div>
-            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">Runway</p><Tooltip text="Meses de operación que puedes sostener con el capital actual sin nuevos ingresos." /></div>
-            <p className="text-lg font-bold">{RUNWAY_MONTHS} meses</p>
+            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">Runway</p><Tooltip text="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. ∞ = cash flow positivo (no hay burn)." /></div>
+            <p className="text-lg font-bold">{runwayLabel}</p>
           </div>
         </div>
 

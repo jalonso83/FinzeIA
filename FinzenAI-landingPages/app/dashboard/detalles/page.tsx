@@ -568,6 +568,7 @@ export default function DashboardDetalles() {
     mrrNeto: revenue?.mrrCurrent ?? pulse.mrrEstimated,
     mrrCambio: revenue?.mrrChange ?? 0,
     mau: pulse.mau,
+    runway: financialHealth?.runway ?? null,
   } : null;
 
   const renderTab = () => {
