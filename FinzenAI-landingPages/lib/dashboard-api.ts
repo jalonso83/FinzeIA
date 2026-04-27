@@ -127,7 +127,6 @@ export interface FinancialHealthData {
   burnRate: number;
   runway: number | null;
   estado: 'Sostenible' | 'Precaución' | 'Crítico';
-  trackingStartDate: string;
   currentMonth: { from: string; to: string };
 }
 

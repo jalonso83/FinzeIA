@@ -492,14 +492,14 @@ function TabSalud({ financialHealth }: { financialHealth: any }) {
     <div>
       <Section
         title="Estado General"
-        tooltip={`Panorama financiero. Ingreso bruto acumulado desde ${financialHealth.trackingStartDate}. Métricas de mes actual desde ${financialHealth.currentMonth.from}.`}
+        tooltip={`Panorama financiero. Ingreso bruto acumulado all-time. Métricas de mes actual desde ${financialHealth.currentMonth.from}.`}
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <StatBox
             label="Ingreso Bruto Total"
             value={`$${financialHealth.grossIncomeTotal.toFixed(2)}`}
             highlight
-            tooltip={`Suma de TODOS los pagos exitosos desde ${financialHealth.trackingStartDate}. Es el dinero total ganado por la empresa hasta la fecha.`}
+            tooltip="Suma de TODOS los pagos exitosos de toda la historia (sin filtro de fecha). Es el dinero total que ha entrado a la empresa."
           />
           <StatBox
             label="Ingresos Mes Actual"
