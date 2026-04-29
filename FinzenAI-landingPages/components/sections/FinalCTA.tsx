@@ -38,6 +38,7 @@ export default function FinalCTA() {
             href={getAppStoreLink('footer_cta')}
             icon={<AppleLogo size={18} />}
             onClick={() => trackDownloadIOS('footer_cta')}
+            target="_blank"
             className="min-w-[180px]"
           >
             Da el primer paso
@@ -45,8 +46,10 @@ export default function FinalCTA() {
           <Button
             variant="primary"
             size="md"
-            href="https://play.google.com/store/apps/details?id=com.jl.alonso.finzenaimobile&pcampaignid=web_share"
+            href={getPlayStoreLink('footer_cta')}
             icon={<Play size={18} />}
+            onClick={() => trackDownloadAndroid('footer_cta')}
+            target="_blank"
             className="min-w-[180px]"
           >
             Google Play

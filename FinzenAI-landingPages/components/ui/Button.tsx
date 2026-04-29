@@ -11,6 +11,7 @@ interface ButtonProps {
   icon?: React.ReactNode;
   className?: string;
   onClick?: () => void;
+  target?: '_blank' | '_self';
 }
 
 const variantStyles: Record<ButtonVariant, string> = {
@@ -38,12 +39,16 @@ export default function Button({
   icon,
   className = '',
   onClick,
+  target,
 }: ButtonProps) {
   const classes = `inline-flex items-center justify-center gap-2 whitespace-nowrap ${variantStyles[variant]} ${sizeStyles[size]} ${className} focus:outline-none focus:ring-2 focus:ring-finzen-green/50 focus:ring-offset-2`;
 
   if (href) {
+    const linkProps = target === '_blank'
+      ? { target, rel: 'noopener noreferrer' }
+      : {};
     return (
-      <Link href={href} className={classes} onClick={onClick}>
+      <Link href={href} className={classes} onClick={onClick} {...linkProps}>
         {icon && <span className="shrink-0">{icon}</span>}
         {children}
       </Link>

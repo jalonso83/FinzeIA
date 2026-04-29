@@ -222,6 +222,7 @@ function PricingCard({
           href={getAppStoreLink('pricing')}
           className="w-full"
           onClick={() => trackPricingPlan(plan.planId)}
+          target="_blank"
         >
           {plan.cta}
         </Button>

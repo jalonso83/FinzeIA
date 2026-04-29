@@ -44,6 +44,7 @@ export default function Hero() {
                 href={getAppStoreLink('hero')}
                 icon={<AppleLogo size={18} />}
                 onClick={() => trackDownloadIOS('hero')}
+                target="_blank"
                 className="min-w-[200px] h-[52px] transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
               >
                 App Store
@@ -51,8 +52,10 @@ export default function Hero() {
               <Button
                 variant="primary"
                 size="md"
-                href="https://play.google.com/store/apps/details?id=com.jl.alonso.finzenaimobile&pcampaignid=web_share"
+                href={getPlayStoreLink('hero')}
                 icon={<Play size={18} />}
+                onClick={() => trackDownloadAndroid('hero')}
+                target="_blank"
                 className="min-w-[200px] h-[52px] transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
               >
                 Google Play
