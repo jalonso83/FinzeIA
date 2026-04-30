@@ -47,6 +47,9 @@ export const metadata: Metadata = {
       'Registra gastos hablando, controla presupuestos y ahorra con Zenio.',
     images: ['/og-image.png'],
   },
+  other: {
+    'facebook-domain-verification': 'ff6eo5kcw3706nkbjam78sfnoqa5x4',
+  },
 };
 
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
