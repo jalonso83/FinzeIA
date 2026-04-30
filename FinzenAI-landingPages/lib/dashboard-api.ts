@@ -141,6 +141,50 @@ export interface OpenAICostsData {
   period: { from: string; to: string };
 }
 
+export interface AcquisitionData {
+  kpis: {
+    pageViews: number;
+    leads: number;
+    registrations: number;
+    subscriptions: number;
+    pageViewsChange: number;
+    leadsChange: number;
+    registrationsChange: number;
+    subscriptionsChange: number;
+  };
+  funnel: {
+    visitors: number;
+    leads: number;
+    registrations: number;
+    subscriptions: number;
+    visitorsToLeadsRate: number;
+    leadsToRegistrationsRate: number;
+    registrationsToSubscriptionsRate: number;
+    visitorsToSubscriptionsRate: number;
+  };
+  eventsByDay: {
+    day: string;
+    pageViews: number;
+    leads: number;
+    registrations: number;
+    subscriptions: number;
+  }[];
+  bySource: {
+    source: string;
+    visitors: number;
+    leads: number;
+    registrations: number;
+    subscriptions: number;
+    revenue: number;
+    conversionRate: number;
+  }[];
+  cohort: {
+    trackingStartDate: string | null;
+    historicalUsersCount: number;
+  };
+  period: { from: string; to: string };
+}
+
 // ─── Users List (CRM) Types ─────────────────────────────────────
 
 export interface UserListItem {
@@ -157,6 +201,7 @@ export interface UserListItem {
   currentPeriodEnd: string | null;
   transactionCount: number;
   lastActivity: string | null;
+  cohort: 'Tracked' | 'Pre-tracking';
 }
 
 export interface UserListPagination {
@@ -209,7 +254,7 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 export async function fetchAllDashboardData(range: DateRange) {
   const { from, to } = computeDateParams(range);
 
-  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth] = await Promise.all([
+  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition] = await Promise.all([
     fetchEndpoint<PulseData>('pulse', from, to),
     fetchEndpoint<UsersData>('users', from, to),
     fetchEndpoint<RevenueData>('revenue', from, to),
@@ -219,9 +264,10 @@ export async function fetchAllDashboardData(range: DateRange) {
     // Financial health no usa rango (siempre mes actual + bruto acumulado),
     // pero pasamos los params igual por uniformidad. El backend los ignora.
     fetchEndpoint<FinancialHealthData>('financial-health', from, to),
+    fetchEndpoint<AcquisitionData>('acquisition', from, to),
   ]);
 
-  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth };
+  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition };
 }
 
 // ─── Users List API ─────────────────────────────────────────────

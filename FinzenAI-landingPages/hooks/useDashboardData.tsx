@@ -12,6 +12,7 @@ import {
   type OpenAICostsData,
   type UnitEconomicsData,
   type FinancialHealthData,
+  type AcquisitionData,
 } from '@/lib/dashboard-api';
 
 interface DashboardState {
@@ -24,6 +25,7 @@ interface DashboardState {
   openaiCosts: OpenAICostsData | null;
   unitEconomics: UnitEconomicsData | null;
   financialHealth: FinancialHealthData | null;
+  acquisition: AcquisitionData | null;
   loading: boolean;
   error: string | null;
 }
@@ -40,6 +42,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [openaiCosts, setOpenaiCosts] = useState<OpenAICostsData | null>(null);
   const [unitEconomics, setUnitEconomics] = useState<UnitEconomicsData | null>(null);
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthData | null>(null);
+  const [acquisition, setAcquisition] = useState<AcquisitionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,6 +58,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setOpenaiCosts(data.openaiCosts);
       setUnitEconomics(data.unitEconomics);
       setFinancialHealth(data.financialHealth);
+      setAcquisition(data.acquisition);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Error desconocido';
       if (msg === 'UNAUTHORIZED') {
@@ -73,7 +77,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider
-      value={{ range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, loading, error }}
+      value={{ range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error }}
     >
       {children}
     </DashboardContext.Provider>

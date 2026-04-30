@@ -151,6 +151,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               <th className="px-4 py-3">
                 <SortHeader label="Registro" field="createdAt" currentSort={currentSort} currentOrder={currentOrder} onSort={handleSort} />
               </th>
+              <th className="px-4 py-3">Cohort</th>
               <th className="px-4 py-3 text-center">TX</th>
               <th className="px-4 py-3">Última act.</th>
             </tr>
@@ -194,6 +195,21 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   <td className="px-4 py-3 text-sm text-finzen-gray">{user.country || '--'}</td>
                   {/* Registro */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{formatDate(user.createdAt)}</td>
+                  {/* Cohort */}
+                  <td className="px-4 py-3">
+                    <span
+                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
+                        user.cohort === 'Pre-tracking'
+                          ? 'bg-amber-100 text-amber-700'
+                          : 'bg-emerald-100 text-emerald-700'
+                      }`}
+                      title={user.cohort === 'Pre-tracking'
+                        ? 'Registrado antes del inicio del tracking de attribution'
+                        : 'Registrado después del inicio del tracking — tiene attribution data'}
+                    >
+                      {user.cohort === 'Pre-tracking' ? 'Pre-tracking' : 'Tracked'}
+                    </span>
+                  </td>
                   {/* TX */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
                     {user.transactionCount}

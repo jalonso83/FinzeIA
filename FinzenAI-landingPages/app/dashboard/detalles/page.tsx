@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Loader2 } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2 } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import ChartLine from '@/components/dashboard/ChartLine';
@@ -9,9 +9,11 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import type { AcquisitionData } from '@/lib/dashboard-api';
 
 const tabs = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
+  { id: 'adquisicion', label: 'Adquisición', icon: Megaphone },
   { id: 'revenue', label: 'Revenue', icon: DollarSign },
   { id: 'engagement', label: 'Engagement', icon: Activity },
   { id: 'economics', label: 'Unit Economics', icon: Calculator },
@@ -539,9 +541,183 @@ function TabSalud({ financialHealth }: { financialHealth: any }) {
   );
 }
 
+// ─── Tab: Adquisición ────────────────────────────────────────────
+function formatChangeBadge(change: number): { text: string; className: string } {
+  if (change === 0) return { text: '0%', className: 'text-finzen-gray' };
+  const sign = change > 0 ? '↑' : '↓';
+  const cls = change > 0 ? 'text-finzen-green' : 'text-finzen-red';
+  return { text: `${sign}${Math.abs(change).toFixed(1)}%`, className: cls };
+}
+
+function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }) {
+  if (!acquisition) {
+    return (
+      <div className="rounded-xl border border-finzen-gray/20 bg-white p-8 text-center">
+        <p className="text-finzen-gray">No hay datos de adquisición disponibles para el período seleccionado.</p>
+      </div>
+    );
+  }
+
+  const { kpis, funnel, eventsByDay, bySource, cohort } = acquisition;
+  const trackingDate = cohort.trackingStartDate
+    ? new Date(cohort.trackingStartDate).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric' })
+    : null;
+
+  // Banner del cohort histórico — visible siempre que haya users pre-tracking.
+  // Si trackingStartDate es null (sin eventos aún), igual mostramos el banner con
+  // copy distinto: "tracking aún no se ha iniciado".
+  const cohortBanner = cohort.historicalUsersCount > 0 ? (
+    <div className="mb-6 rounded-xl border border-finzen-blue/20 bg-finzen-blue/5 p-4">
+      <p className="text-sm text-finzen-black">
+        <strong className="text-finzen-blue">ℹ️ Cohort histórico:</strong>{' '}
+        {trackingDate ? (
+          <>
+            {cohort.historicalUsersCount.toLocaleString('es')} usuarios se registraron antes del {trackingDate} (sin attribution).
+          </>
+        ) : (
+          <>
+            {cohort.historicalUsersCount.toLocaleString('es')} usuarios registrados hasta ahora. El sistema de tracking aún no ha capturado eventos —{' '}
+            <strong>todos están marcados como Pre-tracking</strong>.
+          </>
+        )}{' '}
+        Para verlos, ve al tab <strong>Usuarios</strong> y filtra por cohort &quot;Pre-tracking&quot;.
+      </p>
+    </div>
+  ) : null;
+
+  // KPI cards arriba
+  const kpiCards = [
+    { label: 'PageViews', value: kpis.pageViews, change: kpis.pageViewsChange, tooltip: 'Vistas de página totales en el período. Se cuentan todas las cargas de finzenai.com.' },
+    { label: 'Leads', value: kpis.leads, change: kpis.leadsChange, tooltip: 'Clics en CTAs de descarga (App Store / Google Play). Indica intención de conversión.' },
+    { label: 'Registros', value: kpis.registrations, change: kpis.registrationsChange, tooltip: 'Usuarios que completaron signup en la app. Disparado server-side desde el endpoint de registro.' },
+    { label: 'Subscriptions', value: kpis.subscriptions, change: kpis.subscriptionsChange, tooltip: 'Pagos confirmados (Stripe + RevenueCat). Solo cuenta nuevas suscripciones, no renovaciones.' },
+  ];
+
+  // Eventos por día — para el line chart
+  const eventsByDayChart = eventsByDay.map(d => {
+    const date = new Date(d.day);
+    return {
+      date: date.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
+      pageViews: d.pageViews,
+      leads: d.leads,
+      registrations: d.registrations,
+      subscriptions: d.subscriptions,
+    };
+  });
+
+  // Funnel data — todos los % son cumulativos vs Visitors (base 100%).
+  // Esto mantiene consistencia: cada etapa muestra "qué % del total inicial llegó hasta acá".
+  const cumulativePct = (count: number) =>
+    funnel.visitors > 0 ? `${((count / funnel.visitors) * 100).toFixed(2)}%` : '0%';
+  const funnelData = [
+    { etapa: 'Visitors', valor: funnel.visitors, porcentaje: '100%' },
+    { etapa: 'Leads', valor: funnel.leads, porcentaje: cumulativePct(funnel.leads) },
+    { etapa: 'Registros', valor: funnel.registrations, porcentaje: cumulativePct(funnel.registrations) },
+    { etapa: 'Subscriptions', valor: funnel.subscriptions, porcentaje: cumulativePct(funnel.subscriptions) },
+  ];
+
+  return (
+    <div>
+      {cohortBanner}
+
+      {/* Sección 1 — KPIs */}
+      <Section
+        title="KPIs de Adquisición"
+        tooltip="Conteo de eventos de marketing en el período. Cada flecha compara con el período anterior de la misma duración."
+      >
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
+          {kpiCards.map((kpi) => {
+            const badge = formatChangeBadge(kpi.change);
+            return (
+              <div key={kpi.label} className="rounded-lg border border-finzen-gray/20 bg-white p-4">
+                <p className="text-xs text-finzen-gray font-medium">{kpi.label}</p>
+                <p className="text-2xl font-bold mt-1 text-finzen-black">{kpi.value.toLocaleString('es')}</p>
+                <p className={`text-xs mt-1 font-medium ${badge.className}`}>{badge.text} vs período anterior</p>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
+      {/* Sección 2 — Funnel */}
+      <Section
+        title="Funnel de Conversión"
+        tooltip="Desde Visitors (PageView) hasta Subscriptions, muestra el % que avanza en cada etapa. Útil para identificar dónde se cae la conversión."
+      >
+        <FunnelChart data={funnelData} />
+      </Section>
+
+      {/* Sección 3 — Eventos por día */}
+      <Section
+        title="Eventos por Día"
+        tooltip="Serie temporal de cada evento (PageView, Lead, Registro, Subscribe) durante el período. Útil para correlacionar con campañas activas o picos de tráfico."
+      >
+        {eventsByDayChart.length === 0 ? (
+          <div className="rounded-lg border border-finzen-gray/20 bg-white p-6 text-center text-sm text-finzen-gray">
+            Sin eventos en el período seleccionado.
+          </div>
+        ) : (
+          <ChartLine
+            title=""
+            data={eventsByDayChart}
+            xKey="date"
+            lines={[
+              { dataKey: 'pageViews', color: '#9ca3af', name: 'PageViews' },
+              { dataKey: 'leads', color: '#204274', name: 'Leads' },
+              { dataKey: 'registrations', color: '#7c3aed', name: 'Registros' },
+              { dataKey: 'subscriptions', color: '#10b981', name: 'Subscriptions' },
+            ]}
+          />
+        )}
+      </Section>
+
+      {/* Sección 4 — Top Sources */}
+      <Section
+        title="Top Sources (canales de adquisición)"
+        tooltip="Agrupa eventos por utm_source. (sin source) = users que llegaron sin UTM (tráfico directo, referrals orgánicos, o cohort histórico que pagó ahora). CR% = Subscriptions / Visitors."
+      >
+        {bySource.length === 0 ? (
+          <div className="rounded-lg border border-finzen-gray/20 bg-white p-6 text-center text-sm text-finzen-gray">
+            Sin sources atribuidos en el período.
+          </div>
+        ) : (
+          <div className="rounded-lg border border-finzen-gray/20 bg-white overflow-x-auto">
+            <table className="w-full min-w-[700px] text-sm">
+              <thead className="bg-finzen-white border-b border-finzen-gray/20">
+                <tr>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Source</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Visitors</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Leads</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Registros</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Subs</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Revenue</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">CR%</th>
+                </tr>
+              </thead>
+              <tbody>
+                {bySource.map((row, idx) => (
+                  <tr key={`${row.source}-${idx}`} className="border-b border-finzen-gray/10 last:border-0 hover:bg-finzen-white/50">
+                    <td className="px-4 py-3 text-finzen-black font-medium">{row.source}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black">{row.visitors.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black">{row.leads.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black">{row.registrations.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black font-semibold">{row.subscriptions.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black">${row.revenue.toFixed(2)}</td>
+                    <td className="px-4 py-3 text-right text-finzen-green font-medium">{row.conversionRate.toFixed(2)}%</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Section>
+    </div>
+  );
+}
+
 // ─── Main Page ───────────────────────────────────────────────────
 export default function DashboardDetalles() {
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
 
   if (loading && !pulse) {
@@ -574,6 +750,7 @@ export default function DashboardDetalles() {
   const renderTab = () => {
     switch (activeTab) {
       case 'usuarios': return <TabUsuarios users={users} />;
+      case 'adquisicion': return <TabAdquisicion acquisition={acquisition} />;
       case 'revenue': return <TabRevenue revenue={revenue} pulse={pulse} />;
       case 'engagement': return <TabEngagement engagement={engagement} />;
       case 'economics': return <TabEconomics openaiCosts={openaiCosts} unitEconomics={unitEconomics} />;
