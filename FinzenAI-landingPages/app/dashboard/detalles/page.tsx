@@ -587,10 +587,10 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
 
   // KPI cards arriba
   const kpiCards = [
-    { label: 'PageViews', value: kpis.pageViews, change: kpis.pageViewsChange, tooltip: 'Vistas de página totales en el período. Se cuentan todas las cargas de finzenai.com.' },
-    { label: 'Leads', value: kpis.leads, change: kpis.leadsChange, tooltip: 'Clics en CTAs de descarga (App Store / Google Play). Indica intención de conversión.' },
-    { label: 'Registros', value: kpis.registrations, change: kpis.registrationsChange, tooltip: 'Usuarios que completaron signup en la app. Disparado server-side desde el endpoint de registro.' },
-    { label: 'Subscriptions', value: kpis.subscriptions, change: kpis.subscriptionsChange, tooltip: 'Pagos confirmados (Stripe + RevenueCat). Solo cuenta nuevas suscripciones, no renovaciones.' },
+    { label: 'Visitantes', value: kpis.pageViews, change: kpis.pageViewsChange, tooltip: 'Visitantes únicos en el período. Cada navegador cuenta como 1, no se cuentan recargas (DISTINCT por anonymousId).' },
+    { label: 'Leads', value: kpis.leads, change: kpis.leadsChange, tooltip: 'Clics en CTAs de descarga (App Store / Google Play). Indica intención de conversión. Cuenta cada click — un mismo usuario puede generar varios leads.' },
+    { label: 'Registros', value: kpis.registrations, change: kpis.registrationsChange, tooltip: 'Usuarios únicos que completaron signup en la app durante el período. Disparado server-side desde el endpoint de registro.' },
+    { label: 'Subscriptions', value: kpis.subscriptions, change: kpis.subscriptionsChange, tooltip: 'Usuarios únicos con pago confirmado (Stripe + RevenueCat). Solo cuenta nuevas suscripciones, no renovaciones.' },
   ];
 
   // Eventos por día — para el line chart
@@ -610,7 +610,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
   const cumulativePct = (count: number) =>
     funnel.visitors > 0 ? `${((count / funnel.visitors) * 100).toFixed(2)}%` : '0%';
   const funnelData = [
-    { etapa: 'Visitors', valor: funnel.visitors, porcentaje: '100%' },
+    { etapa: 'Visitantes', valor: funnel.visitors, porcentaje: '100%' },
     { etapa: 'Leads', valor: funnel.leads, porcentaje: cumulativePct(funnel.leads) },
     { etapa: 'Registros', valor: funnel.registrations, porcentaje: cumulativePct(funnel.registrations) },
     { etapa: 'Subscriptions', valor: funnel.subscriptions, porcentaje: cumulativePct(funnel.subscriptions) },
@@ -662,7 +662,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
             data={eventsByDayChart}
             xKey="date"
             lines={[
-              { dataKey: 'pageViews', color: '#9ca3af', name: 'PageViews' },
+              { dataKey: 'pageViews', color: '#9ca3af', name: 'Visitantes' },
               { dataKey: 'leads', color: '#204274', name: 'Leads' },
               { dataKey: 'registrations', color: '#7c3aed', name: 'Registros' },
               { dataKey: 'subscriptions', color: '#10b981', name: 'Subscriptions' },
@@ -674,7 +674,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
       {/* Sección 4 — Top Sources */}
       <Section
         title="Top Sources (canales de adquisición)"
-        tooltip="Agrupa eventos por utm_source. (sin source) = users que llegaron sin UTM (tráfico directo, referrals orgánicos, o cohort histórico que pagó ahora). CR% = Subscriptions / Visitors."
+        tooltip="Agrupa eventos por utm_source. 'Directo' = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking). CR% = Subscriptions / Visitors."
       >
         {bySource.length === 0 ? (
           <div className="rounded-lg border border-finzen-gray/20 bg-white p-6 text-center text-sm text-finzen-gray">
