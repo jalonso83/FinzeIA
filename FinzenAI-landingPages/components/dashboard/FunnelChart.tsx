@@ -8,14 +8,35 @@ interface FunnelStep {
 
 export default function FunnelChart({ data }: { data: FunnelStep[] }) {
   if (!data.length) return null;
-  const maxValue = data[0].valor;
 
+  // maxValue debe ser el MAYOR valor del array (no asumir que el primero lo es).
+  // Si el primer step viene en 0 (ej. PageView no capturado) pero hay valores
+  // en steps siguientes, igual queremos renderizar barras proporcionales.
+  const maxValue = Math.max(...data.map(s => s.valor));
+
+  // Si TODOS los valores son 0 → no hay actividad en el período.
+  if (maxValue === 0) {
+    return (
+      <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
+        <h3 className="text-sm font-semibold text-finzen-black mb-3">Funnel de Conversión</h3>
+        <div className="text-center text-sm text-finzen-gray py-8">
+          Sin actividad en el período seleccionado.
+        </div>
+      </div>
+    );
+  }
+
+  // Renderizamos cada barra con width proporcional al valor / maxValue.
+  // Mínimo visual de 8% para que valores muy chicos (1-2 conversiones) sigan
+  // siendo visibles en pantalla. Si valor es 0, sí dejamos width 0 para que
+  // se vea la diferencia con steps que sí tienen algo.
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
       <h3 className="text-sm font-semibold text-finzen-black mb-5">Funnel de Conversión</h3>
       <div className="space-y-3">
         {data.map((step, index) => {
-          const widthPercent = maxValue > 0 ? Math.max((step.valor / maxValue) * 100, 8) : 8;
+          const proportional = (step.valor / maxValue) * 100;
+          const widthPercent = step.valor === 0 ? 0 : Math.max(proportional, 8);
           const isLast = index === data.length - 1;
 
           return (

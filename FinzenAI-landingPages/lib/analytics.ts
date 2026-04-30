@@ -114,6 +114,25 @@ function postToBackend(
 
 // ─── GA4 + multiplataforma Events ───────────────────────────────
 
+/**
+ * PageView server-side mirror.
+ *
+ * El Pixel cliente (Meta + TikTok) ya dispara PageView automáticamente desde
+ * los scripts en layout.tsx. Esta función SOLO mira al backend para que
+ * /api/events/track persista el evento en attribution_events y el dashboard
+ * interno de Adquisición tenga el contador.
+ *
+ * NO se intenta deduplicar contra Meta/TikTok server-side acá porque el Pixel
+ * cliente dispara sin event_id y refactorizar eso requiere cambiar layout.tsx.
+ * Para PageView eso es aceptable — la información clave (Lead, Subscribe, etc.)
+ * sí está deduplicada.
+ */
+export function trackPageView(location?: string) {
+  const eventId = generateEventId();
+  postToBackend('PageView', eventId, location ? { location } : undefined);
+  return eventId;
+}
+
 export function trackDownloadIOS(location: string) {
   gtag('event', 'click_download_ios', { location });
   const eventId = generateEventId();
