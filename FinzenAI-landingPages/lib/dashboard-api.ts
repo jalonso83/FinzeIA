@@ -201,7 +201,7 @@ export interface UserListItem {
   currentPeriodEnd: string | null;
   transactionCount: number;
   lastActivity: string | null;
-  cohort: 'Tracked' | 'Pre-tracking';
+  cohort: 'Histórico' | 'Directo' | 'Atribuido';
 }
 
 export interface UserListPagination {
@@ -223,6 +223,7 @@ export interface UsersListParams {
   plan?: string;
   status?: string;
   country?: string;
+  cohort?: string; // 'Histórico' | 'Directo' | 'Atribuido'
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -280,6 +281,7 @@ export async function fetchUsersList(params: UsersListParams): Promise<UsersList
   if (params.plan) searchParams.set('plan', params.plan);
   if (params.status) searchParams.set('status', params.status);
   if (params.country) searchParams.set('country', params.country);
+  if (params.cohort) searchParams.set('cohort', params.cohort);
   if (params.sortBy) searchParams.set('sortBy', params.sortBy);
   if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
 

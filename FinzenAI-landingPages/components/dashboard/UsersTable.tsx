@@ -195,20 +195,33 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   <td className="px-4 py-3 text-sm text-finzen-gray">{user.country || '--'}</td>
                   {/* Registro */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{formatDate(user.createdAt)}</td>
-                  {/* Cohort */}
+                  {/* Cohort — 3 valores: Histórico (amber), Directo (azul), Atribuido (verde) */}
                   <td className="px-4 py-3">
-                    <span
-                      className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${
-                        user.cohort === 'Pre-tracking'
-                          ? 'bg-amber-100 text-amber-700'
-                          : 'bg-emerald-100 text-emerald-700'
-                      }`}
-                      title={user.cohort === 'Pre-tracking'
-                        ? 'Registrado antes del inicio del tracking de attribution'
-                        : 'Registrado después del inicio del tracking — tiene attribution data'}
-                    >
-                      {user.cohort === 'Pre-tracking' ? 'Pre-tracking' : 'Tracked'}
-                    </span>
+                    {(() => {
+                      const cohortStyle = {
+                        'Histórico': {
+                          className: 'bg-amber-100 text-amber-700',
+                          tooltip: 'Registrado antes del inicio del tracking. No hay attribution data disponible para este usuario.',
+                        },
+                        'Directo': {
+                          className: 'bg-blue-100 text-blue-700',
+                          tooltip: 'Registrado después del tracking, pero sin canal de origen identificable (ej. instaló desde el App Store sin pasar por la landing).',
+                        },
+                        'Atribuido': {
+                          className: 'bg-emerald-100 text-emerald-700',
+                          tooltip: 'Registrado después del tracking y con canal de origen conocido (Meta, TikTok, etc.).',
+                        },
+                      } as const;
+                      const style = cohortStyle[user.cohort] ?? cohortStyle['Histórico'];
+                      return (
+                        <span
+                          className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${style.className}`}
+                          title={style.tooltip}
+                        >
+                          {user.cohort}
+                        </span>
+                      );
+                    })()}
                   </td>
                   {/* TX */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">

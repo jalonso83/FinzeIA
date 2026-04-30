@@ -113,6 +113,19 @@ export default function UsuariosPage() {
             <option key={c} value={c}>{c}</option>
           ))}
         </select>
+
+        {/* Cohort filter */}
+        <select
+          value={params.cohort || ''}
+          onChange={(e) => setParams({ cohort: e.target.value || undefined })}
+          className="px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white text-finzen-gray focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue"
+          title="Filtrar usuarios por cohort de attribution"
+        >
+          <option value="">Todos los cohorts</option>
+          <option value="Histórico">Histórico</option>
+          <option value="Directo">Directo</option>
+          <option value="Atribuido">Atribuido</option>
+        </select>
       </div>
 
       {/* Content */}
