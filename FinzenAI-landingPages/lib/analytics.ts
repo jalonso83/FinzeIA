@@ -1,10 +1,16 @@
-import { generateEventId } from './attribution';
+import { generateEventId, getAttributionPayload } from './attribution';
 
 // IDs públicos — leídos desde env vars en build time. Si faltan, los helpers no-op
 // silenciosamente en lugar de romper la app.
 const GA_MEASUREMENT_ID = process.env.NEXT_PUBLIC_GA_MEASUREMENT_ID;
 const META_PIXEL_ID = process.env.NEXT_PUBLIC_META_PIXEL_ID;
 const TIKTOK_PIXEL_ID = process.env.NEXT_PUBLIC_TIKTOK_PIXEL_ID;
+
+// Backend que recibe los eventos para mirror server-side a Meta CAPI + TikTok Events API.
+// Default a producción Railway si no se setea.
+const BACKEND_URL =
+  process.env.NEXT_PUBLIC_API_BASE_URL ??
+  'https://finzenai-backend-production.up.railway.app';
 
 // ─── Window typings ─────────────────────────────────────────────
 
@@ -30,8 +36,6 @@ function gtag(...args: unknown[]) {
 
 /**
  * Llama fbq con eventID para deduplicación con Conversion API server-side.
- * Si no se pasa eventID, generamos uno y lo retornamos para que el caller
- * lo pueda mandar al backend (que mirror el evento via CAPI).
  */
 function fbqTrack(
   eventName: string,
@@ -46,7 +50,6 @@ function fbqTrack(
 
 /**
  * TikTok track con event_id para deduplicación con Events API server-side.
- * Mismo patrón que Meta: genera UUID si no se pasa, lo retorna para mirror server-side.
  */
 function ttqTrack(
   eventName: string,
@@ -59,14 +62,66 @@ function ttqTrack(
   return id;
 }
 
-// ─── GA4 Events ─────────────────────────────────────────────────
+/**
+ * POSTea el evento al backend para mirror server-side via Meta CAPI + TikTok Events API.
+ *
+ * Fire-and-forget: NO bloquea la navegación del browser. Usa fetch con keepalive=true
+ * para que el request sobreviva si el user navega a otra página inmediatamente
+ * después del click (igual concepto que sendBeacon).
+ *
+ * Si el backend falla (CORS, network, etc.) loguea warning en console pero NO rompe
+ * la UX. El Pixel cliente sigue funcionando independientemente.
+ */
+function postToBackend(
+  eventName: 'PageView' | 'ViewContent' | 'Lead' | 'ClickButton' | 'InitiateCheckout',
+  eventId: string,
+  customData?: Record<string, string | number | boolean>,
+): void {
+  if (typeof window === 'undefined') return;
+
+  const attribution = getAttributionPayload();
+  const lastTouch = attribution.lastTouch;
+  const firstTouch = attribution.firstTouch;
+
+  const payload = {
+    eventName,
+    eventId,
+    anonymousId: attribution.anonymousId || undefined,
+    source: lastTouch?.source ?? firstTouch?.source ?? null,
+    medium: lastTouch?.medium ?? firstTouch?.medium ?? null,
+    campaign: lastTouch?.campaign ?? firstTouch?.campaign ?? null,
+    fbclid: lastTouch?.fbclid ?? firstTouch?.fbclid ?? null,
+    ttclid: lastTouch?.ttclid ?? firstTouch?.ttclid ?? null,
+    gclid: lastTouch?.gclid ?? firstTouch?.gclid ?? null,
+    pageUrl: window.location.href,
+    referrerUrl: document.referrer || null,
+    customData,
+  };
+
+  // fire-and-forget — no await, errores van a console
+  fetch(`${BACKEND_URL}/api/events/track`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(payload),
+    keepalive: true, // sobrevive a navegación del browser
+    credentials: 'omit', // no enviar cookies (endpoint público)
+  }).catch((err) => {
+    if (typeof console !== 'undefined') {
+      console.warn('[analytics] Backend track failed (no rompe Pixel cliente):', err);
+    }
+  });
+}
+
+// ─── GA4 + multiplataforma Events ───────────────────────────────
 
 export function trackDownloadIOS(location: string) {
   gtag('event', 'click_download_ios', { location });
-  // Mirror a Meta + TikTok con MISMO event_id para que el backend pueda dedupar
   const eventId = generateEventId();
+  // Pixel cliente
   trackMetaLead({ location, platform: 'ios' }, eventId);
   trackTiktokClickButton({ button_text: 'Download iOS', location }, eventId);
+  // Mirror server-side al backend
+  postToBackend('Lead', eventId, { location, platform: 'ios' });
   return eventId;
 }
 
@@ -75,6 +130,7 @@ export function trackDownloadAndroid(location: string) {
   const eventId = generateEventId();
   trackMetaLead({ location, platform: 'android' }, eventId);
   trackTiktokClickButton({ button_text: 'Download Android', location }, eventId);
+  postToBackend('Lead', eventId, { location, platform: 'android' });
   return eventId;
 }
 
@@ -87,6 +143,7 @@ export function trackPricingPlan(plan: string) {
   const eventId = generateEventId();
   trackMetaInitiateCheckout({ plan }, eventId);
   trackTiktokClickButton({ button_text: `Plan ${plan}`, location: 'pricing' }, eventId);
+  postToBackend('InitiateCheckout', eventId, { plan, location: 'pricing' });
   return eventId;
 }
 
@@ -98,7 +155,7 @@ export function trackCTAImpression(ctaId: string, location: string) {
   gtag('event', 'cta_impression', { cta_id: ctaId, location });
 }
 
-// ─── Meta Pixel Events ──────────────────────────────────────────
+// ─── Meta Pixel Events (low-level, sin mirror) ──────────────────
 
 export function trackMetaLead(
   params: Record<string, unknown> = {},
@@ -121,7 +178,7 @@ export function trackMetaViewContent(
   return fbqTrack('ViewContent', params, eventID);
 }
 
-// ─── TikTok Pixel Events ────────────────────────────────────────
+// ─── TikTok Pixel Events (low-level, sin mirror) ────────────────
 
 export function trackTiktokClickButton(
   params: Record<string, unknown> = {},
