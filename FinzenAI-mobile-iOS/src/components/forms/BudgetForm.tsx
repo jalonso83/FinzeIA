@@ -447,18 +447,19 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           </LinearGradient>
         </View>
 
-        {/* Modal de error */}
-        <CustomModal
-          visible={showErrorModal}
-          type="error"
-          title="Error"
-          message={errorMessage}
-          buttonText="Entendido"
-          onClose={() => setShowErrorModal(false)}
-        />
-
       </SafeAreaView>
       </Modal>
+
+      {/* Modal de error - FUERA del Modal pageSheet (iOS no soporta sibling/nested Modals).
+         Antes estaba DENTRO del Modal pageSheet → riesgo de freeze al disparar errores. */}
+      <CustomModal
+        visible={showErrorModal}
+        type="error"
+        title="Error"
+        message={errorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowErrorModal(false)}
+      />
 
       {/* Modal de presupuesto duplicado - FUERA del Modal pageSheet */}
       {duplicateInfo && (

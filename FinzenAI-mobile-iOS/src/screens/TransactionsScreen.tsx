@@ -36,6 +36,9 @@ export default function TransactionsScreen() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  // Success modal — TransactionForm envía mensaje en onSuccess y lo mostramos aquí.
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false);
@@ -800,10 +803,17 @@ export default function TransactionsScreen() {
           setShowForm(false);
           setEditingTransaction(null);
         }}
-        onSuccess={() => {
+        onSuccess={(message: string) => {
+          // Patrón estándar (alineado con BudgetsScreen):
+          // 1. Cerrar form (CRÍTICO iOS — evita nested Modals)
+          // 2. Limpiar estado de edición
+          // 3. Refrescar lista
+          // 4. Mostrar modal de éxito (top-level, sin sibling con form)
           setShowForm(false);
           setEditingTransaction(null);
           loadTransactions();
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
       />
@@ -832,6 +842,17 @@ export default function TransactionsScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Modal de éxito — patrón estándar alineado con BudgetsScreen.
+          Se abre después de cerrar el TransactionForm para evitar sibling Modals iOS. */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message={successMessage}
+        buttonText="Continuar"
+        onClose={() => setShowSuccessModal(false)}
       />
 
       {/* Modal de upgrade para exportación CSV */}

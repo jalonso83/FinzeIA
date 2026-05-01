@@ -603,11 +603,15 @@ export default function BudgetsScreen() {
           onBudgetChange();
           setEditingBudget(null);
 
-          // Mostrar modal de éxito en el Screen (NO anidado)
+          // CRÍTICO iOS: cerrar el BudgetForm ANTES de abrir el modal de éxito.
+          // iOS no soporta sibling Modals — si dejamos el form abierto y abrimos
+          // el CustomModal de éxito al mismo tiempo, la app se freezea.
+          // Antes: el form se quedaba abierto "reseteado" — UX rota en iOS.
+          // Ahora: cerramos form → abrimos éxito → user puede tocar "Crear nuevo"
+          // si quiere otro presupuesto.
+          setShowForm(false);
           setSuccessMessage(message);
           setShowSuccessModal(true);
-
-          // NO cerrar el formulario - se queda abierto y reseteado
         }}
         editBudget={editingBudget}
       />

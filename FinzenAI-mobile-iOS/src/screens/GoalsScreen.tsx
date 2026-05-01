@@ -126,10 +126,19 @@ export default function GoalsScreen() {
     setShowContributionForm(true);
   }, []);
 
-  // Memoizado: Callback cuando se añade contribución
-  const handleContributionAdded = useCallback(() => {
+  // Memoizado: Callback cuando se añade contribución.
+  // Patrón estándar (alineado con BudgetsScreen/TransactionsScreen):
+  // 1. Cerrar ContributionForm (CRÍTICO iOS — evita nested Modals)
+  // 2. Limpiar goal seleccionado
+  // 3. Refrescar lista
+  // 4. Mostrar modal de éxito (top-level, sin sibling)
+  const handleContributionAdded = useCallback((message: string) => {
+    setShowContributionForm(false);
+    setSelectedGoal(null);
     loadGoals();
     onGoalChange();
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
   }, [loadGoals, onGoalChange]);
 
   // Memoizado: Handler para iniciar eliminación
@@ -148,6 +157,9 @@ export default function GoalsScreen() {
       setGoalToDelete(null);
       loadGoals();
       onGoalChange();
+      // Patrón sincrónico (alineado con confirmDeleteBudget — ya probado en producción).
+      // React 18 batchea los setState: el confirm modal cierra y el success modal abre
+      // en el mismo render commit, sin sibling Modals.
       setSuccessMessage('Meta eliminada correctamente');
       setShowSuccessModal(true);
     } catch (error) {
@@ -558,10 +570,18 @@ export default function GoalsScreen() {
           setShowForm(false);
           setEditingGoal(null);
         }}
-        onSuccess={() => {
+        onSuccess={(message: string) => {
+          // Patrón estándar (alineado con BudgetsScreen/TransactionsScreen):
+          // 1. Cerrar form (CRÍTICO iOS — evita nested Modals con success modal)
+          // 2. Limpiar estado de edición
+          // 3. Refrescar lista
+          // 4. Mostrar modal de éxito (top-level, sin sibling)
+          setShowForm(false);
+          setEditingGoal(null);
           loadGoals();
           onGoalChange();
-          setEditingGoal(null);
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editGoal={editingGoal}
       />
