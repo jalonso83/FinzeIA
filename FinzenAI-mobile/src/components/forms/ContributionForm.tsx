@@ -35,7 +35,7 @@ interface ContributionFormProps {
   visible: boolean;
   goal: Goal;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
 }
 
 const ContributionForm: React.FC<ContributionFormProps> = ({
@@ -46,10 +46,9 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 }) => {
   const [amount, setAmount] = useState('');
   const [loading, setLoading] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  // Nota: success modal se removió del Form. Patrón Screen-level unificado.
 
   const scrollViewRef = useRef<ScrollView>(null);
 
@@ -89,16 +88,13 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
 
       logger.log('✅ Contribución guardada exitosamente');
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
-      onSuccess();
-
       const message = 'Contribución añadida correctamente';
-      setSuccessMessage(message);
       logger.log('📝 Mensaje de éxito:', message);
 
-      // Mostrar modal de éxito
-      setShowSuccessModal(true);
-      logger.log('🟢 showSuccessModal activado');
+      // Cheap insurance: limpiar el monto antes de notificar al Screen.
+      setAmount('');
+      // Patrón unificado: el Screen recibe el mensaje y maneja el modal de éxito.
+      onSuccess(message);
     } catch (error: any) {
       logger.error('Error al añadir contribución:', error);
       const errMsg = error.response?.data?.message || 'Error al añadir la contribución';
@@ -260,22 +256,6 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
               </TouchableOpacity>
             </LinearGradient>
           </View>
-
-          {/* Modal de éxito */}
-          <CustomModal
-            visible={showSuccessModal}
-            type="success"
-            title="¡Contribución añadida!"
-            message={successMessage}
-            buttonText="Continuar"
-            onClose={() => {
-              logger.log('👆 Usuario presionó Continuar en modal de éxito');
-              setShowSuccessModal(false);
-              // Los callbacks ya se ejecutaron después de guardar
-              // Cerrar el formulario
-              onClose();
-            }}
-          />
 
           {/* Modal de error */}
           <CustomModal

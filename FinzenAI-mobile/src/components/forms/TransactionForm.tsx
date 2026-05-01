@@ -27,7 +27,7 @@ import { logger } from '../../utils/logger';
 interface TransactionFormProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
   editTransaction?: Transaction | null;
 }
 
@@ -54,10 +54,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  // Nota: el success modal se removió del Form en favor del patrón Screen-level
+  // (alineado con iOS y BudgetsScreen). El Screen recibe el mensaje en onSuccess
+  // y maneja el modal de éxito ahí.
 
   // Currency converter state
   const [showConverter, setShowConverter] = useState(false);
@@ -443,13 +444,13 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         message = 'Transacción creada correctamente';
       }
 
-      // Ejecutar callbacks inmediatamente
+      // Ejecutar callbacks. El Screen recibe el mensaje y maneja el modal de éxito
+      // (patrón unificado iOS/Android — Screen-level success modal).
       onTransactionChange();
-      onSuccess();
-
-      // Mostrar modal de éxito
-      setSuccessMessage(message);
-      setShowSuccessModal(true);
+      // Cheap insurance: limpiar form state antes de notificar al Screen.
+      // Garantiza que si el form se reabre rápido (antes del unmount), no muestre stale data.
+      resetForm();
+      onSuccess(message);
     } catch (error: any) {
       logger.error('Error saving transaction:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la transacción';
@@ -693,21 +694,6 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </TouchableOpacity>
           </LinearGradient>
         </View>
-
-        {/* Modal de éxito */}
-        <CustomModal
-          visible={showSuccessModal}
-          type="success"
-          title="¡Transacción guardada!"
-          message={successMessage}
-          buttonText="Continuar"
-          onClose={() => {
-            setShowSuccessModal(false);
-            // Los callbacks ya se ejecutaron después de guardar
-            resetForm();
-            // NO cerrar el formulario principal - debe quedar abierto para la siguiente transacción
-          }}
-        />
 
         {/* Modal de error */}
         <CustomModal

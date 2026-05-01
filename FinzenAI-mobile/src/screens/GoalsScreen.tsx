@@ -126,10 +126,19 @@ export default function GoalsScreen() {
     setShowContributionForm(true);
   }, []);
 
-  // Memoizado: Callback cuando se añade contribución
-  const handleContributionAdded = useCallback(() => {
+  // Memoizado: Callback cuando se añade contribución.
+  // Patrón unificado iOS/Android Screen-level:
+  // 1. Cerrar ContributionForm
+  // 2. Limpiar goal seleccionado
+  // 3. Refrescar lista
+  // 4. Mostrar modal de éxito
+  const handleContributionAdded = useCallback((message: string) => {
+    setShowContributionForm(false);
+    setSelectedGoal(null);
     loadGoals();
     onGoalChange();
+    setSuccessMessage(message);
+    setShowSuccessModal(true);
   }, [loadGoals, onGoalChange]);
 
   // Memoizado: Handler para iniciar eliminación
@@ -558,10 +567,18 @@ export default function GoalsScreen() {
           setShowForm(false);
           setEditingGoal(null);
         }}
-        onSuccess={() => {
+        onSuccess={(message: string) => {
+          // Patrón unificado iOS/Android Screen-level:
+          // 1. Cerrar form
+          // 2. Limpiar estado de edición
+          // 3. Refrescar lista
+          // 4. Mostrar modal de éxito a nivel Screen
+          setShowForm(false);
+          setEditingGoal(null);
           loadGoals();
           onGoalChange();
-          setEditingGoal(null);
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editGoal={editingGoal}
       />

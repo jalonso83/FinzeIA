@@ -36,6 +36,9 @@ export default function TransactionsScreen() {
   const [showDeleteConfirmModal, setShowDeleteConfirmModal] = useState(false);
   const [transactionToDelete, setTransactionToDelete] = useState<Transaction | null>(null);
   const [errorMessage, setErrorMessage] = useState('');
+  // Success modal — patrón Screen-level unificado iOS/Android.
+  const [showSuccessModal, setShowSuccessModal] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
 
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false);
@@ -798,9 +801,17 @@ export default function TransactionsScreen() {
           setShowForm(false);
           setEditingTransaction(null);
         }}
-        onSuccess={() => {
-          loadTransactions();
+        onSuccess={(message: string) => {
+          // Patrón unificado iOS/Android Screen-level:
+          // 1. Cerrar form
+          // 2. Limpiar estado de edición
+          // 3. Refrescar lista
+          // 4. Mostrar modal de éxito a nivel Screen
+          setShowForm(false);
           setEditingTransaction(null);
+          loadTransactions();
+          setSuccessMessage(message);
+          setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
       />
@@ -829,6 +840,16 @@ export default function TransactionsScreen() {
         message={errorMessage}
         buttonText="Entendido"
         onClose={() => setShowErrorModal(false)}
+      />
+
+      {/* Modal de éxito — patrón Screen-level unificado iOS/Android */}
+      <CustomModal
+        visible={showSuccessModal}
+        type="success"
+        title="¡Éxito!"
+        message={successMessage}
+        buttonText="Continuar"
+        onClose={() => setShowSuccessModal(false)}
       />
 
       {/* Modal de upgrade para exportación CSV */}

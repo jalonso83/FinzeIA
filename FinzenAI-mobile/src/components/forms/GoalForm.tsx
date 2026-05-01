@@ -51,7 +51,7 @@ interface Goal {
 interface GoalFormProps {
   visible: boolean;
   onClose: () => void;
-  onSuccess: () => void;
+  onSuccess: (message: string) => void;
   editGoal?: Goal | null;
 }
 
@@ -77,10 +77,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
   const [loadingCategories, setLoadingCategories] = useState(false);
   const [goalType, setGoalType] = useState<'percentage' | 'amount'>('percentage');
   const [warnings, setWarnings] = useState<string[]>([]);
-  const [showSuccessModal, setShowSuccessModal] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
-  const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
+  // Nota: el success modal se removió del Form. Patrón Screen-level unificado iOS/Android.
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const [formData, setFormData] = useState<FormData>({
@@ -331,14 +330,11 @@ const GoalForm: React.FC<GoalFormProps> = ({
       logger.log('✅ Meta guardada exitosamente');
       logger.log('📝 Mensaje de éxito:', message);
 
-      // EJECUTAR CALLBACKS INMEDIATAMENTE - NO esperar al modal
+      // Patrón unificado: el Screen recibe el mensaje y maneja el modal de éxito.
       onGoalChange();
-      onSuccess();
-
-      // Configurar mensaje y mostrar modal de éxito
-      setSuccessMessage(message);
-      setShowSuccessModal(true);
-      logger.log('🟢 showSuccessModal activado');
+      // Cheap insurance: limpiar form state antes de notificar al Screen.
+      resetForm();
+      onSuccess(message);
     } catch (error: any) {
       logger.error('Error al guardar meta:', error);
       const errMsg = error.response?.data?.message || 'Error al guardar la meta';
@@ -665,22 +661,6 @@ const GoalForm: React.FC<GoalFormProps> = ({
               </TouchableOpacity>
             </LinearGradient>
           </View>
-
-          {/* Modal de éxito */}
-          <CustomModal
-            visible={showSuccessModal}
-            type="success"
-            title="¡Meta guardada!"
-            message={successMessage}
-            buttonText="Continuar"
-            onClose={() => {
-              logger.log('👆 Usuario presionó Continuar en modal de éxito');
-              setShowSuccessModal(false);
-              // Los callbacks ya se ejecutaron después de guardar
-              // Solo cerrar el formulario
-              onClose();
-            }}
-          />
 
           {/* Modal de error */}
           <CustomModal
