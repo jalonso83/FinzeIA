@@ -64,6 +64,7 @@ export interface EngagementData {
   onboardingRate: number;
   zenioActiveUsers: number;
   zenioAdoptionRate: number;
+  txAdoptionRate: number;
   streakActiveUsers: number;
   streakActiveRate: number;
   timeToFirstTx: {

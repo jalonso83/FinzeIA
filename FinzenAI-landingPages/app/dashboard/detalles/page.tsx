@@ -285,20 +285,20 @@ function TabEngagement({ engagement }: { engagement: any }) {
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           {/* ── Fila 1 — TOP-LINE de engagement (highlight) ───────── */}
           <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Usuarios que registraron al menos 1 transacción (con fecha en el período seleccionado). Mide actividad financiera, no toda actividad en la app." />
-          <StatBox label="Adopción Zenio" value={`${engagement.zenioAdoptionRate}%`} highlight tooltip="% de usuarios activos que conversaron con Zenio en el período. Métrica clave: si la AI es el diferenciador, este % refleja qué tan profundo penetra. Cap a 100% para casos raros donde un user usa Zenio sin registrar tx." />
-          <StatBox label="Racha Activa" value={`${engagement.streakActiveRate}%`} highlight tooltip="% de usuarios activos con racha (streak) viva en el período. Indica formación de hábito vía gamification. Si está estancado, las streaks no están enganchando." />
+          <StatBox label="Adopción TX" value={`${engagement.txAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app." />
+          <StatBox label="Adopción Zenio" value={`${engagement.zenioAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que usó Zenio (chat v2, agentes o transcripción) durante el mismo período. Cohort-consistent — no incluye legacy users. Mide adopción del feature diferenciador (AI) por usuarios nuevos." />
 
           {/* ── Fila 2 — Calidad del funnel y profundidad ─────────── */}
+          <StatBox label="Racha Activa" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos con racha (streak) viva en el período. Indica formación de hábito vía gamification. Si está estancado, las streaks no están enganchando." />
           <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que ya completaron el onboarding con Zenio." />
           <StatBox
             label="Time-to-First-TX"
             value={engagement.timeToFirstTx?.medianHours !== null ? `${engagement.timeToFirstTx?.medianHours}h (${engagement.timeToFirstTx?.firstTxRate}%)` : '—'}
             tooltip="Mediana de horas entre registro y primera transacción del cohorte del período. Entre paréntesis: % del cohorte que llegó a hacer primera tx. Solo cohortes con ≥1h desde registro."
           />
-          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
 
           {/* ── Fila 3 — Detalle de Zenio + Viralidad ─────────────── */}
-          <StatBox label="Usuarios usando Zenio" value={String(engagement.zenioActiveUsers)} tooltip="Conteo absoluto de usuarios distintos que conversaron con Zenio en el período (numerador del % Adopción Zenio)." />
+          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
           <StatBox label="Referidos Enviados" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido creadas en el período (top del funnel viral)." />
           <StatBox label="Conversión Referidos" value={`${engagement.referrals?.converted ?? 0} (${engagement.referrals?.conversionRate ?? 0}%)`} tooltip="Referidos creados en el período que terminaron convirtiéndose en usuarios activos. El % es vs total de referidos enviados (mismo cohorte)." />
         </div>
