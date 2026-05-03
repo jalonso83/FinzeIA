@@ -43,9 +43,10 @@ export async function GET(
   }
 }
 
-export async function POST(
+async function forwardWithBody(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  params: { path: string[] },
+  method: 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 ) {
   const cookieStore = cookies();
   const token = cookieStore.get('admin-token')?.value;
@@ -57,12 +58,10 @@ export async function POST(
   const path = params.path.join('/');
   const url = new URL(`${BACKEND_URL}/api/admin/${path}`);
 
-  // Forward query params
   req.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.set(key, value);
   });
 
-  // Forward body
   let body: string | undefined;
   try {
     body = await req.text();
@@ -72,7 +71,7 @@ export async function POST(
 
   try {
     const backendRes = await fetch(url.toString(), {
-      method: 'POST',
+      method,
       headers: {
         Authorization: `Bearer ${token}`,
         'Content-Type': 'application/json',
@@ -89,4 +88,18 @@ export async function POST(
       { status: 502 }
     );
   }
+}
+
+export async function POST(
+  req: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  return forwardWithBody(req, params, 'POST');
+}
+
+export async function PATCH(
+  req: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  return forwardWithBody(req, params, 'PATCH');
 }
