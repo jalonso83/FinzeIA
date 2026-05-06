@@ -682,10 +682,11 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
           </div>
         ) : (
           <div className="rounded-lg border border-finzen-gray/20 bg-white overflow-x-auto">
-            <table className="w-full min-w-[700px] text-sm">
+            <table className="w-full min-w-[800px] text-sm">
               <thead className="bg-finzen-white border-b border-finzen-gray/20">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Campaign</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Visitors</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Leads</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Registros</th>
@@ -696,8 +697,9 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
               </thead>
               <tbody>
                 {bySource.map((row, idx) => (
-                  <tr key={`${row.source}-${idx}`} className="border-b border-finzen-gray/10 last:border-0 hover:bg-finzen-white/50">
+                  <tr key={`${row.source}-${row.campaign ?? 'none'}-${idx}`} className="border-b border-finzen-gray/10 last:border-0 hover:bg-finzen-white/50">
                     <td className="px-4 py-3 text-finzen-black font-medium">{row.source}</td>
+                    <td className="px-4 py-3 text-finzen-black">{row.campaign ?? <span className="text-finzen-gray/50">—</span>}</td>
                     <td className="px-4 py-3 text-right text-finzen-black">{row.visitors.toLocaleString('es')}</td>
                     <td className="px-4 py-3 text-right text-finzen-black">{row.leads.toLocaleString('es')}</td>
                     <td className="px-4 py-3 text-right text-finzen-black">{row.registrations.toLocaleString('es')}</td>
