@@ -11,25 +11,30 @@ export async function GET(
 ) {
   const cookieStore = cookies();
   const token = cookieStore.get('admin-token')?.value;
+  const pdfToken = req.nextUrl.searchParams.get('pdfToken');
 
-  if (!token) {
+  // Permitir auth alternativa: cookie de admin O pdfToken (Puppeteer en
+  // generación de PDF). El backend valida cada uno con su middleware.
+  if (!token && !pdfToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
   const path = params.path.join('/');
   const url = new URL(`${BACKEND_URL}/api/admin/${path}`);
 
-  // Forward query params
+  // Forward query params (incluye pdfToken si está presente)
   req.nextUrl.searchParams.forEach((value, key) => {
     url.searchParams.set(key, value);
   });
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const backendRes = await fetch(url.toString(), {
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       cache: 'no-store',
     });
 
@@ -76,8 +81,9 @@ async function forwardWithBody(
 ) {
   const cookieStore = cookies();
   const token = cookieStore.get('admin-token')?.value;
+  const pdfToken = req.nextUrl.searchParams.get('pdfToken');
 
-  if (!token) {
+  if (!token && !pdfToken) {
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
@@ -96,12 +102,14 @@ async function forwardWithBody(
   }
 
   try {
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const backendRes = await fetch(url.toString(), {
       method,
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers,
       body: body || '{}',
       cache: 'no-store',
     });

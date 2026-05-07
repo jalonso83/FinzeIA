@@ -243,7 +243,19 @@ export function computeDateParams(range: DateRange): { from: string; to: string 
 }
 
 async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Promise<T> {
-  const res = await fetch(`/api/admin/${endpoint}?from=${from}&to=${to}`);
+  const params = new URLSearchParams({ from, to });
+
+  // Si la página actual fue abierta en modo PDF (Puppeteer), propagar el
+  // pdfToken a las requests del API. Sin esto el proxy/backend rechazaría
+  // las queries del dashboard porque Puppeteer no tiene cookie de admin.
+  if (typeof window !== 'undefined') {
+    const currentPdfToken = new URLSearchParams(window.location.search).get('pdfToken');
+    if (currentPdfToken) {
+      params.set('pdfToken', currentPdfToken);
+    }
+  }
+
+  const res = await fetch(`/api/admin/${endpoint}?${params.toString()}`);
   if (!res.ok) {
     if (res.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error(`API error: ${res.status}`);
