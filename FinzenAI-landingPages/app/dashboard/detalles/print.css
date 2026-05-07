@@ -1,0 +1,117 @@
+/**
+ * Estilos para el modo PDF del dashboard.
+ *
+ * Se activan cuando el contenedor raíz del dashboard tiene el atributo
+ * data-pdf-mode="true" (lo agrega el page.tsx cuando detecta ?mode=pdf).
+ *
+ * Filosofía: NO afectar el dashboard interactivo. Todos los selectores
+ * dependen de [data-pdf-mode], así que el render normal queda intacto.
+ */
+
+@page {
+  size: A4 portrait;
+  margin: 18mm 15mm;
+}
+
+[data-pdf-mode='true'] {
+  /* Forzar fondo blanco — sin gradientes ni sombras pesadas */
+  background: #ffffff !important;
+}
+
+/* Ocultar el chrome del layout padre (navbar) cuando estamos en PDF mode.
+   Usa :has() — soportado en Chromium 105+ (Puppeteer 23 lleva 131). */
+body:has([data-pdf-mode='true']) nav {
+  display: none !important;
+}
+
+body:has([data-pdf-mode='true']) main {
+  padding: 0 !important;
+  max-width: none !important;
+  margin: 0 !important;
+}
+
+/* Hacer que el container de PDF use todo el ancho disponible */
+body:has([data-pdf-mode='true']) > div {
+  background: #ffffff !important;
+}
+
+/* Hide elements not meant for the PDF (tab switcher, date picker, header chrome). */
+[data-pdf-mode='true'] .pdf-hide {
+  display: none !important;
+}
+
+/* Cada tab inicia en página nueva, excepto el primero. */
+[data-pdf-mode='true'] .pdf-tab-section {
+  page-break-before: always;
+  break-before: page;
+}
+
+[data-pdf-mode='true'] .pdf-tab-section:first-of-type {
+  page-break-before: auto;
+  break-before: auto;
+}
+
+/* El cover page ocupa la primera página completa. */
+[data-pdf-mode='true'] .pdf-cover-page {
+  page-break-after: always;
+  break-after: page;
+}
+
+/* El glosario empieza en página nueva. */
+[data-pdf-mode='true'] .pdf-glossary {
+  page-break-before: always;
+  break-before: page;
+}
+
+/* Evitar cortes feos en tablas y cards. */
+[data-pdf-mode='true'] table,
+[data-pdf-mode='true'] .pdf-card,
+[data-pdf-mode='true'] .pdf-no-break {
+  page-break-inside: avoid;
+  break-inside: avoid;
+}
+
+/* Quitar hover/transitions que en PDF se ven raros. */
+[data-pdf-mode='true'] * {
+  transition: none !important;
+  animation: none !important;
+}
+
+/* Tooltips inline en el dashboard (íconos de ayuda "?") — ocultos en PDF.
+   Los componentes StatBox y Section ya marcan el SVG con .cursor-help. */
+[data-pdf-mode='true'] .pdf-tooltip-trigger,
+[data-pdf-mode='true'] .cursor-help {
+  display: none !important;
+}
+
+/* Banner Superior y Date Range Picker no van en PDF. */
+[data-pdf-mode='true'] .pdf-hide-block {
+  display: none !important;
+}
+
+/* Tipografía un poco más densa en PDF para que más info entre por página. */
+[data-pdf-mode='true'] {
+  font-size: 12px;
+}
+
+[data-pdf-mode='true'] h1 {
+  font-size: 22px;
+}
+
+[data-pdf-mode='true'] h2 {
+  font-size: 18px;
+}
+
+[data-pdf-mode='true'] h3 {
+  font-size: 15px;
+}
+
+/* En @media print real (cuando alguien también imprime físicamente), aplicar
+   ajustes adicionales para asegurar colores y backgrounds. */
+@media print {
+  [data-pdf-mode='true'],
+  [data-pdf-mode='true'] * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+}

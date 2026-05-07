@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
 import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2 } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
@@ -9,7 +10,16 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import type { AcquisitionData } from '@/lib/dashboard-api';
+import { computeDateParams, type AcquisitionData, type DateRange } from '@/lib/dashboard-api';
+import { PdfCoverPage } from './PdfCoverPage';
+import { PdfGlossary } from './PdfGlossary';
+import './print.css';
+
+const VALID_RANGES: DateRange[] = ['7d', '14d', '30d', '90d'];
+
+function isValidRange(r: string | null): r is DateRange {
+  return r !== null && (VALID_RANGES as string[]).includes(r);
+}
 
 const tabs = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
@@ -717,31 +727,135 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
   );
 }
 
-// ─── Main Page ───────────────────────────────────────────────────
-export default function DashboardDetalles() {
+// ─── Loading / Error fallbacks ───────────────────────────────────
+function DashboardLoading() {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <Loader2 className="w-8 h-8 animate-spin text-finzen-blue" />
+      <span className="ml-3 text-finzen-gray">Cargando datos...</span>
+    </div>
+  );
+}
+
+function DashboardError({ message }: { message: string }) {
+  return (
+    <div className="flex items-center justify-center h-64">
+      <div className="text-center">
+        <p className="text-finzen-red font-medium">Error cargando datos</p>
+        <p className="text-sm text-finzen-gray mt-1">{message}</p>
+      </div>
+    </div>
+  );
+}
+
+// ─── PDF Render — todos los tabs apilados + cover + glosario ─────
+interface PdfRenderProps {
+  range: DateRange;
+  generatedBy: string | null;
+  users: any;
+  acquisition: AcquisitionData | null;
+  revenue: any;
+  pulse: any;
+  engagement: any;
+  openaiCosts: any;
+  unitEconomics: any;
+  financialHealth: any;
+}
+
+function PdfRender({ range, generatedBy, users, acquisition, revenue, pulse, engagement, openaiCosts, unitEconomics, financialHealth }: PdfRenderProps) {
+  const { from, to } = computeDateParams(range);
+
+  return (
+    <div data-pdf-mode="true">
+      <PdfCoverPage range={range} fromDate={from} toDate={to} generatedBy={generatedBy} />
+
+      {/* Tabs apilados, cada uno empieza en página nueva */}
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Usuarios</h2>
+        <TabUsuarios users={users} />
+      </section>
+
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Adquisición</h2>
+        <TabAdquisicion acquisition={acquisition} />
+      </section>
+
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Revenue</h2>
+        <TabRevenue revenue={revenue} pulse={pulse} />
+      </section>
+
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Engagement</h2>
+        <TabEngagement engagement={engagement} />
+      </section>
+
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Unit Economics</h2>
+        <TabEconomics openaiCosts={openaiCosts} unitEconomics={unitEconomics} />
+      </section>
+
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Salud Financiera</h2>
+        <TabSalud financialHealth={financialHealth} />
+      </section>
+
+      <PdfGlossary />
+    </div>
+  );
+}
+
+// ─── Inner — tiene acceso a useSearchParams ──────────────────────
+function DashboardDetallesInner() {
+  const searchParams = useSearchParams();
+  const isPdfMode = searchParams.get('mode') === 'pdf';
+  const rangeParam = searchParams.get('range');
+  const generatedBy = searchParams.get('generatedBy'); // viene en Hito 4 (vía Puppeteer URL)
+
   const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
 
-  if (loading && !pulse) {
+  // Aplicar range desde URL si viene en query (caso PDF generado por backend).
+  useEffect(() => {
+    if (isValidRange(rangeParam) && rangeParam !== range) {
+      setRange(rangeParam);
+    }
+  }, [rangeParam, range, setRange]);
+
+  // Señal a Puppeteer que el PDF está listo para captura.
+  // Delay de 1500ms para que charts (recharts) terminen sus animaciones.
+  useEffect(() => {
+    if (typeof window === 'undefined' || !isPdfMode) return;
+    if (loading || !pulse) return;
+
+    const t = setTimeout(() => {
+      (window as Window & { __PDF_READY__?: boolean }).__PDF_READY__ = true;
+    }, 1500);
+    return () => clearTimeout(t);
+  }, [isPdfMode, loading, pulse]);
+
+  if (loading && !pulse) return <DashboardLoading />;
+  if (error) return <DashboardError message={error} />;
+
+  // ─── Modo PDF ─────────────────────────────────────────────────
+  if (isPdfMode) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Loader2 className="w-8 h-8 animate-spin text-finzen-blue" />
-        <span className="ml-3 text-finzen-gray">Cargando datos...</span>
-      </div>
+      <PdfRender
+        range={range}
+        generatedBy={generatedBy}
+        users={users}
+        acquisition={acquisition}
+        revenue={revenue}
+        pulse={pulse}
+        engagement={engagement}
+        openaiCosts={openaiCosts}
+        unitEconomics={unitEconomics}
+        financialHealth={financialHealth}
+      />
     );
   }
 
-  if (error) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="text-center">
-          <p className="text-finzen-red font-medium">Error cargando datos</p>
-          <p className="text-sm text-finzen-gray mt-1">{error}</p>
-        </div>
-      </div>
-    );
-  }
-
+  // ─── Modo dashboard interactivo (comportamiento normal) ────────
   const bannerData = pulse ? {
     mrrNeto: revenue?.mrrCurrent ?? pulse.mrrEstimated,
     mrrCambio: revenue?.mrrChange ?? 0,
@@ -800,5 +914,14 @@ export default function DashboardDetalles() {
       {/* Tab Content */}
       <div>{renderTab()}</div>
     </div>
+  );
+}
+
+// ─── Main Page (wrap con Suspense para useSearchParams) ──────────
+export default function DashboardDetalles() {
+  return (
+    <Suspense fallback={<DashboardLoading />}>
+      <DashboardDetallesInner />
+    </Suspense>
   );
 }
