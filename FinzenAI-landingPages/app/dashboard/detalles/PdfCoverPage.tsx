@@ -45,12 +45,12 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
       }}
     >
       {/* Logo / branding */}
-      <div>
+      <div style={{ textAlign: 'center' }}>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/logo-horizontal.png"
           alt="FinZen AI"
-          style={{ height: '60px', width: 'auto', display: 'block' }}
+          style={{ height: '60px', width: 'auto', margin: '0 auto', display: 'block' }}
         />
         <p
           style={{
@@ -106,7 +106,7 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
       </div>
 
       {/* Footer del cover */}
-      <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '16px', fontSize: '12px', color: '#666' }}>
+      <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '16px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
         <p style={{ margin: 0 }}>
           <strong style={{ color: '#1a1a1a' }}>Generado:</strong> {generatedAt}
         </p>

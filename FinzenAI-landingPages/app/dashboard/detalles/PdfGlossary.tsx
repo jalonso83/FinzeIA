@@ -16,6 +16,10 @@ interface GlossaryEntry {
 
 const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   {
+    name: 'Activados',
+    definition: 'Usuarios del período que registraron al menos una transacción (criterio de activación real).',
+  },
+  {
     name: 'Adopción TX',
     definition: '% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app.',
   },
@@ -214,6 +218,56 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   {
     name: 'Visitantes',
     definition: 'Visitantes únicos en el período. Cada navegador cuenta como 1, no se cuentan recargas (DISTINCT por anonymousId).',
+  },
+
+  // ─── Entradas del Resumen Ejecutivo (Pulso) ───
+  {
+    name: 'Churn Rate',
+    definition: 'Porcentaje de suscripciones pagadas que se cancelaron en el período. Menor es mejor.',
+  },
+  {
+    name: 'Costos OpenAI',
+    definition: 'Costo total de OpenAI (Zenio, Email Parser, TTS, etc.) en el período.',
+  },
+  {
+    name: 'Crecimiento de Usuarios',
+    definition: 'Curva temporal de nuevos registros por día durante el período seleccionado. Útil para identificar picos relacionados a campañas o estacionalidad.',
+  },
+  {
+    name: 'DAU / MAU',
+    definition: 'Daily Active Users / Monthly Active Users. Indicador de "stickiness": % del MAU que abre la app cada día. >20% se considera saludable.',
+  },
+  {
+    name: 'Distribución por Plan',
+    definition: 'Composición de usuarios entre Free, Plus y Pro. Muestra qué % de la base es de pago vs gratuita.',
+  },
+  {
+    name: 'MRR Neto',
+    definition: 'Monthly Recurring Revenue normalizado (ingresos recurrentes mensuales después de descuentos). Métrica top-line de SaaS.',
+  },
+  {
+    name: 'Nuevos Registros',
+    definition: 'Usuarios que se registraron en el período seleccionado. El % compara con el período anterior de igual duración.',
+  },
+  {
+    name: 'Registros por País',
+    definition: 'Distribución geográfica de registros del período. Útil para validar si las campañas activas están atrayendo el mercado objetivo.',
+  },
+  {
+    name: 'Retención D1',
+    definition: '% de usuarios que vuelven a la app al día siguiente de registrarse. Mide la primera impresión del producto.',
+  },
+  {
+    name: 'Retención D7',
+    definition: '% de usuarios que siguen activos a los 7 días de registrarse. Indicador de tracción inicial.',
+  },
+  {
+    name: 'Retención D30',
+    definition: '% de usuarios que siguen activos a los 30 días de registrarse. Indicador de retención de largo plazo y product-market fit.',
+  },
+  {
+    name: 'Total Usuarios',
+    definition: 'Número total de usuarios registrados en la plataforma all-time (sin filtro de fecha).',
   },
 ];
 

@@ -13,6 +13,7 @@ import { useDashboardData } from '@/hooks/useDashboardData';
 import { computeDateParams, type AcquisitionData, type DateRange } from '@/lib/dashboard-api';
 import { PdfCoverPage } from './PdfCoverPage';
 import { PdfGlossary } from './PdfGlossary';
+import { TabPulso } from './TabPulso';
 import './print.css';
 
 const VALID_RANGES: DateRange[] = ['7d', '14d', '30d', '90d'];
@@ -768,6 +769,19 @@ function PdfRender({ range, generatedBy, users, acquisition, revenue, pulse, eng
   return (
     <div data-pdf-mode="true">
       <PdfCoverPage range={range} fromDate={from} toDate={to} generatedBy={generatedBy} />
+
+      {/* Resumen Ejecutivo (Pulso) — primera sección, vista general antes del detalle */}
+      <section className="pdf-tab-section">
+        <h2 className="text-2xl font-bold text-finzen-black mb-4">Resumen Ejecutivo</h2>
+        <TabPulso
+          pulse={pulse}
+          users={users}
+          revenue={revenue}
+          engagement={engagement}
+          openaiCosts={openaiCosts}
+          financialHealth={financialHealth}
+        />
+      </section>
 
       {/* Tabs apilados, cada uno empieza en página nueva */}
       <section className="pdf-tab-section">
