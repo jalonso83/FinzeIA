@@ -46,22 +46,17 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
     >
       {/* Logo / branding */}
       <div>
-        <h1
-          style={{
-            fontSize: '32px',
-            fontWeight: 800,
-            color: '#204274',
-            letterSpacing: '-0.5px',
-            margin: 0,
-          }}
-        >
-          FinZen <span style={{ color: '#6cad7f' }}>AI</span>
-        </h1>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/logo-horizontal.png"
+          alt="FinZen AI"
+          style={{ height: '60px', width: 'auto', display: 'block' }}
+        />
         <p
           style={{
             fontSize: '13px',
             color: '#666',
-            marginTop: '4px',
+            marginTop: '8px',
             letterSpacing: '0.5px',
             textTransform: 'uppercase',
           }}
