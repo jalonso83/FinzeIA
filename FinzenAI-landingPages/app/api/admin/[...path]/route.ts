@@ -33,14 +33,40 @@ export async function GET(
       cache: 'no-store',
     });
 
-    const data = await backendRes.json();
-    return NextResponse.json(data, { status: backendRes.status });
+    return await passthroughResponse(backendRes);
   } catch {
     return NextResponse.json(
       { error: 'Error conectando con el backend' },
       { status: 502 }
     );
   }
+}
+
+/**
+ * Reenvía la respuesta del backend al cliente. Para JSON parsea y reenvía
+ * vía NextResponse.json. Para binarios (application/pdf, imágenes, etc.)
+ * hace stream del body con sus headers originales.
+ */
+async function passthroughResponse(backendRes: Response): Promise<NextResponse> {
+  const contentType = backendRes.headers.get('content-type') || '';
+
+  if (contentType.includes('application/json')) {
+    const data = await backendRes.json();
+    return NextResponse.json(data, { status: backendRes.status });
+  }
+
+  // Binario: PDF, imágenes, etc. — pass-through preservando headers relevantes
+  const buffer = await backendRes.arrayBuffer();
+  const headers: Record<string, string> = { 'Content-Type': contentType };
+  const disposition = backendRes.headers.get('content-disposition');
+  if (disposition) headers['Content-Disposition'] = disposition;
+  const contentLength = backendRes.headers.get('content-length');
+  if (contentLength) headers['Content-Length'] = contentLength;
+
+  return new NextResponse(buffer, {
+    status: backendRes.status,
+    headers,
+  });
 }
 
 async function forwardWithBody(
@@ -80,8 +106,7 @@ async function forwardWithBody(
       cache: 'no-store',
     });
 
-    const data = await backendRes.json();
-    return NextResponse.json(data, { status: backendRes.status });
+    return await passthroughResponse(backendRes);
   } catch {
     return NextResponse.json(
       { error: 'Error conectando con el backend' },
