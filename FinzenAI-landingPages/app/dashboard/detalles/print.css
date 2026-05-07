@@ -13,6 +13,14 @@
   margin: 18mm 15mm;
 }
 
+/* Ocultar header y footer del PDF en la primera página (cover). Setear el
+   margin a 0 efectivamente quita el espacio donde Puppeteer renderiza
+   el headerTemplate y footerTemplate. */
+@page :first {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
 [data-pdf-mode='true'] {
   /* Forzar fondo blanco — sin gradientes ni sombras pesadas */
   background: #ffffff !important;
@@ -61,6 +69,15 @@ body:has([data-pdf-mode='true']) > div {
 [data-pdf-mode='true'] .pdf-glossary {
   page-break-before: always;
   break-before: page;
+}
+
+/* Evitar que el título "Glosario de Indicadores" o el subtítulo queden
+   huérfanos en una página separada de la tabla. Si la tabla no cabe
+   debajo del heading, el engine pushea TODO a la siguiente página. */
+[data-pdf-mode='true'] .pdf-glossary h2,
+[data-pdf-mode='true'] .pdf-glossary p {
+  page-break-after: avoid;
+  break-after: avoid;
 }
 
 /* Evitar cortes feos en tablas y cards. */

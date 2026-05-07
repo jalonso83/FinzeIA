@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2 } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, Download } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import ChartLine from '@/components/dashboard/ChartLine';
@@ -828,6 +828,43 @@ function DashboardDetallesInner() {
 
   const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+
+  // Descarga el PDF ejecutivo respetando el range actual del dashboard.
+  const handleDownloadPdf = async () => {
+    if (isDownloadingPdf) return;
+    setIsDownloadingPdf(true);
+    try {
+      const res = await fetch(`/api/admin/dashboard/pdf?range=${range}`, {
+        method: 'POST',
+        credentials: 'include',
+      });
+      if (!res.ok) {
+        const text = await res.text();
+        throw new Error(`Error ${res.status}: ${text || 'sin detalle'}`);
+      }
+      const blob = await res.blob();
+
+      // Filename viene del backend en Content-Disposition.
+      const cd = res.headers.get('content-disposition') || '';
+      const match = cd.match(/filename="?([^";]+)"?/);
+      const filename = match ? match[1] : `finzen-reporte-${range}.pdf`;
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : 'Error desconocido';
+      alert(`No se pudo generar el PDF: ${msg}`);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  };
 
   // Aplicar range desde URL si viene en query (caso PDF generado por backend).
   useEffect(() => {
@@ -897,7 +934,26 @@ function DashboardDetallesInner() {
           <h1 className="text-2xl font-bold text-finzen-black">Detalles</h1>
           <p className="text-sm text-finzen-gray mt-1">Análisis detallado por categoría</p>
         </div>
-        <DateRangePicker value={range} onChange={setRange} />
+        <div className="flex items-center gap-3">
+          <DateRangePicker value={range} onChange={setRange} />
+          <button
+            onClick={handleDownloadPdf}
+            disabled={isDownloadingPdf || loading}
+            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-finzen-blue text-white hover:bg-finzen-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
+          >
+            {isDownloadingPdf ? (
+              <>
+                <Loader2 size={16} className="animate-spin" />
+                Generando PDF...
+              </>
+            ) : (
+              <>
+                <Download size={16} />
+                Descargar PDF
+              </>
+            )}
+          </button>
+        </div>
       </div>
 
       {/* Banner Superior */}

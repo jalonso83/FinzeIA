@@ -37,11 +37,14 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
     <section
       className="pdf-cover-page"
       style={{
-        minHeight: '90vh',
+        minHeight: '255mm', // A4 (297mm) menos margen 0 (cover usa @page :first)
         display: 'flex',
         flexDirection: 'column',
-        justifyContent: 'space-between',
-        padding: '40px 0',
+        justifyContent: 'center',
+        alignItems: 'center',
+        textAlign: 'center',
+        padding: '40px',
+        gap: '60px',
       }}
     >
       {/* Logo / branding */}
@@ -66,7 +69,7 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
       </div>
 
       {/* Título principal */}
-      <div style={{ textAlign: 'center', flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+      <div style={{ textAlign: 'center' }}>
         <h2
           style={{
             fontSize: '40px',
@@ -106,7 +109,7 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
       </div>
 
       {/* Footer del cover */}
-      <div style={{ borderTop: '1px solid #e0e0e0', paddingTop: '16px', fontSize: '12px', color: '#666', textAlign: 'center' }}>
+      <div style={{ fontSize: '12px', color: '#666', textAlign: 'center' }}>
         <p style={{ margin: 0 }}>
           <strong style={{ color: '#1a1a1a' }}>Generado:</strong> {generatedAt}
         </p>
