@@ -203,7 +203,7 @@ export interface UserListItem {
   currentPeriodEnd: string | null;
   transactionCount: number;
   lastActivity: string | null;
-  cohort: 'Histórico' | 'Directo' | 'Atribuido';
+  cohort: 'Android' | 'iOS' | 'Desconocido';
 }
 
 export interface UserListPagination {
@@ -225,7 +225,7 @@ export interface UsersListParams {
   plan?: string;
   status?: string;
   country?: string;
-  cohort?: string; // 'Histórico' | 'Directo' | 'Atribuido'
+  cohort?: string; // 'Android' | 'iOS' | 'Desconocido'
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

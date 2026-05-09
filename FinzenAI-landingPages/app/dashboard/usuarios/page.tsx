@@ -114,17 +114,17 @@ export default function UsuariosPage() {
           ))}
         </select>
 
-        {/* Cohort filter */}
+        {/* Platform filter */}
         <select
           value={params.cohort || ''}
           onChange={(e) => setParams({ cohort: e.target.value || undefined })}
           className="px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white text-finzen-gray focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue"
-          title="Filtrar usuarios por cohort de attribution"
+          title="Filtrar usuarios por plataforma de registro"
         >
-          <option value="">Todos los cohorts</option>
-          <option value="Histórico">Histórico</option>
-          <option value="Directo">Directo</option>
-          <option value="Atribuido">Atribuido</option>
+          <option value="">Todas las plataformas</option>
+          <option value="Android">Android</option>
+          <option value="iOS">iOS</option>
+          <option value="Desconocido">Desconocido</option>
         </select>
       </div>
 

@@ -151,7 +151,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               <th className="px-4 py-3">
                 <SortHeader label="Registro" field="createdAt" currentSort={currentSort} currentOrder={currentOrder} onSort={handleSort} />
               </th>
-              <th className="px-4 py-3">Cohort</th>
+              <th className="px-4 py-3">Plataforma</th>
               <th className="px-4 py-3 text-center">TX</th>
               <th className="px-4 py-3">Última act.</th>
             </tr>
@@ -195,24 +195,24 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   <td className="px-4 py-3 text-sm text-finzen-gray">{user.country || '--'}</td>
                   {/* Registro */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{formatDate(user.createdAt)}</td>
-                  {/* Cohort — 3 valores: Histórico (amber), Directo (azul), Atribuido (verde) */}
+                  {/* Plataforma — derivada del userAgent del CompleteRegistration */}
                   <td className="px-4 py-3">
                     {(() => {
-                      const cohortStyle = {
-                        'Histórico': {
-                          className: 'bg-amber-100 text-amber-700',
-                          tooltip: 'Registrado antes del inicio del tracking. No hay attribution data disponible para este usuario.',
-                        },
-                        'Directo': {
-                          className: 'bg-blue-100 text-blue-700',
-                          tooltip: 'Registrado después del tracking, pero sin canal de origen identificable (ej. instaló desde el App Store sin pasar por la landing).',
-                        },
-                        'Atribuido': {
+                      const platformStyle = {
+                        'Android': {
                           className: 'bg-emerald-100 text-emerald-700',
-                          tooltip: 'Registrado después del tracking y con canal de origen conocido (Meta, TikTok, etc.).',
+                          tooltip: 'Usuario registrado desde la app Android.',
+                        },
+                        'iOS': {
+                          className: 'bg-blue-100 text-blue-700',
+                          tooltip: 'Usuario registrado desde la app iOS.',
+                        },
+                        'Desconocido': {
+                          className: 'bg-gray-100 text-gray-600',
+                          tooltip: 'No se pudo identificar la plataforma desde el evento de registro.',
                         },
                       } as const;
-                      const style = cohortStyle[user.cohort] ?? cohortStyle['Histórico'];
+                      const style = platformStyle[user.cohort] ?? platformStyle['Desconocido'];
                       return (
                         <span
                           className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${style.className}`}
