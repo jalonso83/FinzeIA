@@ -136,3 +136,17 @@ export async function PATCH(
 ) {
   return forwardWithBody(req, params, 'PATCH');
 }
+
+export async function PUT(
+  req: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  return forwardWithBody(req, params, 'PUT');
+}
+
+export async function DELETE(
+  req: NextRequest,
+  { params }: { params: { path: string[] } }
+) {
+  return forwardWithBody(req, params, 'DELETE');
+}
