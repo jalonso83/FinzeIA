@@ -685,11 +685,15 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
       {/* Sección 4 — Top Sources */}
       <Section
         title="Top Sources (canales de adquisición)"
-        tooltip="Agrupa eventos por utm_source. 'Directo' = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking). CR% = Subscriptions / Visitors."
+        tooltip="Agrupa eventos por utm_source. 'Directo' = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking). Registros = anonymousIds únicos que dieron click al botón 'Descargar' (cada Lead cuenta como atribución). CR% = Registros / Visitors."
       >
+        <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
+          <span>📌</span>
+          <span>Datos lifetime — el filtro de fechas no aplica aquí</span>
+        </div>
         {bySource.length === 0 ? (
           <div className="rounded-lg border border-finzen-gray/20 bg-white p-6 text-center text-sm text-finzen-gray">
-            Sin sources atribuidos en el período.
+            Sin sources atribuidos todavía.
           </div>
         ) : (
           <div className="rounded-lg border border-finzen-gray/20 bg-white overflow-x-auto">

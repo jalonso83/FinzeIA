@@ -317,3 +317,68 @@ export async function fetchDistinctCountries(): Promise<string[]> {
   const json = await res.json();
   return json.data as string[];
 }
+
+// ─── Campaign Costs ─────────────────────────────────────────────
+
+export interface CampaignCostRow {
+  id: string | null;
+  source: string;
+  campaign: string;        // '' = sin campaña
+  costUSD: number;
+  notes: string | null;
+  visitors: number;
+  leads: number;
+  registrations: number;   // anonymousIds únicos con Lead (atribuidos)
+  cpv: number | null;
+  cpl: number | null;
+  cac: number | null;
+  hasEvents: boolean;      // true si tiene eventos en attribution_events
+  isManual: boolean;       // true si SOLO existe como costo (sin eventos todavía)
+}
+
+export interface CampaignCostsResponse {
+  rows: CampaignCostRow[];
+  summary: {
+    totalInvested: number;
+    totalAttributed: number;
+    avgCAC: number | null;
+  };
+}
+
+export async function fetchCampaignCosts(): Promise<CampaignCostsResponse> {
+  const res = await fetch('/api/admin/campaign-costs');
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as CampaignCostsResponse;
+}
+
+export async function upsertCampaignCost(input: {
+  source: string;
+  campaign: string;
+  costUSD: number;
+  notes?: string | null;
+}): Promise<void> {
+  const res = await fetch('/api/admin/campaign-costs', {
+    method: 'PUT',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+}
+
+export async function deleteCampaignCost(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/campaign-costs/${encodeURIComponent(id)}`, {
+    method: 'DELETE',
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+}

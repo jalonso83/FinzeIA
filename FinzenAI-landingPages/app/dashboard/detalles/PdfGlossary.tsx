@@ -197,7 +197,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   },
   {
     name: 'Top Sources',
-    definition: 'Agrupa eventos por utm_source. "Directo" = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking).',
+    definition: 'Agrupa eventos por utm_source de forma lifetime (NO aplica el filtro de fechas del dashboard). "Directo" = users que llegaron sin UTM. Registros = anonymousIds únicos que clickearon "Descargar" (cada Lead cuenta como atribución). CR% = Registros / Visitors.',
   },
   {
     name: 'Total Suscripciones',
