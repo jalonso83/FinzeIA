@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Loader2, Plus, Trash2, Save, X, DollarSign, Users, TrendingUp } from 'lucide-react';
+import { RefreshCw, Loader2, Plus, Trash2, Save, X, DollarSign, Users, TrendingUp, Info } from 'lucide-react';
 import {
   fetchCampaignCosts,
   upsertCampaignCost,
@@ -14,6 +14,53 @@ import {
 function formatMoney(n: number | null): string {
   if (n === null || !isFinite(n)) return '—';
   return `$${n.toFixed(2)}`;
+}
+
+// Definiciones centrales — coherentes con PdfGlossary.tsx.
+const GLOSSARY = {
+  totalInvertido:
+    'Suma de todos los costos ingresados manualmente por campaña. Acumulativo total — no aplica el filtro de fechas del dashboard.',
+  atribuidosKPI:
+    'Total de usuarios atribuidos a campañas que tienen costo > $0. Cada anonymousId único que clickeó "Descargar iOS/Android" cuenta como 1 atribuido.',
+  cacPromedio:
+    'Costo de Adquisición promedio = Total invertido / Atribuidos totales. Cuánto te cuesta en promedio cada usuario que decidió descargar la app.',
+  source:
+    'Origen del tráfico capturado del UTM al click del ad (meta, tiktok, google, ig, etc.). "Directo" no aparece acá porque no aplica costo de campaña.',
+  campaign:
+    'Nombre exacto de la campaña en la plataforma de anuncios (utm_campaign). "—" significa que la fuente no envió campaña (ej. tráfico de bio orgánico).',
+  inversion:
+    'Costo manual ingresado para esta campaña. Es acumulativo total: cuando inviertas más, actualizas el número aquí. No tiene granularidad temporal.',
+  visitors:
+    'AnonymousIds únicos que vieron la landing page (PageView). Lifetime — no se filtra por fecha.',
+  leads:
+    'Total de clicks al botón "Descargar iOS/Android" (incluye reclicks del mismo user). Lifetime.',
+  atribuidos:
+    'AnonymousIds únicos que clickearon "Descargar" (cada anonymousId cuenta una sola vez, sin importar reclicks). Es la unidad de atribución por campaña.',
+  cpv:
+    'Cost Per Visit = Inversión / Visitors. Cuánto te cuesta cada visita a la landing. Útil para campañas de awareness.',
+  cpl:
+    'Cost Per Lead = Inversión / Leads. Cuánto te cuesta cada click al botón Descargar (sin deduplicar). Refleja agresividad del CTA.',
+  cac:
+    'Cost of Acquisition = Inversión / Atribuidos. La métrica clave: cuánto te cuesta cada usuario único que decidió descargar la app desde esta campaña.',
+};
+
+function InfoTooltip({ text }: { text: string }) {
+  const [show, setShow] = useState(false);
+  return (
+    <span
+      className="relative inline-flex items-center"
+      onMouseEnter={() => setShow(true)}
+      onMouseLeave={() => setShow(false)}
+    >
+      <Info size={12} className="text-finzen-gray/50 cursor-help ml-1" />
+      {show && (
+        <span className="absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-2 w-64 px-3 py-2 bg-finzen-black text-white text-xs font-normal normal-case tracking-normal rounded-lg shadow-lg whitespace-normal text-left">
+          {text}
+          <span className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-finzen-black" />
+        </span>
+      )}
+    </span>
+  );
 }
 
 function CostInput({
@@ -271,7 +318,10 @@ export default function CostosPage() {
               <DollarSign size={20} />
             </div>
             <div>
-              <p className="text-xs text-finzen-gray">Total invertido</p>
+              <p className="text-xs text-finzen-gray flex items-center">
+                Total invertido
+                <InfoTooltip text={GLOSSARY.totalInvertido} />
+              </p>
               <p className="text-xl font-bold text-finzen-black">{formatMoney(summary.totalInvested)}</p>
             </div>
           </div>
@@ -280,7 +330,10 @@ export default function CostosPage() {
               <Users size={20} />
             </div>
             <div>
-              <p className="text-xs text-finzen-gray">Atribuidos (Lead)</p>
+              <p className="text-xs text-finzen-gray flex items-center">
+                Atribuidos (Lead)
+                <InfoTooltip text={GLOSSARY.atribuidosKPI} />
+              </p>
               <p className="text-xl font-bold text-finzen-black">{summary.totalAttributed.toLocaleString('es')}</p>
             </div>
           </div>
@@ -289,7 +342,10 @@ export default function CostosPage() {
               <TrendingUp size={20} />
             </div>
             <div>
-              <p className="text-xs text-finzen-gray">CAC promedio</p>
+              <p className="text-xs text-finzen-gray flex items-center">
+                CAC promedio
+                <InfoTooltip text={GLOSSARY.cacPromedio} />
+              </p>
               <p className="text-xl font-bold text-finzen-black">{formatMoney(summary.avgCAC)}</p>
             </div>
           </div>
@@ -327,15 +383,33 @@ export default function CostosPage() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-finzen-white border-b border-finzen-gray/20">
                 <tr className="text-left text-xs font-semibold text-finzen-gray uppercase tracking-wider">
-                  <th className="px-4 py-3">Source</th>
-                  <th className="px-4 py-3">Campaña</th>
-                  <th className="px-4 py-3">Inversión</th>
-                  <th className="px-4 py-3 text-right">Visitors</th>
-                  <th className="px-4 py-3 text-right">Leads</th>
-                  <th className="px-4 py-3 text-right">Atribuidos</th>
-                  <th className="px-4 py-3 text-right">CPV</th>
-                  <th className="px-4 py-3 text-right">CPL</th>
-                  <th className="px-4 py-3 text-right">CAC</th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center">Source<InfoTooltip text={GLOSSARY.source} /></span>
+                  </th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center">Campaña<InfoTooltip text={GLOSSARY.campaign} /></span>
+                  </th>
+                  <th className="px-4 py-3">
+                    <span className="inline-flex items-center">Inversión<InfoTooltip text={GLOSSARY.inversion} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">Visitors<InfoTooltip text={GLOSSARY.visitors} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">Leads<InfoTooltip text={GLOSSARY.leads} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">Atribuidos<InfoTooltip text={GLOSSARY.atribuidos} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">CPV<InfoTooltip text={GLOSSARY.cpv} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">CPL<InfoTooltip text={GLOSSARY.cpl} /></span>
+                  </th>
+                  <th className="px-4 py-3 text-right">
+                    <span className="inline-flex items-center justify-end">CAC<InfoTooltip text={GLOSSARY.cac} /></span>
+                  </th>
                   <th className="px-4 py-3 text-center">·</th>
                 </tr>
               </thead>

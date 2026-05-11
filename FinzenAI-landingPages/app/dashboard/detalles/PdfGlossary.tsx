@@ -85,7 +85,27 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   },
   {
     name: 'CR% (Conversion Rate)',
-    definition: 'Subscriptions / Visitors × 100. % del tráfico que se convirtió en suscripción pagada. Mide eficacia del funnel completo.',
+    definition: 'Atribuidos (anonymousIds únicos con Lead) / Visitors × 100. % del tráfico que decidió descargar la app. Métrica clave de efectividad de campaña.',
+  },
+  {
+    name: 'CAC (Cost of Acquisition)',
+    definition: 'Inversión / Atribuidos. Costo de adquirir un usuario que clickeó "Descargar". La métrica más importante para evaluar rentabilidad de campañas.',
+  },
+  {
+    name: 'CPL (Cost Per Lead)',
+    definition: 'Inversión / Leads (total clicks al botón Descargar, sin deduplicar). Refleja qué tan caro es generar la acción CTA, no la atribución única.',
+  },
+  {
+    name: 'CPV (Cost Per Visit)',
+    definition: 'Inversión / Visitors. Costo por visita a la landing. Útil para campañas de awareness donde el objetivo no es download inmediato.',
+  },
+  {
+    name: 'Inversión (Campaña)',
+    definition: 'Costo manual ingresado por el admin para cada (source, campaign). Acumulativo total, sin granularidad temporal: no aplica filtro de fechas.',
+  },
+  {
+    name: 'Atribuidos',
+    definition: 'AnonymousIds únicos que clickearon "Descargar iOS/Android" por source/campaign. Cada navegador único cuenta una sola vez sin importar reclicks.',
   },
   {
     name: 'Desglose de Costos',
