@@ -253,6 +253,9 @@ export default function TransactionsScreen() {
       setTransactionToDelete(null);
       await loadTransactions();
       onTransactionChange();
+      // Mostrar modal de éxito (alineado con BudgetsScreen y GoalsScreen).
+      setSuccessMessage('Transacción eliminada correctamente');
+      setShowSuccessModal(true);
     } catch (error) {
       logger.error('Error eliminando transacción:', error);
       setShowDeleteConfirmModal(false);

@@ -27,6 +27,13 @@ const ZENIO_THREAD_KEY = '@finzen_zenio_thread_id';
 interface ZenioChatProps {
   onClose?: () => void;
   isOnboarding?: boolean;
+  // Cuando es true, el backend usa el prompt de re-personalización (saluda diferente,
+  // permite repetir el flujo aunque user.onboardingCompleted=true, no toca el flag).
+  isRePersonalization?: boolean;
+  // Cuando es true, oculta el botón TTS y nunca renderiza el CustomModal interno
+  // de "Función PRO". Crítico cuando el componente vive dentro de otro Modal en iOS
+  // (regla del proyecto: NO anidar Modales). Usado por RePersonalizationScreen.
+  disableTTS?: boolean;
   initialMessage?: string;
   onZenioMessage?: (msg: string, responseData?: any) => void;
 }
@@ -38,11 +45,13 @@ interface Message {
   id?: string;
 }
 
-const ZenioChat: React.FC<ZenioChatProps> = ({ 
-  onClose, 
-  isOnboarding = false, 
-  initialMessage, 
-  onZenioMessage 
+const ZenioChat: React.FC<ZenioChatProps> = ({
+  onClose,
+  isOnboarding = false,
+  isRePersonalization = false,
+  disableTTS = false,
+  initialMessage,
+  onZenioMessage
 }) => {
   // Si es onboarding, inicia con saludo. Si no, inicia vacío.
   const [messages, setMessages] = useState<Message[]>(
@@ -121,6 +130,11 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
+    // Si TTS está deshabilitado (ej: dentro de re-personalización), no hacer nada.
+    // Evita anidar el CustomModal de "Función PRO" dentro de otro Modal en iOS.
+    if (disableTTS) {
+      return;
+    }
     // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
     if (!canUseTextToSpeech()) {
       setShowProModalTTS(true);
@@ -171,6 +185,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         // Onboarding v2.1: el backend usa este campo para decidir qué flujo usar.
         // Apps desplegadas no envían este campo → usan el onboarding actual.
         ...(isOnboarding && { onboardingVersion: 'v2.1' }),
+        // Re-personalización: el backend usa este flag para inyectar contexto adicional
+        // al prompt v2.1 (saludo diferente, permitir flujo aunque ya esté completed).
+        ...(isRePersonalization && { isRePersonalization: true }),
       };
 
       if (threadId) {
@@ -383,8 +400,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
               )}
             </View>
 
-            {/* Botón de play para mensajes de Zenio */}
-            {message.from === 'zenio' && message.id && (
+            {/* Botón de play para mensajes de Zenio (oculto si TTS deshabilitado) */}
+            {message.from === 'zenio' && message.id && !disableTTS && (
               <TouchableOpacity
                 style={[
                   styles.playButton,
@@ -446,24 +463,27 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Modal PRO - Para TTS */}
-      <CustomModal
-        visible={showProModalTTS}
-        type="warning"
-        title="Función PRO"
-        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
-        buttonText="Ver Planes"
-        onClose={() => {
-          setShowProModalTTS(false);
-          // iOS: esperar que el modal cierre antes de abrir el siguiente
-          setTimeout(() => {
-            openPlansModal();
-          }, 350);
-        }}
-        showSecondaryButton={true}
-        secondaryButtonText="Cerrar"
-        onSecondaryPress={() => setShowProModalTTS(false)}
-      />
+      {/* Modal PRO - Para TTS. NO se renderiza si disableTTS=true para evitar
+          modales anidados en iOS (cuando ZenioChat vive dentro de otro Modal). */}
+      {!disableTTS && (
+        <CustomModal
+          visible={showProModalTTS}
+          type="warning"
+          title="Función PRO"
+          message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+          buttonText="Ver Planes"
+          onClose={() => {
+            setShowProModalTTS(false);
+            // iOS: esperar que el modal cierre antes de abrir el siguiente
+            setTimeout(() => {
+              openPlansModal();
+            }, 350);
+          }}
+          showSecondaryButton={true}
+          secondaryButtonText="Cerrar"
+          onSecondaryPress={() => setShowProModalTTS(false)}
+        />
+      )}
     </View>
   );
 };

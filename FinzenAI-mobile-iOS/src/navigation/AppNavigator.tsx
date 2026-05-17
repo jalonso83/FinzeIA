@@ -32,6 +32,7 @@ import RemindersScreen from '../screens/RemindersScreen';
 import AddReminderScreen from '../screens/AddReminderScreen';
 import ReferralsScreen from '../screens/ReferralsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
 import EmailSyncScreen from '../screens/EmailSyncScreen';
@@ -47,6 +48,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import RePersonalizationScreen from '../screens/RePersonalizationScreen';
 
 // Stores
 import { useAuthStore } from '../stores/auth';
@@ -306,6 +308,11 @@ function MainNavigator({ route }: any) {
   const [profileData, setProfileData] = React.useState(null);
   const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
+  const [showFeedback, setShowFeedback] = React.useState(false);
+  const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = React.useState(false);
+  const [feedbackSuccessMessage, setFeedbackSuccessMessage] = React.useState('');
+  const [showFeedbackErrorModal, setShowFeedbackErrorModal] = React.useState(false);
+  const [feedbackErrorMessage, setFeedbackErrorMessage] = React.useState('');
   const [showBiometricModal, setShowBiometricModal] = React.useState(false);
   const [storedBiometricType, setStoredBiometricType] = React.useState('');
   // New states for Email Sync and Notifications
@@ -313,6 +320,7 @@ function MainNavigator({ route }: any) {
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
   const [showWeeklyReports, setShowWeeklyReports] = React.useState(false);
+  const [showRePersonalization, setShowRePersonalization] = React.useState(false);
   const { updateUser, logout, user, saveBiometricCredentials } = useAuthStore();
   const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal } = useSubscriptionStore();
   const { onTransactionChange } = useDashboardStore();
@@ -577,6 +585,22 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setShowRePersonalization(true);
+              }}
+            >
+              <Ionicons name="sparkles-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Personalizar mi experiencia</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
                 setShowSubscriptionsModal(true);
               }}
             >
@@ -674,6 +698,22 @@ function MainNavigator({ route }: any) {
             >
               <Ionicons name="help-circle-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
               <Text style={{ fontSize: 14, color: '#374151' }}>Centro de Ayuda</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowFeedback(true);
+              }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Enviar Feedback</Text>
             </TouchableOpacity>
 
             <TouchableOpacity
@@ -781,6 +821,30 @@ function MainNavigator({ route }: any) {
         <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
 
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedback}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFeedback(false)}
+      >
+        <FeedbackScreen
+          onClose={() => setShowFeedback(false)}
+          onSuccess={(message: string) => {
+            // 1. Cerrar formulario primero (patrón Screen-level iOS)
+            setShowFeedback(false);
+            // 2. Mostrar success modal después
+            setFeedbackSuccessMessage(message);
+            setShowFeedbackSuccessModal(true);
+          }}
+          onError={(message: string) => {
+            // FeedbackScreen ya cerró el form via onClose() antes de invocar onError
+            setFeedbackErrorMessage(message);
+            setShowFeedbackErrorModal(true);
+          }}
+        />
+      </Modal>
+
       {/* Email Sync Modal */}
       <Modal
         visible={showEmailSync}
@@ -846,6 +910,16 @@ function MainNavigator({ route }: any) {
         />
       </Modal>
 
+      {/* Re-personalización Modal — relanza el chat con Zenio para actualizar el perfil */}
+      <Modal
+        visible={showRePersonalization}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowRePersonalization(false)}
+      >
+        <RePersonalizationScreen onClose={() => setShowRePersonalization(false)} />
+      </Modal>
+
       {/* Plans Modal after Tutorial */}
       <CustomModal
         visible={showPlansModal}
@@ -870,6 +944,26 @@ function MainNavigator({ route }: any) {
         message={profileSuccessMessage}
         buttonText="Continuar"
         onClose={() => setShowProfileSuccessModal(false)}
+      />
+
+      {/* Feedback Success Modal */}
+      <CustomModal
+        visible={showFeedbackSuccessModal}
+        type="success"
+        title="¡Feedback enviado!"
+        message={feedbackSuccessMessage}
+        buttonText="Continuar"
+        onClose={() => setShowFeedbackSuccessModal(false)}
+      />
+
+      {/* Feedback Error Modal */}
+      <CustomModal
+        visible={showFeedbackErrorModal}
+        type="error"
+        title="No pudimos enviar"
+        message={feedbackErrorMessage}
+        buttonText="Entendido"
+        onClose={() => setShowFeedbackErrorModal(false)}
       />
 
       {/* Biometric Setup Modal */}

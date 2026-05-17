@@ -196,14 +196,16 @@ export const authAPI = {
     lastName: string;
     email: string;
     password: string;
-    phone: string;
-    birthDate: string;
     country: string;
-    state: string;
-    city: string;
     currency: string;
-    preferredLanguage: string;
-    occupation: string;
+    // Campos legacy — opcionales. El formulario nuevo no los pide.
+    // Apps viejas que aún los envían siguen funcionando (backend los acepta).
+    phone?: string;
+    birthDate?: string;
+    state?: string;
+    city?: string;
+    preferredLanguage?: string;
+    occupation?: string;
     company?: string;
     referralCode?: string;
   }) =>
@@ -238,6 +240,23 @@ export const authAPI = {
 
   deleteAccount: (password: string) =>
     api.delete('/auth/account', { data: { password } }),
+};
+
+// API de onboarding (saltar onboarding — gateado por feature flag)
+export const onboardingAPI = {
+  skip: () =>
+    api.post<{ message: string; user: any; alreadyCompleted: boolean }>('/auth/onboarding/skip'),
+
+  // Marca el onboarding como completado, validando que exista perfil financiero.
+  // Devuelve 409 con code: 'ONBOARDING_PROFILE_MISSING' si no hay perfil.
+  complete: () =>
+    api.post<{ message: string; user: any; alreadyCompleted: boolean }>('/auth/onboarding/complete'),
+};
+
+// API de configuración / feature flags por usuario
+export const configAPI = {
+  getFeatures: () =>
+    api.get<{ onboardingSkipEnabled: boolean }>('/config/features'),
 };
 
 // API de gamificación

@@ -225,19 +225,17 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   };
 
   const validate = () => {
+    // Solo exigimos los campos que el registro nuevo captura como obligatorios.
+    // Phone, birthDate, state, city, preferredLanguage, occupation ya no son
+    // obligatorios — usuarios nuevos podrán guardar perfil sin completarlos.
+    // Si el user quiere llenarlos, puede; si no, también puede guardar.
     const newErrors: any = {};
     if (!form.name) newErrors.name = 'El nombre es obligatorio';
     if (!form.lastName) newErrors.lastName = 'Los apellidos son obligatorios';
     if (!form.email) newErrors.email = 'El email es obligatorio';
     else if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(form.email)) newErrors.email = 'Email inválido';
-    if (!form.phone) newErrors.phone = 'El teléfono es obligatorio';
-    if (!form.birthDate) newErrors.birthDate = 'La fecha de nacimiento es obligatoria';
     if (!form.country) newErrors.country = 'El país es obligatorio';
-    if (!form.state) newErrors.state = 'El estado es obligatorio';
-    if (!form.city) newErrors.city = 'La ciudad es obligatoria';
     if (!form.currency) newErrors.currency = 'La moneda es obligatoria';
-    if (!form.preferredLanguage) newErrors.preferredLanguage = 'El idioma es obligatorio';
-    if (!form.occupation) newErrors.occupation = 'La ocupación es obligatoria';
     return newErrors;
   };
 
