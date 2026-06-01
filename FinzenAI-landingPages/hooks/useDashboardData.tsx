@@ -1,6 +1,6 @@
 'use client';
 
-import { createContext, useContext, useState, useEffect, useCallback, ReactNode } from 'react';
+import { createContext, useContext, useState, useEffect, useCallback, useRef, ReactNode } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   fetchAllDashboardData,
@@ -46,11 +46,20 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Guard de petición obsoleta: si el usuario (o el modo PDF) cambia el rango
+  // mientras un fetch anterior sigue en vuelo, descartamos la respuesta vieja
+  // para que no pise los datos del rango actual. Sin esto, el fetch del rango
+  // default (30d, más pesado y lento) resolvía después del rango seleccionado
+  // y sobrescribía los datos correctos en el PDF.
+  const requestIdRef = useRef(0);
+
   const fetchData = useCallback(async () => {
+    const reqId = ++requestIdRef.current;
     setLoading(true);
     setError(null);
     try {
       const data = await fetchAllDashboardData(range);
+      if (reqId !== requestIdRef.current) return; // respuesta obsoleta → ignorar
       setPulse(data.pulse);
       setUsers(data.users);
       setRevenue(data.revenue);
@@ -60,6 +69,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setFinancialHealth(data.financialHealth);
       setAcquisition(data.acquisition);
     } catch (err: unknown) {
+      if (reqId !== requestIdRef.current) return; // respuesta obsoleta → ignorar
       const msg = err instanceof Error ? err.message : 'Error desconocido';
       if (msg === 'UNAUTHORIZED') {
         router.push('/login');
@@ -67,7 +77,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       }
       setError(msg);
     } finally {
-      setLoading(false);
+      if (reqId === requestIdRef.current) setLoading(false);
     }
   }, [range, router]);
 

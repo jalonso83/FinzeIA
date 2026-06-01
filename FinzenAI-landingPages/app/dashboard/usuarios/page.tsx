@@ -96,6 +96,7 @@ export default function UsuariosPage() {
         >
           <option value="">Todos los estados</option>
           <option value="NO_VERIFICADO">No Verificado</option>
+          <option value="VERIFICADO">Verificado</option>
           <option value="SIN_ONBOARDING">Sin Onboarding</option>
           <option value="EN_TRIAL">En Trial</option>
           <option value="ACTIVO">Activo</option>
