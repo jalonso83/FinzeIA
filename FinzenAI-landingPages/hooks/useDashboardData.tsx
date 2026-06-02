@@ -4,7 +4,9 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef, Re
 import { useRouter } from 'next/navigation';
 import {
   fetchAllDashboardData,
+  computeDateParams,
   type DateRange,
+  type PeriodParams,
   type PulseData,
   type UsersData,
   type RevenueData,
@@ -18,6 +20,10 @@ import {
 interface DashboardState {
   range: DateRange;
   setRange: (r: DateRange) => void;
+  // Periodo absoluto (mes/trimestre/rolling) usado al generar el PDF.
+  // Si está seteado, manda sobre `range` para el fetch de datos.
+  customPeriod: PeriodParams | null;
+  setCustomPeriod: (p: PeriodParams | null) => void;
   pulse: PulseData | null;
   users: UsersData | null;
   revenue: RevenueData | null;
@@ -35,6 +41,7 @@ const DashboardContext = createContext<DashboardState | null>(null);
 export function DashboardProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [range, setRange] = useState<DateRange>('30d');
+  const [customPeriod, setCustomPeriod] = useState<PeriodParams | null>(null);
   const [pulse, setPulse] = useState<PulseData | null>(null);
   const [users, setUsers] = useState<UsersData | null>(null);
   const [revenue, setRevenue] = useState<RevenueData | null>(null);
@@ -58,7 +65,8 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await fetchAllDashboardData(range);
+      const { from, to } = customPeriod ?? computeDateParams(range);
+      const data = await fetchAllDashboardData(from, to);
       if (reqId !== requestIdRef.current) return; // respuesta obsoleta → ignorar
       setPulse(data.pulse);
       setUsers(data.users);
@@ -79,7 +87,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
     } finally {
       if (reqId === requestIdRef.current) setLoading(false);
     }
-  }, [range, router]);
+  }, [range, customPeriod, router]);
 
   useEffect(() => {
     fetchData();
@@ -87,7 +95,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider
-      value={{ range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error }}
+      value={{ range, setRange, customPeriod, setCustomPeriod, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error }}
     >
       {children}
     </DashboardContext.Provider>

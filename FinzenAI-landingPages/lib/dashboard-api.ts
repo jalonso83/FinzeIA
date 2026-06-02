@@ -242,6 +242,58 @@ export function computeDateParams(range: DateRange): { from: string; to: string 
   };
 }
 
+// ─── Periodos para el PDF (rolling / mes calendario / trimestre) ──
+
+export interface PeriodParams {
+  from: string;  // YYYY-MM-DD
+  to: string;    // YYYY-MM-DD
+  label: string; // etiqueta legible (portada + header del PDF)
+}
+
+const ROLLING_LABELS: Record<DateRange, string> = {
+  '7d': 'Últimos 7 días',
+  '14d': 'Últimos 14 días',
+  '30d': 'Últimos 30 días',
+  '90d': 'Últimos 90 días',
+};
+
+export const MONTH_NAMES = [
+  'Enero', 'Febrero', 'Marzo', 'Abril', 'Mayo', 'Junio',
+  'Julio', 'Agosto', 'Septiembre', 'Octubre', 'Noviembre', 'Diciembre',
+];
+
+// Rango relativo (últimos N días desde hoy) → from/to + etiqueta.
+export function computeRollingParams(range: DateRange): PeriodParams {
+  const { from, to } = computeDateParams(range);
+  return { from, to, label: ROLLING_LABELS[range] };
+}
+
+// Mes calendario completo (1ro al último día). monthIndex: 0=Enero … 11=Diciembre.
+// Construimos las fechas como strings directos para evitar shifts de zona horaria.
+export function computeMonthParams(year: number, monthIndex: number): PeriodParams {
+  const mm = String(monthIndex + 1).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(year, monthIndex + 1, 0)).getUTCDate();
+  return {
+    from: `${year}-${mm}-01`,
+    to: `${year}-${mm}-${String(lastDay).padStart(2, '0')}`,
+    label: `${MONTH_NAMES[monthIndex]} ${year}`,
+  };
+}
+
+// Trimestre calendario. quarter: 1 (Ene–Mar), 2 (Abr–Jun), 3 (Jul–Sep), 4 (Oct–Dic).
+export function computeQuarterParams(year: number, quarter: number): PeriodParams {
+  const startMonth = (quarter - 1) * 3; // 0, 3, 6, 9
+  const endMonth = startMonth + 2;      // 2, 5, 8, 11
+  const mmStart = String(startMonth + 1).padStart(2, '0');
+  const mmEnd = String(endMonth + 1).padStart(2, '0');
+  const lastDay = new Date(Date.UTC(year, endMonth + 1, 0)).getUTCDate();
+  return {
+    from: `${year}-${mmStart}-01`,
+    to: `${year}-${mmEnd}-${String(lastDay).padStart(2, '0')}`,
+    label: `Q${quarter} ${year}`,
+  };
+}
+
 async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Promise<T> {
   const params = new URLSearchParams({ from, to });
 
@@ -266,9 +318,7 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 
 // ─── Public API ─────────────────────────────────────────────────
 
-export async function fetchAllDashboardData(range: DateRange) {
-  const { from, to } = computeDateParams(range);
-
+export async function fetchAllDashboardData(from: string, to: string) {
   const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition] = await Promise.all([
     fetchEndpoint<PulseData>('pulse', from, to),
     fetchEndpoint<UsersData>('users', from, to),

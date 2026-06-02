@@ -1,18 +1,9 @@
-import { DateRange } from '@/lib/dashboard-api';
-
 interface PdfCoverPageProps {
-  range: DateRange;
+  periodLabel: string; // "Mayo 2026" | "Q2 2026" | "Últimos 7 días"
   fromDate: string; // YYYY-MM-DD
   toDate: string; // YYYY-MM-DD
-  generatedBy?: string | null; // email del admin (opcional, viene en Hito 4)
+  generatedBy?: string | null; // email del admin (opcional)
 }
-
-const RANGE_LABELS: Record<string, string> = {
-  '7d': '7 días',
-  '14d': '14 días',
-  '30d': '30 días',
-  '90d': '90 días',
-};
 
 function formatDateLong(isoDate: string): string {
   // El input es YYYY-MM-DD; lo convertimos a fecha local y formateamos.
@@ -26,8 +17,7 @@ function formatDateLong(isoDate: string): string {
   });
 }
 
-export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverPageProps) {
-  const rangeLabel = RANGE_LABELS[range] ?? range;
+export function PdfCoverPage({ periodLabel, fromDate, toDate, generatedBy }: PdfCoverPageProps) {
   const generatedAt = new Date().toLocaleString('es', {
     dateStyle: 'full',
     timeStyle: 'short',
@@ -100,7 +90,7 @@ export function PdfCoverPage({ range, fromDate, toDate, generatedBy }: PdfCoverP
             Periodo del reporte
           </p>
           <p style={{ fontSize: '20px', fontWeight: 700, color: '#1a1a1a', margin: 0 }}>
-            Últimos {rangeLabel}
+            {periodLabel}
           </p>
           <p style={{ fontSize: '14px', color: '#444', marginTop: '6px' }}>
             {formatDateLong(fromDate)} — {formatDateLong(toDate)}

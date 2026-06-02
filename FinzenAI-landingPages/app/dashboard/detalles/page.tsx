@@ -2,25 +2,20 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, Download } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2 } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
+import PdfExportPopover from '@/components/dashboard/PdfExportPopover';
 import ChartLine from '@/components/dashboard/ChartLine';
 import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { computeDateParams, type AcquisitionData, type DateRange } from '@/lib/dashboard-api';
+import { computeRollingParams, type AcquisitionData } from '@/lib/dashboard-api';
 import { PdfCoverPage } from './PdfCoverPage';
 import { PdfGlossary } from './PdfGlossary';
 import { TabPulso } from './TabPulso';
 import './print.css';
-
-const VALID_RANGES: DateRange[] = ['7d', '14d', '30d', '90d'];
-
-function isValidRange(r: string | null): r is DateRange {
-  return r !== null && (VALID_RANGES as string[]).includes(r);
-}
 
 const tabs = [
   { id: 'usuarios', label: 'Usuarios', icon: Users },
@@ -755,7 +750,9 @@ function DashboardError({ message }: { message: string }) {
 
 // ─── PDF Render — todos los tabs apilados + cover + glosario ─────
 interface PdfRenderProps {
-  range: DateRange;
+  periodLabel: string;
+  fromDate: string;
+  toDate: string;
   generatedBy: string | null;
   users: any;
   acquisition: AcquisitionData | null;
@@ -767,12 +764,10 @@ interface PdfRenderProps {
   financialHealth: any;
 }
 
-function PdfRender({ range, generatedBy, users, acquisition, revenue, pulse, engagement, openaiCosts, unitEconomics, financialHealth }: PdfRenderProps) {
-  const { from, to } = computeDateParams(range);
-
+function PdfRender({ periodLabel, fromDate, toDate, generatedBy, users, acquisition, revenue, pulse, engagement, openaiCosts, unitEconomics, financialHealth }: PdfRenderProps) {
   return (
     <div data-pdf-mode="true">
-      <PdfCoverPage range={range} fromDate={from} toDate={to} generatedBy={generatedBy} />
+      <PdfCoverPage periodLabel={periodLabel} fromDate={fromDate} toDate={toDate} generatedBy={generatedBy} />
 
       {/* Resumen Ejecutivo (Pulso) — primera sección, vista general antes del detalle */}
       <section className="pdf-tab-section">
@@ -815,6 +810,9 @@ function PdfRender({ range, generatedBy, users, acquisition, revenue, pulse, eng
 
       <section className="pdf-tab-section">
         <h2 className="text-2xl font-bold text-finzen-black mb-4">Salud Financiera</h2>
+        <p className="text-xs text-finzen-gray italic mb-3">
+          Nota: Salud Financiera refleja siempre el mes en curso, independiente del periodo del reporte.
+        </p>
         <TabSalud financialHealth={financialHealth} />
       </section>
 
@@ -827,55 +825,29 @@ function PdfRender({ range, generatedBy, users, acquisition, revenue, pulse, eng
 function DashboardDetallesInner() {
   const searchParams = useSearchParams();
   const isPdfMode = searchParams.get('mode') === 'pdf';
-  const rangeParam = searchParams.get('range');
-  const generatedBy = searchParams.get('generatedBy'); // viene en Hito 4 (vía Puppeteer URL)
+  const fromParam = searchParams.get('from');
+  const toParam = searchParams.get('to');
+  const labelParam = searchParams.get('label');
+  const generatedBy = searchParams.get('generatedBy'); // viene vía Puppeteer URL
 
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
+  const { range, setRange, customPeriod, setCustomPeriod, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
-  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
 
-  // Descarga el PDF ejecutivo respetando el range actual del dashboard.
-  const handleDownloadPdf = async () => {
-    if (isDownloadingPdf) return;
-    setIsDownloadingPdf(true);
-    try {
-      const res = await fetch(`/api/admin/dashboard/pdf?range=${range}`, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!res.ok) {
-        const text = await res.text();
-        throw new Error(`Error ${res.status}: ${text || 'sin detalle'}`);
-      }
-      const blob = await res.blob();
-
-      // Filename viene del backend en Content-Disposition.
-      const cd = res.headers.get('content-disposition') || '';
-      const match = cd.match(/filename="?([^";]+)"?/);
-      const filename = match ? match[1] : `finzen-reporte-${range}.pdf`;
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      document.body.removeChild(a);
-      URL.revokeObjectURL(url);
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : 'Error desconocido';
-      alert(`No se pudo generar el PDF: ${msg}`);
-    } finally {
-      setIsDownloadingPdf(false);
-    }
-  };
-
-  // Aplicar range desde URL si viene en query (caso PDF generado por backend).
+  // Aplicar el periodo absoluto que viene en la URL (caso PDF generado por backend
+  // vía Puppeteer): from/to/label. Dispara el fetch con esas fechas exactas.
   useEffect(() => {
-    if (isValidRange(rangeParam) && rangeParam !== range) {
-      setRange(rangeParam);
+    if (fromParam && toParam) {
+      const label = labelParam || `${fromParam} — ${toParam}`;
+      if (
+        !customPeriod ||
+        customPeriod.from !== fromParam ||
+        customPeriod.to !== toParam ||
+        customPeriod.label !== label
+      ) {
+        setCustomPeriod({ from: fromParam, to: toParam, label });
+      }
     }
-  }, [rangeParam, range, setRange]);
+  }, [fromParam, toParam, labelParam, customPeriod, setCustomPeriod]);
 
   // Señal a Puppeteer que el PDF está listo para captura.
   // Delay de 1500ms para que charts (recharts) terminen sus animaciones.
@@ -894,9 +866,12 @@ function DashboardDetallesInner() {
 
   // ─── Modo PDF ─────────────────────────────────────────────────
   if (isPdfMode) {
+    const period = customPeriod ?? computeRollingParams(range);
     return (
       <PdfRender
-        range={range}
+        periodLabel={period.label}
+        fromDate={period.from}
+        toDate={period.to}
         generatedBy={generatedBy}
         users={users}
         acquisition={acquisition}
@@ -940,23 +915,7 @@ function DashboardDetallesInner() {
         </div>
         <div className="flex items-center gap-3">
           <DateRangePicker value={range} onChange={setRange} />
-          <button
-            onClick={handleDownloadPdf}
-            disabled={isDownloadingPdf || loading}
-            className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium bg-finzen-blue text-white hover:bg-finzen-blue/90 disabled:opacity-50 disabled:cursor-not-allowed transition-colors whitespace-nowrap"
-          >
-            {isDownloadingPdf ? (
-              <>
-                <Loader2 size={16} className="animate-spin" />
-                Generando PDF...
-              </>
-            ) : (
-              <>
-                <Download size={16} />
-                Descargar PDF
-              </>
-            )}
-          </button>
+          <PdfExportPopover />
         </div>
       </div>
 
