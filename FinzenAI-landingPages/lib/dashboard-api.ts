@@ -33,10 +33,11 @@ export interface UsersData {
   cohorts: {
     week: string;
     size: number;
-    d1: number;
-    d7: number;
-    d14: number;
-    d30: number;
+    // null = ventana aún no observable (cohorte inmadura), no 0% de retención.
+    d1: number | null;
+    d7: number | null;
+    d14: number | null;
+    d30: number | null;
   }[];
   period: { from: string; to: string };
 }

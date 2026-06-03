@@ -128,7 +128,7 @@ function buildCohortData(users: any) {
     // The cohort is a week, so we use the END of the week (start + 7d) as the youngest user.
     // A bucket is evaluable when (now - end-of-cohort-week) >= N days.
     const evaluable = (n: number) => now - (weekStart + 7 * DAY) >= n * DAY;
-    const pct = (v: number) => (size > 0 ? Math.round((v / size) * 100) : 0);
+    const pct = (v: number | null) => (v === null ? null : size > 0 ? Math.round((v / size) * 100) : 0);
     return {
       semana: label,
       d1: evaluable(1) ? pct(c.d1) : null,
