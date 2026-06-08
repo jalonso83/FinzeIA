@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
-import { LayoutDashboard, BarChart3, Users, MessageSquare, DollarSign, LogOut } from 'lucide-react';
+import { LayoutDashboard, BarChart3, Users, MessageSquare, DollarSign, Megaphone, LogOut } from 'lucide-react';
 import { DashboardProvider } from '@/hooks/useDashboardData';
 
 const navItems = [
@@ -12,6 +12,7 @@ const navItems = [
   { label: 'Usuarios', href: '/dashboard/usuarios', icon: Users },
   { label: 'Costos', href: '/dashboard/costos', icon: DollarSign },
   { label: 'Feedback', href: '/dashboard/feedback', icon: MessageSquare },
+  { label: 'Mensajes', href: '/dashboard/broadcasts', icon: Megaphone },
 ];
 
 interface AdminUser {
