@@ -153,6 +153,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               </th>
               <th className="px-4 py-3">Plataforma</th>
               <th className="px-4 py-3 text-center">TX</th>
+              <th className="px-4 py-3 text-center" title="Consultas de chat con Zenio (acumulado, sin voz)">Zenio</th>
               <th className="px-4 py-3">Última act.</th>
             </tr>
           </thead>
@@ -226,6 +227,10 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   {/* TX */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
                     {user.transactionCount}
+                  </td>
+                  {/* Zenio */}
+                  <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
+                    {user.zenioQueries}
                   </td>
                   {/* Última actividad */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{timeAgo(user.lastActivity)}</td>

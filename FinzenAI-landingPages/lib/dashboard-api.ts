@@ -204,6 +204,7 @@ export interface UserListItem {
   trialEndsAt: string | null;
   currentPeriodEnd: string | null;
   transactionCount: number;
+  zenioQueries: number;
   lastActivity: string | null;
   cohort: 'Android' | 'iOS' | 'Desconocido';
 }
