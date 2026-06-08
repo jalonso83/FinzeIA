@@ -23,6 +23,7 @@ export interface UsersData {
   registrationsByDay: { day: string; count: number }[];
   funnel: {
     registered: number;
+    verified: number;
     onboarded: number;
     activated: number;
     retainedD1: number;

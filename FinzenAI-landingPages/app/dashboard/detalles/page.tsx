@@ -103,9 +103,10 @@ function buildFunnelData(users: any) {
   if (!users?.funnel) return [];
   const f = users.funnel;
   const base = f.registered || 1;
-  const pct = (v: number) => `${Math.round((v / base) * 100)}%`;
+  const pct = (v: number) => `${((v / base) * 100).toFixed(2)}%`;
   return [
     { etapa: 'Registro', valor: f.registered, porcentaje: '100%' },
+    { etapa: 'Verificados', valor: f.verified, porcentaje: pct(f.verified) },
     { etapa: 'Onboarding', valor: f.onboarded, porcentaje: pct(f.onboarded) },
     { etapa: 'Activación', valor: f.activated, porcentaje: pct(f.activated) },
     { etapa: 'Retención D1', valor: f.retainedD1, porcentaje: pct(f.retainedD1) },
@@ -128,7 +129,7 @@ function buildCohortData(users: any) {
     // The cohort is a week, so we use the END of the week (start + 7d) as the youngest user.
     // A bucket is evaluable when (now - end-of-cohort-week) >= N days.
     const evaluable = (n: number) => now - (weekStart + 7 * DAY) >= n * DAY;
-    const pct = (v: number | null) => (v === null ? null : size > 0 ? Math.round((v / size) * 100) : 0);
+    const pct = (v: number | null) => (v === null ? null : size > 0 ? Number(((v / size) * 100).toFixed(2)) : 0);
     return {
       semana: label,
       d1: evaluable(1) ? pct(c.d1) : null,
@@ -191,7 +192,7 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
 
   const totalUsers = pulse?.totalUsers || 0;
   const totalPaidSubs = (revenue.subscribersByPlan?.PREMIUM || 0) + (revenue.subscribersByPlan?.PRO || 0);
-  const subsPorcentaje = totalUsers > 0 ? ((totalPaidSubs / totalUsers) * 100).toFixed(1) : '0';
+  const subsPorcentaje = totalUsers > 0 ? ((totalPaidSubs / totalUsers) * 100).toFixed(2) : '0';
 
   const revenueByPlanRows = [
     {
@@ -337,7 +338,7 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           <StatBox
             label="Margen Bruto"
-            value={`${unitEconomics.grossMargin.toFixed(1)}%`}
+            value={`${unitEconomics.grossMargin.toFixed(2)}%`}
             highlight
             tooltip="(MRR − costos variables) / MRR × 100. Excluye costos fijos por convención SaaS. Indica rentabilidad a escala."
           />
@@ -552,7 +553,7 @@ function formatChangeBadge(change: number): { text: string; className: string } 
   if (change === 0) return { text: '0%', className: 'text-finzen-gray' };
   const sign = change > 0 ? '↑' : '↓';
   const cls = change > 0 ? 'text-finzen-green' : 'text-finzen-red';
-  return { text: `${sign}${Math.abs(change).toFixed(1)}%`, className: cls };
+  return { text: `${sign}${Math.abs(change).toFixed(2)}%`, className: cls };
 }
 
 function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }) {

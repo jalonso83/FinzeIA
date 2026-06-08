@@ -46,7 +46,7 @@ export default function ChartDonut({ title, data, height = 280 }: ChartDonutProp
             <Tooltip
               formatter={(value: any) => {
                 const num = Number(value);
-                const pct = total > 0 ? Math.round((num / total) * 100) : 0;
+                const pct = total > 0 ? ((num / total) * 100).toFixed(2) : '0.00';
                 return [`${num} (${pct}%)`, ''];
               }}
               contentStyle={{
@@ -60,7 +60,7 @@ export default function ChartDonut({ title, data, height = 280 }: ChartDonutProp
         </ResponsiveContainer>
         <div className="flex flex-col gap-3">
           {data.map((item) => {
-            const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+            const pct = total > 0 ? ((item.value / total) * 100).toFixed(2) : '0.00';
             return (
               <div key={item.name} className="flex items-center gap-2">
                 <div

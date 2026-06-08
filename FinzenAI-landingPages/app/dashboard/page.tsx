@@ -107,7 +107,7 @@ function buildChannelData(engagement: any) {
 
 function buildQuickStats(pulse: any) {
   if (!pulse) return null;
-  const dauMau = pulse.mau > 0 ? Math.round((pulse.dau / pulse.mau) * 100) : 0;
+  const dauMau = pulse.mau > 0 ? ((pulse.dau / pulse.mau) * 100).toFixed(2) : '0.00';
   return {
     retencionD1: `${pulse.retentionD1}%`,
     retencionD7: `${pulse.retentionD7}%`,
