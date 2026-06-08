@@ -39,6 +39,34 @@ function timeAgo(iso: string | null): string {
   return `Hace ${months}mes${months > 1 ? 'es' : ''}`;
 }
 
+// Nombre completo (como se guarda en la BD) → código ISO-3166-1 alpha-3.
+// La celda muestra el código (ahorra scroll horizontal); el nombre completo
+// queda en el tooltip. Países tomados de la lista fija del registro.
+const countryAbbr: Record<string, string> = {
+  'Argentina': 'ARG',
+  'Bolivia': 'BOL',
+  'Brasil': 'BRA',
+  'Chile': 'CHL',
+  'Colombia': 'COL',
+  'Costa Rica': 'CRI',
+  'Cuba': 'CUB',
+  'Ecuador': 'ECU',
+  'El Salvador': 'SLV',
+  'Guatemala': 'GTM',
+  'Honduras': 'HND',
+  'México': 'MEX',
+  'Nicaragua': 'NIC',
+  'Panamá': 'PAN',
+  'Paraguay': 'PRY',
+  'Perú': 'PER',
+  'Puerto Rico': 'PRI',
+  'República Dominicana': 'DOM',
+  'Uruguay': 'URY',
+  'Venezuela': 'VEN',
+  'Estados Unidos': 'USA',
+  'España': 'ESP',
+};
+
 const planBadge: Record<string, string> = {
   FREE: 'bg-gray-100 text-gray-600',
   PREMIUM: 'bg-emerald-100 text-emerald-700',
@@ -192,8 +220,14 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                       {status.label}
                     </span>
                   </td>
-                  {/* País */}
-                  <td className="px-4 py-3 text-sm text-finzen-gray">{user.country || '--'}</td>
+                  {/* País — código ISO-3 con el nombre completo en el tooltip */}
+                  <td className="px-4 py-3 text-sm text-finzen-gray">
+                    {user.country ? (
+                      <span title={user.country}>{countryAbbr[user.country] || user.country}</span>
+                    ) : (
+                      '--'
+                    )}
+                  </td>
                   {/* Registro */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{formatDate(user.createdAt)}</td>
                   {/* Plataforma — derivada del userAgent del CompleteRegistration */}
