@@ -435,3 +435,111 @@ export async function deleteCampaignCost(id: string): Promise<void> {
     throw new Error(`API error: ${res.status}`);
   }
 }
+
+// ─── Broadcasts (notificaciones masivas) ────────────────────────
+
+export type BroadcastApiType = 'ANNOUNCEMENT' | 'MARKETING' | 'SYSTEM';
+
+export interface BroadcastAudience {
+  plans: string[];
+  platforms: string[];
+  country?: string;
+  segments: string[];
+  dormantDays?: number;
+  test?: boolean;
+}
+
+export interface BroadcastPreviewResult {
+  target: number;
+  optedOut: number;
+}
+
+export interface BroadcastSendResult {
+  targetCount: number;
+  successCount: number;
+  failureCount: number;
+  suppressed: number;
+}
+
+export interface BroadcastItem {
+  id: string;
+  title: string;
+  body: string;
+  type: BroadcastApiType;
+  status: string; // DRAFT | SENDING | SENT | FAILED
+  targetCount: number | null;
+  successCount: number | null;
+  failureCount: number | null;
+  audience: BroadcastAudience;
+  createdAt: string;
+  sentAt: string | null;
+}
+
+export interface BroadcastsListResponse {
+  items: BroadcastItem[];
+  pagination: { page: number; limit: number; total: number; totalPages: number };
+}
+
+export async function previewBroadcast(
+  type: BroadcastApiType,
+  audience: BroadcastAudience,
+): Promise<BroadcastPreviewResult> {
+  const res = await fetch('/api/admin/broadcasts/preview', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type, audience }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as BroadcastPreviewResult;
+}
+
+export async function createBroadcast(input: {
+  title: string;
+  body: string;
+  type: BroadcastApiType;
+  data?: Record<string, string>;
+  audience: BroadcastAudience;
+}): Promise<BroadcastItem> {
+  const res = await fetch('/api/admin/broadcasts', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as BroadcastItem;
+}
+
+export async function sendBroadcastById(id: string): Promise<BroadcastSendResult> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/send`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ confirm: true }),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as BroadcastSendResult;
+}
+
+export async function fetchBroadcasts(page = 1): Promise<BroadcastsListResponse> {
+  const res = await fetch(`/api/admin/broadcasts?page=${page}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as BroadcastsListResponse;
+}
