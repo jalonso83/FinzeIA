@@ -447,6 +447,7 @@ export interface BroadcastAudience {
   segments: string[];
   dormantDays?: number;
   test?: boolean;
+  targetEmail?: string; // envío dirigido a un usuario específico
 }
 
 export interface BroadcastPreviewResult {

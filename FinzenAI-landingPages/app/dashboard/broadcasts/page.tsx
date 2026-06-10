@@ -9,7 +9,7 @@
 import { useState, useEffect } from 'react';
 import {
   Megaphone, Send, Bell, Save, AlertTriangle, Check, ChevronRight, X,
-  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2, FlaskConical,
+  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2,
 } from 'lucide-react';
 import {
   previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts,
@@ -99,12 +99,12 @@ function PhonePreview({ title, body, type }: { title: string; body: string; type
 
 // ─── Modal de confirmación con countdown ─────────────────────────────────
 function ConfirmModal({
-  target, type, audienceLabel, testMode, sending, onCancel, onConfirm,
+  target, type, audienceLabel, singleTarget, sending, onCancel, onConfirm,
 }: {
-  target: number; type: BroadcastType; audienceLabel: string; testMode: boolean; sending: boolean;
+  target: number; type: BroadcastType; audienceLabel: string; singleTarget: boolean; sending: boolean;
   onCancel: () => void; onConfirm: () => void;
 }) {
-  const [seconds, setSeconds] = useState(testMode ? 0 : 5);
+  const [seconds, setSeconds] = useState(singleTarget ? 0 : 5);
   useEffect(() => {
     if (seconds <= 0) return;
     const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
@@ -115,18 +115,18 @@ function ConfirmModal({
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
       <div className="w-full max-w-md rounded-xl bg-white shadow-2xl p-6">
         <div className="flex items-center gap-2 mb-3">
-          {testMode
-            ? <FlaskConical size={20} className="text-finzen-blue" />
+          {singleTarget
+            ? <Megaphone size={20} className="text-finzen-blue" />
             : <AlertTriangle size={20} className="text-finzen-red" />}
-          <h3 className="text-lg font-bold text-finzen-black">{testMode ? 'Confirmar prueba' : 'Confirmar envío'}</h3>
+          <h3 className="text-lg font-bold text-finzen-black">{singleTarget ? 'Confirmar envío dirigido' : 'Confirmar envío'}</h3>
         </div>
         <p className="text-sm text-finzen-black">
-          {testMode ? 'Vas a enviarte este mensaje a ' : 'Estás por enviar a '}
+          {singleTarget ? 'Vas a enviar este mensaje a ' : 'Estás por enviar a '}
           <span className="font-bold text-finzen-blue">{target.toLocaleString('es')}</span>
-          {testMode ? ' (solo tu cuenta).' : ' usuarios.'}
+          {singleTarget ? ' destinatario(s).' : ' usuarios.'}
         </p>
         <p className="text-xs text-finzen-gray mt-1">{TYPE_META[type].label} · {audienceLabel}</p>
-        {!testMode && (
+        {!singleTarget && (
           <div className="mt-3 rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">
             Esta acción no se puede deshacer y envía push real a usuarios.
           </div>
@@ -143,14 +143,14 @@ function ConfirmModal({
             onClick={onConfirm}
             disabled={seconds > 0 || sending}
             className={`px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5 ${
-              testMode ? 'bg-finzen-blue hover:bg-blue-700' : 'bg-finzen-red hover:bg-red-600'
+              singleTarget ? 'bg-finzen-blue hover:bg-blue-700' : 'bg-finzen-red hover:bg-red-600'
             }`}
           >
             {sending
               ? <><Loader2 size={14} className="animate-spin" /> Enviando…</>
               : seconds > 0
                 ? <><Clock size={14} /> Enviar ({seconds}s)</>
-                : <><Send size={14} /> {testMode ? 'Enviarme la prueba' : 'Enviar ahora'}</>}
+                : <><Send size={14} /> {singleTarget ? 'Enviar' : 'Enviar ahora'}</>}
           </button>
         </div>
       </div>
@@ -174,7 +174,8 @@ export default function BroadcastsPage() {
   const [country, setCountry] = useState('Todos');
   const [segments, setSegments] = useState<Segment[]>(['never_activated', 'dormant']);
   const [dormantDays, setDormantDays] = useState<DormantDays>('14');
-  const [testMode, setTestMode] = useState(false);
+  const [targetMode, setTargetMode] = useState<'segments' | 'user'>('segments');
+  const [targetEmail, setTargetEmail] = useState('');
 
   // Estimación / envío
   const [estimate, setEstimate] = useState<{ target: number; optedOut: number } | null>(null);
@@ -199,14 +200,17 @@ export default function BroadcastsPage() {
 
   const invalidate = () => setEstimate(null);
 
-  const buildAudience = (): BroadcastAudience => ({
-    plans,
-    platforms,
-    country: country === 'Todos' ? undefined : country,
-    segments,
-    dormantDays: Number(dormantDays),
-    ...(testMode ? { test: true } : {}),
-  });
+  const buildAudience = (): BroadcastAudience => {
+    const base = {
+      plans,
+      platforms,
+      country: country === 'Todos' ? undefined : country,
+      segments,
+      dormantDays: Number(dormantDays),
+    };
+    if (targetMode === 'user') return { ...base, targetEmail: targetEmail.trim() };
+    return base;
+  };
 
   const recalc = async () => {
     setPreviewing(true);
@@ -222,15 +226,18 @@ export default function BroadcastsPage() {
     }
   };
 
-  const segmentsSummary = testMode
-    ? 'Solo a ti (prueba)'
+  const segmentsSummary = targetMode === 'user'
+    ? `Usuario: ${targetEmail.trim() || '—'}`
     : segments.length
       ? segments.map((s) => (s === 'dormant' ? `Dormidos ${dormantDays}d` : SEGMENT_META[s].label)).join(', ')
       : 'Sin segmento';
 
   const canSend = !!estimate && estimate.target > 0
     && title.trim().length > 0 && body.trim().length > 0
-    && (testMode || segments.length > 0);
+    && (
+      (targetMode === 'user' && targetEmail.trim().length > 0)
+      || (targetMode === 'segments' && segments.length > 0)
+    );
 
   const handleConfirm = async () => {
     setSending(true);
@@ -270,8 +277,6 @@ export default function BroadcastsPage() {
     return () => { cancelled = true; };
   }, [view]);
 
-  const controlsDisabled = testMode;
-
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -279,9 +284,9 @@ export default function BroadcastsPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-finzen-black">Mensajes</h1>
-            {testMode ? (
-              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700 flex items-center gap-1">
-                <FlaskConical size={11} /> Modo prueba: solo a ti
+            {targetMode === 'user' ? (
+              <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-blue-100 text-blue-700">
+                Envío dirigido: 1 usuario
               </span>
             ) : (
               <span className="px-2 py-0.5 rounded-full text-[11px] font-semibold bg-amber-100 text-amber-700">
@@ -448,24 +453,37 @@ export default function BroadcastsPage() {
 
             {/* Audiencia */}
             <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
-              <div className="flex items-center justify-between mb-4">
-                <h3 className="text-sm font-semibold text-finzen-black">Audiencia</h3>
-                <label className="flex items-center gap-2 text-sm text-finzen-black cursor-pointer">
-                  <input
-                    type="checkbox" checked={testMode}
-                    onChange={(e) => { setTestMode(e.target.checked); invalidate(); }}
-                    className="w-4 h-4 accent-finzen-blue"
-                  />
-                  <FlaskConical size={14} className="text-finzen-blue" /> Modo prueba (solo a mí)
-                </label>
+              <h3 className="text-sm font-semibold text-finzen-black mb-3">Audiencia</h3>
+              <div className="flex flex-wrap gap-1 mb-4 bg-finzen-white rounded-lg p-1 border border-finzen-gray/20 w-fit">
+                {([['segments', 'Por segmento'], ['user', 'Usuario específico']] as const).map(([m, label]) => (
+                  <button
+                    key={m}
+                    onClick={() => { setTargetMode(m); invalidate(); }}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                      targetMode === m ? 'bg-white text-finzen-black shadow-sm' : 'text-finzen-gray hover:text-finzen-black'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
               </div>
 
-              {testMode ? (
-                <div className="rounded-lg bg-finzen-blue/5 border border-finzen-blue/20 p-3 text-sm text-finzen-black">
-                  En modo prueba se ignora la segmentación y el mensaje va <span className="font-medium">solo a tu cuenta</span> (a todos tus dispositivos activos), sin importar opt-out ni horario silencioso.
+              {targetMode === 'user' ? (
+                <div>
+                  <p className="text-xs font-medium text-finzen-gray uppercase tracking-wider mb-1.5">Email del usuario</p>
+                  <input
+                    type="email"
+                    value={targetEmail}
+                    onChange={(e) => { setTargetEmail(e.target.value); invalidate(); }}
+                    placeholder="usuario@email.com"
+                    className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue transition-all"
+                  />
+                  <p className="text-[11px] text-finzen-gray mt-1.5">
+                    Envía solo a ese usuario (todos sus dispositivos activos), ignorando segmentación, opt-out y horario silencioso.
+                  </p>
                 </div>
               ) : (
-                <div className={controlsDisabled ? 'opacity-50 pointer-events-none' : ''}>
+                <div>
                   {/* Plan */}
                   <div className="mb-3">
                     <p className="text-xs font-medium text-finzen-gray uppercase tracking-wider mb-1.5">Plan</p>
@@ -573,7 +591,7 @@ export default function BroadcastsPage() {
                   <div className="space-y-1">
                     <p className="text-sm text-finzen-black flex items-center gap-2">
                       👥 <span className="font-bold text-finzen-blue">{estimate.target.toLocaleString('es')}</span>{' '}
-                      {testMode ? 'destinatario (tú)' : 'usuarios recibirán esto'}
+                      {targetMode !== 'segments' ? 'destinatario' : 'usuarios recibirán esto'}
                     </p>
                     {estimate.optedOut > 0 && (
                       <p className="text-xs text-finzen-gray">🔕 {estimate.optedOut.toLocaleString('es')} excluidos por opt-out</p>
@@ -588,7 +606,7 @@ export default function BroadcastsPage() {
                   className="mt-2 px-3 py-1.5 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-white transition-colors disabled:opacity-50 flex items-center gap-1.5"
                 >
                   {previewing && <Loader2 size={13} className="animate-spin" />}
-                  {testMode ? 'Verificar mi cuenta' : 'Recalcular audiencia'}
+                  {targetMode === 'segments' ? 'Recalcular audiencia' : 'Verificar destinatario'}
                 </button>
               </div>
             </div>
@@ -604,7 +622,7 @@ export default function BroadcastsPage() {
                 title={!canSend ? 'Completa título, mensaje y recalcula la audiencia' : ''}
                 className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-finzen-blue text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {testMode ? 'Enviarme prueba' : 'Enviar ahora'} <ChevronRight size={14} />
+                {targetMode === 'segments' ? 'Enviar ahora' : 'Enviar'} <ChevronRight size={14} />
               </button>
             </div>
           </div>
@@ -626,7 +644,7 @@ export default function BroadcastsPage() {
           target={estimate.target}
           type={type}
           audienceLabel={segmentsSummary}
-          testMode={testMode}
+          singleTarget={targetMode !== 'segments'}
           sending={sending}
           onCancel={() => setShowConfirm(false)}
           onConfirm={handleConfirm}
