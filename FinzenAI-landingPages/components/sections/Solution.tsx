@@ -32,7 +32,7 @@ export default function Solution() {
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-10" />
                 <div className="relative w-full h-full rounded-[2.6rem] overflow-hidden">
                   <Image
-                    src="/metas-screen.jpeg"
+                    src="/metas-screen.jpg"
                     alt="FinZen AI - Metas de ahorro"
                     fill
                     className="object-cover"
