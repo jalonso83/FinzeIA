@@ -24,22 +24,16 @@ export default function Solution() {
             isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
           }`}
         >
-          {/* App screenshot - phone frame */}
+          {/* App screenshot — la imagen ya trae su propio marco de teléfono,
+              así que la mostramos directa, sin marco CSS y sin recortar. */}
           <div className="flex justify-center md:justify-start md:-ml-8">
-            <div className="relative">
-              <div className="relative w-[270px] h-[540px] md:w-[310px] md:h-[620px] bg-black rounded-[3rem] p-[6px] shadow-2xl border border-white/20">
-                {/* Notch */}
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[120px] h-[28px] bg-black rounded-b-2xl z-10" />
-                <div className="relative w-full h-full rounded-[2.6rem] overflow-hidden">
-                  <Image
-                    src="/metas-screen.jpg"
-                    alt="FinZen AI - Metas de ahorro"
-                    fill
-                    className="object-cover"
-                  />
-                </div>
-              </div>
-            </div>
+            <Image
+              src="/metas-screen.jpg"
+              alt="FinZen AI - Metas de ahorro"
+              width={740}
+              height={1576}
+              className="w-[270px] md:w-[310px] h-auto"
+            />
           </div>
 
           {/* Text content */}
