@@ -28,10 +28,10 @@ export default function Solution() {
               así que la mostramos directa, sin marco CSS y sin recortar. */}
           <div className="flex justify-center md:justify-start md:-ml-8">
             <Image
-              src="/metas-screen.jpg"
+              src="/metas-screen.png"
               alt="FinZen AI - Metas de ahorro"
-              width={740}
-              height={1576}
+              width={1851}
+              height={3834}
               className="w-[270px] md:w-[310px] h-auto"
             />
           </div>
