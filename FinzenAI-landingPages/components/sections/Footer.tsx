@@ -3,6 +3,8 @@ import {
   CONTACT_EMAIL,
   INSTAGRAM_HANDLE,
   INSTAGRAM_URL,
+  TIKTOK_HANDLE,
+  TIKTOK_URL,
   COMPANY_NAME,
   COPYRIGHT_YEAR,
 } from '@/lib/constants';
@@ -116,6 +118,16 @@ export default function Footer() {
                   className="text-white/60 hover:text-white text-sm transition-colors"
                 >
                   Instagram {INSTAGRAM_HANDLE}
+                </a>
+              </li>
+              <li>
+                <a
+                  href={TIKTOK_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-white/60 hover:text-white text-sm transition-colors"
+                >
+                  TikTok {TIKTOK_HANDLE}
                 </a>
               </li>
             </ul>

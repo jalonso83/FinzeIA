@@ -41,5 +41,7 @@ export const NAV_LINKS = [
 export const CONTACT_EMAIL = 'info@finzenai.com';
 export const INSTAGRAM_HANDLE = '@finzenaiapp';
 export const INSTAGRAM_URL = 'https://www.instagram.com/finzenaiapp?igsh=a3lvMzk4ZTR6aGNy';
+export const TIKTOK_HANDLE = '@finzen.ai';
+export const TIKTOK_URL = 'https://www.tiktok.com/@finzen.ai?_r=1&_t=ZS-977ih3n5VUC';
 export const COMPANY_NAME = 'Abundance Lab LLC';
 export const COPYRIGHT_YEAR = 2026;
