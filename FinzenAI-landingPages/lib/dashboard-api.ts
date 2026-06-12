@@ -205,6 +205,8 @@ export interface UserListItem {
   currentPeriodEnd: string | null;
   transactionCount: number;
   zenioQueries: number;
+  goalCount: number;
+  goalContributions: number;
   lastActivity: string | null;
   cohort: 'Android' | 'iOS' | 'Desconocido';
 }

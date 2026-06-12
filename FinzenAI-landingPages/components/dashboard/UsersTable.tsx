@@ -181,6 +181,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               </th>
               <th className="px-4 py-3">Plataforma</th>
               <th className="px-4 py-3 text-center">TX</th>
+              <th className="px-4 py-3 text-center" title="Metas declaradas y, entre paréntesis, total de contribuciones a esas metas">Metas</th>
               <th className="px-4 py-3 text-center" title="Consultas de chat con Zenio (acumulado, sin voz)">Zenio</th>
               <th className="px-4 py-3">Última act.</th>
             </tr>
@@ -261,6 +262,15 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   {/* TX */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
                     {user.transactionCount}
+                  </td>
+                  {/* Metas — cantidad declarada (total de contribuciones) */}
+                  <td
+                    className="px-4 py-3 text-sm text-center font-medium text-finzen-black"
+                    title={`${user.goalCount ?? 0} meta${(user.goalCount ?? 0) !== 1 ? 's' : ''} · ${user.goalContributions ?? 0} contribución${(user.goalContributions ?? 0) !== 1 ? 'es' : ''}`}
+                  >
+                    {(user.goalCount ?? 0) > 0
+                      ? `${user.goalCount} (${user.goalContributions ?? 0})`
+                      : '0'}
                   </td>
                   {/* Zenio */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
