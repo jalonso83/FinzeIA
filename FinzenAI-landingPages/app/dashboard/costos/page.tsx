@@ -28,6 +28,8 @@ const GLOSSARY = {
     'Origen del tráfico capturado del UTM al click del ad (meta, tiktok, google, ig, etc.). "Directo" no aparece acá porque no aplica costo de campaña.',
   campaign:
     'Nombre exacto de la campaña en la plataforma de anuncios (utm_campaign). "—" significa que la fuente no envió campaña (ej. tráfico de bio orgánico).',
+  fechaInicio:
+    'Fecha de inicio de la campaña (informativa). Solo aplica a campañas con costo manual. No filtra ni afecta las métricas del dashboard.',
   inversion:
     'Costo manual ingresado para esta campaña. Es acumulativo total: cuando inviertas más, actualizas el número aquí. No tiene granularidad temporal.',
   visitors:
@@ -128,16 +130,74 @@ function CostInput({
   );
 }
 
+// Fecha de inicio editable inline. Guarda al cambiar (igual patrón que CostInput).
+function DateInput({
+  initial,
+  onSave,
+  disabled,
+}: {
+  initial: string | null; // ISO o null
+  onSave: (value: string | null) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const toInputValue = (iso: string | null) => (iso ? iso.slice(0, 10) : '');
+  const [value, setValue] = useState(toInputValue(initial));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValue(toInputValue(initial));
+  }, [initial]);
+
+  const hasChanged = value !== toInputValue(initial);
+
+  const handleSave = async () => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(value || null);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="flex items-center gap-1">
+      <input
+        type="date"
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+        disabled={disabled || saving}
+        className="w-36 px-2 py-1 text-sm border border-finzen-gray/20 rounded focus:outline-none focus:ring-1 focus:ring-finzen-blue/30 focus:border-finzen-blue disabled:bg-finzen-white"
+      />
+      {hasChanged && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          title="Guardar"
+          className="p-1 text-finzen-blue hover:bg-finzen-blue/10 rounded transition-colors disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        </button>
+      )}
+      {error && <span className="text-[10px] text-finzen-red ml-1">{error}</span>}
+    </div>
+  );
+}
+
 function ManualForm({
   onAdd,
   onCancel,
 }: {
-  onAdd: (input: { source: string; campaign: string; costUSD: number }) => Promise<void>;
+  onAdd: (input: { source: string; campaign: string; costUSD: number; campaignDate: string | null }) => Promise<void>;
   onCancel: () => void;
 }) {
   const [source, setSource] = useState('');
   const [campaign, setCampaign] = useState('');
   const [cost, setCost] = useState('');
+  const [startDate, setStartDate] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -154,7 +214,7 @@ function ManualForm({
     setSaving(true);
     setError(null);
     try {
-      await onAdd({ source: source.trim(), campaign: campaign.trim(), costUSD: num });
+      await onAdd({ source: source.trim(), campaign: campaign.trim(), costUSD: num, campaignDate: startDate || null });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -174,7 +234,7 @@ function ManualForm({
           <X size={16} />
         </button>
       </div>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+      <div className="grid grid-cols-1 sm:grid-cols-4 gap-3">
         <div>
           <label className="block text-xs text-finzen-gray mb-1">Source</label>
           <input
@@ -192,6 +252,15 @@ function ManualForm({
             value={campaign}
             onChange={(e) => setCampaign(e.target.value)}
             placeholder="Nombre exacto de la campaña"
+            className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue"
+          />
+        </div>
+        <div>
+          <label className="block text-xs text-finzen-gray mb-1">Fecha de inicio</label>
+          <input
+            type="date"
+            value={startDate}
+            onChange={(e) => setStartDate(e.target.value)}
             className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue"
           />
         </div>
@@ -266,6 +335,17 @@ export default function CostosPage() {
       source: row.source,
       campaign: row.campaign,
       costUSD,
+      campaignDate: row.campaignDate, // preservar la fecha al editar el costo
+    });
+    await load();
+  };
+
+  const handleSaveDate = async (row: CampaignCostRow, campaignDate: string | null) => {
+    await upsertCampaignCost({
+      source: row.source,
+      campaign: row.campaign,
+      costUSD: row.costUSD, // preservar el costo al editar la fecha
+      campaignDate,
     });
     await load();
   };
@@ -281,7 +361,7 @@ export default function CostosPage() {
     }
   };
 
-  const handleAddManual = async (input: { source: string; campaign: string; costUSD: number }) => {
+  const handleAddManual = async (input: { source: string; campaign: string; costUSD: number; campaignDate: string | null }) => {
     await upsertCampaignCost(input);
     setShowManualForm(false);
     await load();
@@ -390,6 +470,9 @@ export default function CostosPage() {
                     <span className="inline-flex items-center">Campaña<InfoTooltip text={GLOSSARY.campaign} /></span>
                   </th>
                   <th className="px-4 py-3">
+                    <span className="inline-flex items-center">Fecha inicio<InfoTooltip text={GLOSSARY.fechaInicio} /></span>
+                  </th>
+                  <th className="px-4 py-3">
                     <span className="inline-flex items-center">Inversión<InfoTooltip text={GLOSSARY.inversion} /></span>
                   </th>
                   <th className="px-4 py-3 text-right">
@@ -429,6 +512,12 @@ export default function CostosPage() {
                     </td>
                     <td className="px-4 py-3 text-finzen-black">
                       {row.campaign || <span className="text-finzen-gray/50">—</span>}
+                    </td>
+                    <td className="px-4 py-3">
+                      <DateInput
+                        initial={row.campaignDate}
+                        onSave={(v) => handleSaveDate(row, v)}
+                      />
                     </td>
                     <td className="px-4 py-3">
                       <CostInput

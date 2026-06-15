@@ -381,6 +381,7 @@ export interface CampaignCostRow {
   campaign: string;        // '' = sin campaña
   costUSD: number;
   notes: string | null;
+  campaignDate: string | null; // ISO; fecha de inicio (solo filas con costo manual)
   visitors: number;
   leads: number;
   registrations: number;   // anonymousIds únicos con Lead (atribuidos)
@@ -415,6 +416,7 @@ export async function upsertCampaignCost(input: {
   campaign: string;
   costUSD: number;
   notes?: string | null;
+  campaignDate?: string | null;
 }): Promise<void> {
   const res = await fetch('/api/admin/campaign-costs', {
     method: 'PUT',

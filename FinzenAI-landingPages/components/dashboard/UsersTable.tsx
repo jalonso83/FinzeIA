@@ -182,7 +182,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               <th className="px-4 py-3">Plataforma</th>
               <th className="px-4 py-3 text-center">TX</th>
               <th className="px-4 py-3 text-center" title="Metas declaradas y, entre paréntesis, total de contribuciones a esas metas">Metas</th>
-              <th className="px-4 py-3 text-center" title="Consultas de chat con Zenio (acumulado, sin voz)">Zenio</th>
+              <th className="px-4 py-3 text-center" title="Mensajes reales enviados a Zenio (acumulado; excluye saludos automáticos y onboarding)">Zenio</th>
               <th className="px-4 py-3">Última act.</th>
             </tr>
           </thead>
