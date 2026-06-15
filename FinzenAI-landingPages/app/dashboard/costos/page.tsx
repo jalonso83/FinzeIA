@@ -302,12 +302,15 @@ function ManualForm({
   );
 }
 
+const PAGE_SIZE = 10;
+
 export default function CostosPage() {
   const router = useRouter();
   const [data, setData] = useState<CampaignCostsResponse | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
+  const [page, setPage] = useState(1);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -369,6 +372,18 @@ export default function CostosPage() {
 
   const rows = data?.rows ?? [];
   const summary = data?.summary;
+
+  // Paginado del lado del cliente (los KPIs de arriba siguen sobre todas las filas).
+  const totalPages = Math.max(1, Math.ceil(rows.length / PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((currentPage - 1) * PAGE_SIZE, currentPage * PAGE_SIZE);
+  const fromRow = rows.length === 0 ? 0 : (currentPage - 1) * PAGE_SIZE + 1;
+  const toRow = Math.min(currentPage * PAGE_SIZE, rows.length);
+
+  // Si cambia el set de filas (borrar/agregar) y la página queda fuera de rango, corrige.
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
     <div className="space-y-6">
@@ -497,7 +512,7 @@ export default function CostosPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-finzen-gray/10">
-                {rows.map((row) => (
+                {pagedRows.map((row) => (
                   <tr
                     key={`${row.source}::${row.campaign}`}
                     className="hover:bg-finzen-white/50 transition-colors"
@@ -547,6 +562,56 @@ export default function CostosPage() {
               </tbody>
             </table>
           </div>
+
+          {/* Paginación */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between text-sm">
+              <span className="text-finzen-gray">
+                Mostrando {fromRow}-{toRow} de {rows.length}
+              </span>
+              <div className="flex items-center gap-1">
+                <button
+                  onClick={() => setPage(currentPage - 1)}
+                  disabled={currentPage <= 1}
+                  className="px-3 py-1.5 rounded-md border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Anterior
+                </button>
+                {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+                  let pageNum: number;
+                  if (totalPages <= 5) {
+                    pageNum = i + 1;
+                  } else if (currentPage <= 3) {
+                    pageNum = i + 1;
+                  } else if (currentPage >= totalPages - 2) {
+                    pageNum = totalPages - 4 + i;
+                  } else {
+                    pageNum = currentPage - 2 + i;
+                  }
+                  return (
+                    <button
+                      key={pageNum}
+                      onClick={() => setPage(pageNum)}
+                      className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                        pageNum === currentPage
+                          ? 'bg-finzen-blue text-white'
+                          : 'border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white'
+                      }`}
+                    >
+                      {pageNum}
+                    </button>
+                  );
+                })}
+                <button
+                  onClick={() => setPage(currentPage + 1)}
+                  disabled={currentPage >= totalPages}
+                  className="px-3 py-1.5 rounded-md border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Siguiente
+                </button>
+              </div>
+            </div>
+          )}
 
           {/* Manual add */}
           {showManualForm ? (
