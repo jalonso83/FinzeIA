@@ -18,7 +18,6 @@ import api from '../utils/api';
 import { useSpeech } from '../hooks/useSpeech';
 import { useCategoriesStore } from '../stores/categories';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
-import CustomModal from './modals/CustomModal';
 
 import { logger } from '../utils/logger';
 
@@ -30,10 +29,6 @@ interface ZenioChatProps {
   // Cuando es true, el backend usa el prompt de re-personalización (saluda diferente,
   // permite repetir el flujo aunque user.onboardingCompleted=true, no toca el flag).
   isRePersonalization?: boolean;
-  // Cuando es true, oculta el botón TTS y nunca renderiza el CustomModal interno
-  // de "Función PRO". Crítico cuando el componente vive dentro de otro Modal en iOS
-  // (regla del proyecto: NO anidar Modales). Usado por RePersonalizationScreen.
-  disableTTS?: boolean;
   initialMessage?: string;
   onZenioMessage?: (msg: string, responseData?: any) => void;
 }
@@ -49,7 +44,6 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
   onClose,
   isOnboarding = false,
   isRePersonalization = false,
-  disableTTS = false,
   initialMessage,
   onZenioMessage
 }) => {
@@ -130,13 +124,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
-    // Si TTS está deshabilitado (ej: dentro de re-personalización), no hacer nada.
-    // Evita anidar el CustomModal de "Función PRO" dentro de otro Modal en iOS.
-    if (disableTTS) {
-      return;
-    }
-    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
-    if (!canUseTextToSpeech()) {
+    // En re-personalización el TTS es gratis para todos los planes (flujo de re-engagement
+    // de baja frecuencia, no justifica gate de monetización y la bocina rota daña UX).
+    if (!isRePersonalization && !canUseTextToSpeech()) {
       setShowProModalTTS(true);
       return;
     }
@@ -226,7 +216,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         setMessages(prev => [...prev, zenioMessage]);
 
         // Auto-reproducir si está habilitado y tiene acceso a TTS
-        if (autoPlay && !speech.isSpeaking && canUseTextToSpeech()) {
+        // (re-personalización permite TTS gratis para todos)
+        if (autoPlay && !speech.isSpeaking && (isRePersonalization || canUseTextToSpeech())) {
           setCurrentlyPlayingId(messageId);
           await speech.speakResponse(zenioResponse);
           setCurrentlyPlayingId(null);
@@ -400,8 +391,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
               )}
             </View>
 
-            {/* Botón de play para mensajes de Zenio (oculto si TTS deshabilitado) */}
-            {message.from === 'zenio' && message.id && !disableTTS && (
+            {/* Botón de play para mensajes de Zenio */}
+            {message.from === 'zenio' && message.id && (
               <TouchableOpacity
                 style={[
                   styles.playButton,
@@ -463,26 +454,40 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Modal PRO - Para TTS. NO se renderiza si disableTTS=true para evitar
-          modales anidados en iOS (cuando ZenioChat vive dentro de otro Modal). */}
-      {!disableTTS && (
-        <CustomModal
-          visible={showProModalTTS}
-          type="warning"
-          title="Función PRO"
-          message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
-          buttonText="Ver Planes"
-          onClose={() => {
-            setShowProModalTTS(false);
-            // iOS: esperar que el modal cierre antes de abrir el siguiente
-            setTimeout(() => {
-              openPlansModal();
-            }, 350);
-          }}
-          showSecondaryButton={true}
-          secondaryButtonText="Cerrar"
-          onSecondaryPress={() => setShowProModalTTS(false)}
-        />
+      {/* Overlay "Función PRO" para TTS — renderizado como View con position:absolute
+          (NO como <Modal>) para poder anidarse dentro de otra pantalla Modal en iOS
+          sin romper. Mismo patrón que abandonOverlay en RePersonalizationScreen. */}
+      {showProModalTTS && (
+        <View style={styles.proOverlay} pointerEvents="auto">
+          <View style={styles.proDialog}>
+            <View style={styles.proIconCircle}>
+              <Ionicons name="warning" size={48} color="#FFFFFF" />
+            </View>
+            <Text style={styles.proTitle}>Función PRO</Text>
+            <Text style={styles.proMessage}>
+              La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.{'\n\n'}¡Mejora tu plan para desbloquear esta y más funciones!
+            </Text>
+            <View style={styles.proButtonsRow}>
+              <TouchableOpacity
+                style={styles.proSecondary}
+                onPress={() => setShowProModalTTS(false)}
+              >
+                <Text style={styles.proSecondaryText}>Cerrar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                style={styles.proPrimary}
+                onPress={() => {
+                  setShowProModalTTS(false);
+                  setTimeout(() => {
+                    openPlansModal();
+                  }, 350);
+                }}
+              >
+                <Text style={styles.proPrimaryText}>Ver Planes</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
       )}
     </View>
   );
@@ -671,6 +676,85 @@ const styles = StyleSheet.create({
   },
   playButtonActive: {
     backgroundColor: '#2563EB',
+  },
+  // ===== PRO OVERLAY (TTS) =====
+  proOverlay: {
+    ...StyleSheet.absoluteFillObject,
+    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 20,
+    zIndex: 100,
+    elevation: 100,
+  },
+  proDialog: {
+    backgroundColor: 'white',
+    borderRadius: 24,
+    padding: 32,
+    width: '100%',
+    maxWidth: 400,
+    alignItems: 'center',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
+    elevation: 110,
+  },
+  proIconCircle: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#f59e0b',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginBottom: 20,
+  },
+  proTitle: {
+    fontSize: 24,
+    fontWeight: 'bold',
+    color: '#1e293b',
+    textAlign: 'center',
+    marginBottom: 12,
+  },
+  proMessage: {
+    fontSize: 15,
+    color: '#64748b',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 28,
+  },
+  proButtonsRow: {
+    flexDirection: 'row',
+    width: '100%',
+    gap: 12,
+  },
+  proSecondary: {
+    flex: 1,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 2,
+    borderColor: '#e5e7eb',
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proSecondaryText: {
+    color: '#64748b',
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  proPrimary: {
+    flex: 1,
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  proPrimaryText: {
+    color: 'white',
+    fontSize: 15,
+    fontWeight: '600',
   },
 });
 

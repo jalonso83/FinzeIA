@@ -210,7 +210,7 @@ export default function SkipVsSaveScreen() {
             placeholderTextColor="#9CA3AF"
             autoFocus={true}
           />
-          <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()} por día</Text>
+          <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
         </View>
       </TouchableOpacity>
 

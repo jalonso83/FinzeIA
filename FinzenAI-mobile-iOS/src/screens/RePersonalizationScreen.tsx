@@ -166,9 +166,6 @@ export default function RePersonalizationScreen({ onClose }: RePersonalizationSc
             <ZenioChat
               isOnboarding={true}
               isRePersonalization={true}
-              // disableTTS=true porque vivimos dentro de un Modal — el CustomModal
-              // interno de "Función PRO" rompería en iOS si se anidan dos Modales.
-              disableTTS={true}
               initialMessage="Hola Zenio, quiero actualizar mi perfil"
               onZenioMessage={handleZenioMessage}
             />

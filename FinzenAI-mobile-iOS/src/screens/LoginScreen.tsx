@@ -16,10 +16,12 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import * as AppleAuthentication from 'expo-apple-authentication';
 import { authAPI } from '../utils/api';
 import { useAuthStore } from '../stores/auth';
 import { saveToken } from '../utils/api';
 import { useBiometric } from '../hooks/useBiometric';
+import { signInWithApple, signInWithGoogle, isAppleSignInAvailable, SSOCancelledError } from '../services/ssoService';
 
 import { logger } from '../utils/logger';
 export default function LoginScreen() {
@@ -28,6 +30,8 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingBiometric, setLoadingBiometric] = useState(false);
+  const [loadingSSO, setLoadingSSO] = useState<'apple' | 'google' | null>(null);
+  const [appleAvailable, setAppleAvailable] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [rememberEmail, setRememberEmail] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -58,6 +62,42 @@ export default function LoginScreen() {
 
     loadRememberedEmail();
   }, []);
+
+  // Detectar si el device soporta Sign in with Apple (iOS 13+).
+  useEffect(() => {
+    isAppleSignInAvailable().then(setAppleAvailable);
+  }, []);
+
+  const handleAppleSignIn = async () => {
+    try {
+      setLoadingSSO('apple');
+      setErrors({});
+      await signInWithApple();
+      // El AppNavigator detecta isAuthenticated y navega automáticamente.
+    } catch (err: any) {
+      if (err instanceof SSOCancelledError) return;
+      logger.error('[LoginScreen] Apple sign-in error:', err);
+      const apiMsg = err?.response?.data?.message;
+      Alert.alert('Error', apiMsg || 'No se pudo iniciar sesión con Apple. Intenta de nuevo.');
+    } finally {
+      setLoadingSSO(null);
+    }
+  };
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoadingSSO('google');
+      setErrors({});
+      await signInWithGoogle();
+    } catch (err: any) {
+      if (err instanceof SSOCancelledError) return;
+      logger.error('[LoginScreen] Google sign-in error:', err);
+      const apiMsg = err?.response?.data?.message;
+      Alert.alert('Error', apiMsg || 'No se pudo iniciar sesión con Google. Intenta de nuevo.');
+    } finally {
+      setLoadingSSO(null);
+    }
+  };
 
   const handleBiometricLogin = async () => {
     try {
@@ -223,6 +263,36 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.form}>
+              {/* SSO buttons — Apple PRIMERO por compliance App Store. */}
+              {appleAvailable && (
+                <AppleAuthentication.AppleAuthenticationButton
+                  buttonType={AppleAuthentication.AppleAuthenticationButtonType.CONTINUE}
+                  buttonStyle={AppleAuthentication.AppleAuthenticationButtonStyle.BLACK}
+                  cornerRadius={8}
+                  style={styles.appleButton}
+                  onPress={handleAppleSignIn}
+                />
+              )}
+              <TouchableOpacity
+                style={[styles.googleButton, loadingSSO === 'google' && styles.disabledButton]}
+                onPress={handleGoogleSignIn}
+                disabled={loadingSSO !== null}
+              >
+                {loadingSSO === 'google' ? (
+                  <ActivityIndicator color="#1f2937" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#1f2937" />
+                    <Text style={styles.googleButtonText}>Continuar con Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
@@ -561,6 +631,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+  },
+  // Estilos para SSO (Apple + Google)
+  appleButton: {
+    width: '100%',
+    height: 48,
+    marginBottom: 12,
+  },
+  googleButton: {
+    width: '100%',
+    height: 48,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  googleButtonText: {
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Estilos para biometría
   divider: {

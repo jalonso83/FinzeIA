@@ -178,7 +178,7 @@ export default function ChangePasswordForm({ visible, onClose }: ChangePasswordF
                   />
                 </TouchableOpacity>
               </View>
-              <Text style={styles.hint}>Mínimo 6 caracteres</Text>
+              <Text style={styles.hint}>Mínimo 12 caracteres</Text>
             </View>
 
             {/* Confirmar nueva contraseña */}

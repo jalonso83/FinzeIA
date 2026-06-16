@@ -18,6 +18,8 @@ Notifications.setNotificationHandler({
 
 export interface NotificationPreferences {
   emailSyncEnabled: boolean;
+  marketingEnabled: boolean;
+  announcementsEnabled: boolean;
   budgetAlertsEnabled: boolean;
   goalRemindersEnabled: boolean;
   weeklyReportEnabled: boolean;

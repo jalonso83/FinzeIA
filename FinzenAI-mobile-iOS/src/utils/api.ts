@@ -240,7 +240,43 @@ export const authAPI = {
 
   deleteAccount: (password: string) =>
     api.delete('/auth/account', { data: { password } }),
+
+  // SSO — Sign in with Apple / Google.
+  // El backend hace login del usuario existente (match por sub) o crea uno nuevo,
+  // y para email verificado linkea automáticamente con cuenta password existente.
+  // deviceCountry / deviceLocale se usan para inferir país y moneda en users nuevos.
+  appleSignIn: (payload: {
+    identityToken: string;
+    name?: string;
+    lastName?: string;
+    referralCode?: string;
+    deviceCountry?: string;
+    deviceLocale?: string;
+  }) =>
+    api.post<SSOAuthResponse>('/auth/apple', payload),
+
+  googleSignIn: (payload: {
+    idToken: string;
+    referralCode?: string;
+    deviceCountry?: string;
+    deviceLocale?: string;
+  }) =>
+    api.post<SSOAuthResponse>('/auth/google', payload),
 };
+
+export interface SSOAuthResponse {
+  message: string;
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    verified: boolean;
+    onboardingCompleted: boolean;
+  };
+  isNewUser: boolean;
+  linked: boolean;
+}
 
 // API de onboarding (saltar onboarding — gateado por feature flag)
 export const onboardingAPI = {
