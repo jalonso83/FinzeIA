@@ -197,13 +197,15 @@ export const authAPI = {
     lastName: string;
     email: string;
     password: string;
+    country: string;
+    currency: string;
+    // Campos legacy — opcionales. El formulario nuevo no los pide.
+    // Apps viejas que aún los envían siguen funcionando (backend los acepta).
     phone?: string;
     birthDate?: string;
-    country: string;
     state?: string;
     city?: string;
-    currency: string;
-    preferredLanguage: string;
+    preferredLanguage?: string;
     occupation?: string;
     company?: string;
     referralCode?: string;
@@ -239,6 +241,59 @@ export const authAPI = {
 
   deleteAccount: (password: string) =>
     api.delete('/auth/account', { data: { password } }),
+
+  // SSO — Sign in with Apple / Google.
+  // El backend hace login del usuario existente (match por sub) o crea uno nuevo,
+  // y para email verificado linkea automáticamente con cuenta password existente.
+  // deviceCountry / deviceLocale se usan para inferir país y moneda en users nuevos.
+  appleSignIn: (payload: {
+    identityToken: string;
+    name?: string;
+    lastName?: string;
+    referralCode?: string;
+    deviceCountry?: string;
+    deviceLocale?: string;
+  }) =>
+    api.post<SSOAuthResponse>('/auth/apple', payload),
+
+  googleSignIn: (payload: {
+    idToken: string;
+    referralCode?: string;
+    deviceCountry?: string;
+    deviceLocale?: string;
+  }) =>
+    api.post<SSOAuthResponse>('/auth/google', payload),
+};
+
+export interface SSOAuthResponse {
+  message: string;
+  token: string;
+  user: {
+    id: string;
+    name: string;
+    email: string;
+    verified: boolean;
+    onboardingCompleted: boolean;
+  };
+  isNewUser: boolean;
+  linked: boolean;
+}
+
+// API de onboarding (saltar onboarding — gateado por feature flag)
+export const onboardingAPI = {
+  skip: () =>
+    api.post<{ message: string; user: any; alreadyCompleted: boolean }>('/auth/onboarding/skip'),
+
+  // Marca el onboarding como completado, validando que exista perfil financiero.
+  // Devuelve 409 con code: 'ONBOARDING_PROFILE_MISSING' si no hay perfil.
+  complete: () =>
+    api.post<{ message: string; user: any; alreadyCompleted: boolean }>('/auth/onboarding/complete'),
+};
+
+// API de configuración / feature flags por usuario
+export const configAPI = {
+  getFeatures: () =>
+    api.get<{ onboardingSkipEnabled: boolean }>('/config/features'),
 };
 
 // API de gamificación

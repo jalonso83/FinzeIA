@@ -56,6 +56,8 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
         // Valores por defecto
         setPreferences({
           emailSyncEnabled: true,
+          marketingEnabled: true,
+          announcementsEnabled: true,
           budgetAlertsEnabled: true,
           goalRemindersEnabled: true,
           weeklyReportEnabled: true,
@@ -538,6 +540,44 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
               </View>
             )}
           </TouchableOpacity>
+        </View>
+
+        {/* Novedades y promociones (broadcast) — disponible para todos los planes */}
+        <Text style={styles.sectionTitle}>Novedades y promociones</Text>
+        <View style={styles.settingsCard}>
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="megaphone-outline" size={22} color="#2563EB" style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>Novedades de la app</Text>
+                <Text style={styles.settingDescription}>Nuevas funciones y mejoras</Text>
+              </View>
+            </View>
+            <Switch
+              value={preferences?.announcementsEnabled ?? true}
+              onValueChange={(value) => handleToggle('announcementsEnabled', value)}
+              trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+              thumbColor={preferences?.announcementsEnabled ? '#FFFFFF' : '#9CA3AF'}
+            />
+          </View>
+
+          <View style={styles.divider} />
+
+          <View style={styles.settingRow}>
+            <View style={styles.settingInfo}>
+              <Ionicons name="pricetag-outline" size={22} color="#10B981" style={styles.settingIcon} />
+              <View style={styles.settingTextContainer}>
+                <Text style={styles.settingTitle}>Promociones y ofertas</Text>
+                <Text style={styles.settingDescription}>Descuentos y novedades de planes</Text>
+              </View>
+            </View>
+            <Switch
+              value={preferences?.marketingEnabled ?? true}
+              onValueChange={(value) => handleToggle('marketingEnabled', value)}
+              trackColor={{ false: '#D1D5DB', true: '#2563EB' }}
+              thumbColor={preferences?.marketingEnabled ? '#FFFFFF' : '#9CA3AF'}
+            />
+          </View>
         </View>
 
         {/* Umbral de alerta de presupuesto */}

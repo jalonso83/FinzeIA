@@ -32,6 +32,7 @@ import RemindersScreen from '../screens/RemindersScreen';
 import AddReminderScreen from '../screens/AddReminderScreen';
 import ReferralsScreen from '../screens/ReferralsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
+import FeedbackScreen from '../screens/FeedbackScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
 import EmailSyncScreen from '../screens/EmailSyncScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
@@ -46,6 +47,7 @@ import RegisterScreen from '../screens/RegisterScreen';
 import ForgotPasswordScreen from '../screens/ForgotPasswordScreen';
 import OnboardingWelcomeScreen from '../screens/OnboardingWelcomeScreen';
 import OnboardingScreen from '../screens/OnboardingScreen';
+import RePersonalizationScreen from '../screens/RePersonalizationScreen';
 
 // Stores
 import { useAuthStore } from '../stores/auth';
@@ -305,12 +307,16 @@ function MainNavigator({ route }: any) {
   const [showNotificationSettings, setShowNotificationSettings] = React.useState(false);
   const [showNotifications, setShowNotifications] = React.useState(false);
   const [showWeeklyReports, setShowWeeklyReports] = React.useState(false);
+  const [showRePersonalization, setShowRePersonalization] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
   const [showPlansModal, setShowPlansModal] = React.useState(false);
   const [cameFromTutorial, setCameFromTutorial] = React.useState(false);
   const [profileData, setProfileData] = React.useState(null);
   const [showProfileSuccessModal, setShowProfileSuccessModal] = React.useState(false);
   const [profileSuccessMessage, setProfileSuccessMessage] = React.useState('');
+  const [showFeedback, setShowFeedback] = React.useState(false);
+  const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = React.useState(false);
+  const [feedbackSuccessMessage, setFeedbackSuccessMessage] = React.useState('');
   const { updateUser, logout } = useAuthStore();
   const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal } = useSubscriptionStore();
   const { onTransactionChange } = useDashboardStore();
@@ -469,6 +475,22 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setShowRePersonalization(true);
+              }}
+            >
+              <Ionicons name="sparkles-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Personalizar mi experiencia</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
                 setShowSubscriptions(true);
               }}
             >
@@ -572,6 +594,22 @@ function MainNavigator({ route }: any) {
                 alignItems: 'center',
                 paddingHorizontal: 16,
                 paddingVertical: 12,
+              }}
+              onPress={() => {
+                setShowUserMenu(false);
+                setShowFeedback(true);
+              }}
+            >
+              <Ionicons name="chatbubble-ellipses-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
+              <Text style={{ fontSize: 14, color: '#374151' }}>Enviar Feedback</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 16,
+                paddingVertical: 12,
                 borderTopWidth: 1,
                 borderTopColor: '#f1f5f9',
                 marginTop: 8,
@@ -662,6 +700,25 @@ function MainNavigator({ route }: any) {
         <HelpCenterScreen onClose={handleCloseHelpCenter} />
       </Modal>
 
+      {/* Feedback Modal */}
+      <Modal
+        visible={showFeedback}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setShowFeedback(false)}
+      >
+        <FeedbackScreen
+          onClose={() => setShowFeedback(false)}
+          onSuccess={(message: string) => {
+            // 1. CERRAR formulario primero (patrón Screen-level)
+            setShowFeedback(false);
+            // 2. Mostrar success modal después
+            setFeedbackSuccessMessage(message);
+            setShowFeedbackSuccessModal(true);
+          }}
+        />
+      </Modal>
+
       {/* Email Sync Modal */}
       <Modal
         visible={showEmailSync}
@@ -723,6 +780,16 @@ function MainNavigator({ route }: any) {
         />
       </Modal>
 
+      {/* Re-personalización Modal — relanza el chat con Zenio para actualizar el perfil */}
+      <Modal
+        visible={showRePersonalization}
+        animationType="slide"
+        presentationStyle="fullScreen"
+        onRequestClose={() => setShowRePersonalization(false)}
+      >
+        <RePersonalizationScreen onClose={() => setShowRePersonalization(false)} />
+      </Modal>
+
       {/* Profile Success Modal */}
       <CustomModal
         visible={showProfileSuccessModal}
@@ -731,6 +798,16 @@ function MainNavigator({ route }: any) {
         message={profileSuccessMessage}
         buttonText="Continuar"
         onClose={() => setShowProfileSuccessModal(false)}
+      />
+
+      {/* Feedback Success Modal */}
+      <CustomModal
+        visible={showFeedbackSuccessModal}
+        type="success"
+        title="¡Feedback enviado!"
+        message={feedbackSuccessMessage}
+        buttonText="Continuar"
+        onClose={() => setShowFeedbackSuccessModal(false)}
       />
 
       {/* Logout Confirmation Modal */}

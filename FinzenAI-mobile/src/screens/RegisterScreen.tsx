@@ -18,23 +18,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authAPI, referralsAPI } from '../utils/api';
 
 import { logger } from '../utils/logger';
-// Datos constantes como en el web
-const occupationOptions = [
-  'Estudiante',
-  'Empleado/a',
-  'Empresario/a',
-  'Profesional independiente',
-  'Funcionario público',
-  'Jubilado/a',
-  'Ama/o de casa',
-  'Otra'
-];
 
 const latinAmericanCountries = [
   'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica', 'Cuba', 'Ecuador', 'El Salvador',
@@ -73,14 +61,8 @@ export default function RegisterScreen() {
     password: '',
     confirmPassword: '',
     phone: '',
-    birthDate: '',
     country: '',
-    state: '',
-    city: '',
     currency: '',
-    preferredLanguage: 'es',
-    occupation: '',
-    company: '',
     referralCode: '',
   });
   const [referralValidation, setReferralValidation] = useState<{
@@ -94,10 +76,7 @@ export default function RegisterScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [showCountryModal, setShowCountryModal] = useState(false);
   const [showCurrencyModal, setShowCurrencyModal] = useState(false);
-  const [showOccupationModal, setShowOccupationModal] = useState(false);
-  const [showLanguageModal, setShowLanguageModal] = useState(false);
   const [showSuccessModal, setShowSuccessModal] = useState(false);
-  const [showDatePicker, setShowDatePicker] = useState(false);
 
   const navigation = useNavigation<any>();
 
@@ -181,21 +160,17 @@ export default function RegisterScreen() {
     setSubmitting(true);
     
     try {
-      // Preparar datos para el backend
+      // Preparar datos para el backend.
+      // Solo enviamos los campos que el formulario simplificado captura.
+      // Backend acepta los demás campos como nullable y aplica defaults.
       const registerData = {
         name: form.name,
         lastName: form.lastName,
         email: form.email,
         password: form.password,
         phone: form.phone || undefined,
-        birthDate: form.birthDate ? convertToBackendFormat(form.birthDate) : undefined,
         country: form.country,
-        state: form.state || undefined,
-        city: form.city || undefined,
         currency: form.currency,
-        preferredLanguage: form.preferredLanguage,
-        occupation: form.occupation || undefined,
-        company: form.company || undefined,
         referralCode: form.referralCode && referralValidation.valid ? form.referralCode : undefined,
       };
 
@@ -226,77 +201,8 @@ export default function RegisterScreen() {
     return emailRegex.test(email);
   };
 
-  // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
-  const formatBirthDateDisplay = (value: string) => {
-    // Remover todos los caracteres que no sean números
-    const cleaned = value.replace(/\D/g, '');
-
-    // Aplicar formato DD-MM-YYYY (visual para el usuario)
-    if (cleaned.length >= 8) {
-      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4, 8)}`;
-    } else if (cleaned.length >= 4) {
-      return `${cleaned.substring(0, 2)}-${cleaned.substring(2, 4)}-${cleaned.substring(4)}`;
-    } else if (cleaned.length >= 2) {
-      return `${cleaned.substring(0, 2)}-${cleaned.substring(2)}`;
-    } else {
-      return cleaned;
-    }
-  };
-
-  // Función para convertir DD-MM-YYYY a YYYY-MM-DD (para backend)
-  const convertToBackendFormat = (displayDate: string) => {
-    const cleaned = displayDate.replace(/\D/g, '');
-    if (cleaned.length === 8) {
-      // DD MM YYYY -> YYYY-MM-DD
-      const day = cleaned.substring(0, 2);
-      const month = cleaned.substring(2, 4);
-      const year = cleaned.substring(4, 8);
-      return `${year}-${month}-${day}`;
-    }
-    return displayDate; // Si no está completo, devolver como está
-  };
-
-  // Función para convertir fecha display (DD-MM-YYYY) a objeto Date
-  const parseDisplayDateToDate = (displayDate: string): Date => {
-    const parts = displayDate.split('-');
-    if (parts.length === 3) {
-      const day = parseInt(parts[0], 10);
-      const month = parseInt(parts[1], 10) - 1;
-      const year = parseInt(parts[2], 10);
-      return new Date(year, month, day);
-    }
-    return new Date();
-  };
-
-  // Restricciones de edad para fecha de nacimiento
-  const maxBirthDate = new Date();
-  maxBirthDate.setFullYear(maxBirthDate.getFullYear() - 13); // Mínimo 13 años
-
-  const minBirthDate = new Date();
-  minBirthDate.setFullYear(minBirthDate.getFullYear() - 100); // Máximo 100 años
-
-  // Handler para cambio de fecha desde DatePicker
-  const handleDatePickerChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      const dd = String(selectedDate.getDate()).padStart(2, '0');
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = selectedDate.getFullYear();
-      setForm({ ...form, birthDate: `${dd}-${mm}-${yyyy}` });
-      // Limpiar error si existe
-      if (errors.birthDate) {
-        setErrors({ ...errors, birthDate: '' });
-      }
-    }
-  };
-
   const handleChange = (field: string, value: string) => {
     let finalValue = value;
-
-    // Aplicar formato especial para fecha de nacimiento (visual DD-MM-YYYY)
-    if (field === 'birthDate') {
-      finalValue = formatBirthDateDisplay(value);
-    }
 
     // Convertir código de referido a mayúsculas
     if (field === 'referralCode') {
@@ -537,30 +443,6 @@ export default function RegisterScreen() {
                 {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Fecha de Nacimiento</Text>
-                <TouchableOpacity
-                  style={[styles.dateInput, errors.birthDate && styles.inputError]}
-                  onPress={() => setShowDatePicker(true)}
-                  activeOpacity={0.7}
-                >
-                  <Ionicons name="calendar-outline" size={20} color="#2563EB" />
-                  <Text style={[styles.dateText, !form.birthDate && styles.datePlaceholder]}>
-                    {form.birthDate || 'Seleccionar fecha'}
-                  </Text>
-                </TouchableOpacity>
-                {showDatePicker && (
-                  <DateTimePicker
-                    value={form.birthDate ? parseDisplayDateToDate(form.birthDate) : maxBirthDate}
-                    mode="date"
-                    display="default"
-                    onChange={handleDatePickerChange}
-                    maximumDate={maxBirthDate}
-                    minimumDate={minBirthDate}
-                  />
-                )}
-                {errors.birthDate && <Text style={styles.errorText}>{errors.birthDate}</Text>}
-              </View>
             </View>
 
             {/* Información Básica */}
@@ -582,30 +464,6 @@ export default function RegisterScreen() {
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Estado / Provincia</Text>
-                <TextInput
-                  style={[styles.textInput, errors.state && styles.inputError]}
-                  value={form.state}
-                  onChangeText={(value) => handleChange('state', value)}
-                  placeholder="Tu estado o provincia"
-                  placeholderTextColor="#9ca3af"
-                />
-                {errors.state && <Text style={styles.errorText}>{errors.state}</Text>}
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Ciudad</Text>
-                <TextInput
-                  style={[styles.textInput, errors.city && styles.inputError]}
-                  value={form.city}
-                  onChangeText={(value) => handleChange('city', value)}
-                  placeholder="Tu ciudad"
-                  placeholderTextColor="#9ca3af"
-                />
-                {errors.city && <Text style={styles.errorText}>{errors.city}</Text>}
-              </View>
-
-              <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Moneda *</Text>
                 <TouchableOpacity
                   style={[styles.selectorButton, errors.currency && styles.inputError]}
@@ -622,43 +480,6 @@ export default function RegisterScreen() {
                 {errors.currency && <Text style={styles.errorText}>{errors.currency}</Text>}
               </View>
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Idioma Preferido</Text>
-                <TouchableOpacity
-                  style={styles.selectorButton}
-                  onPress={() => setShowLanguageModal(true)}
-                >
-                  <Text style={styles.selectorText}>
-                    {form.preferredLanguage === 'es' ? 'Español' : 'English'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#64748b" />
-                </TouchableOpacity>
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Ocupación</Text>
-                <TouchableOpacity
-                  style={[styles.selectorButton, errors.occupation && styles.inputError]}
-                  onPress={() => setShowOccupationModal(true)}
-                >
-                  <Text style={[styles.selectorText, !form.occupation && styles.placeholderText]} numberOfLines={1}>
-                    {form.occupation || 'Selecciona tu ocupación'}
-                  </Text>
-                  <Ionicons name="chevron-down" size={20} color="#64748b" />
-                </TouchableOpacity>
-                {errors.occupation && <Text style={styles.errorText}>{errors.occupation}</Text>}
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Empresa (Opcional)</Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={form.company}
-                  onChangeText={(value) => handleChange('company', value)}
-                  placeholder="Nombre de tu empresa"
-                  placeholderTextColor="#9ca3af"
-                />
-              </View>
             </View>
 
             {/* Código de Referido */}
@@ -772,27 +593,6 @@ export default function RegisterScreen() {
         displayKey="displayText"
       />
 
-      <ModalPicker
-        visible={showOccupationModal}
-        onClose={() => setShowOccupationModal(false)}
-        title="Selecciona tu ocupación"
-        data={occupationOptions}
-        onSelect={(value: string) => handleChange('occupation', value)}
-        selectedValue={form.occupation}
-      />
-
-      <ModalPicker
-        visible={showLanguageModal}
-        onClose={() => setShowLanguageModal(false)}
-        title="Selecciona tu idioma"
-        data={[
-          { displayText: 'Español', value: 'es' },
-          { displayText: 'English', value: 'en' }
-        ]}
-        onSelect={(value: string) => handleChange('preferredLanguage', value)}
-        selectedValue={form.preferredLanguage}
-        displayKey="displayText"
-      />
     </SafeAreaView>
   );
 }

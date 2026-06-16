@@ -1,5 +1,6 @@
 import { create } from 'zustand'
-import { persist } from 'zustand/middleware'
+import { persist, createJSONStorage } from 'zustand/middleware'
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { saveToken, removeToken, setForceLogoutCallback, authAPI } from '../utils/api'
 import * as SecureStore from 'expo-secure-store'
 
@@ -144,6 +145,11 @@ export const useAuthStore = create<AuthState>()(
     }),
     {
       name: 'auth-storage',
+      // Sin este storage, persist intenta usar localStorage (inexistente en RN) y
+      // la sesión NO sobrevive a un arranque en frío: si el SO mata la app en
+      // segundo plano, al reabrir el usuario aparecía deslogueado aunque su token
+      // siguiera válido en SecureStore. AsyncStorage persiste el estado en disco.
+      storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         user: state.user,
         token: state.token,

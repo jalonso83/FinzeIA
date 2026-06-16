@@ -603,11 +603,12 @@ export default function BudgetsScreen() {
           onBudgetChange();
           setEditingBudget(null);
 
-          // Mostrar modal de éxito en el Screen (NO anidado)
+          // Cerrar el formulario al guardar (crear o actualizar) y volver a la
+          // lista, igual que iOS. Antes se quedaba abierto y, al limpiar
+          // editingBudget, reaparecía como "Nuevo Presupuesto" tras actualizar.
+          setShowForm(false);
           setSuccessMessage(message);
           setShowSuccessModal(true);
-
-          // NO cerrar el formulario - se queda abierto y reseteado
         }}
         editBudget={editingBudget}
       />

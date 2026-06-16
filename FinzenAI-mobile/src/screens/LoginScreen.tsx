@@ -21,6 +21,7 @@ import { useAuthStore } from '../stores/auth';
 import { saveToken } from '../utils/api';
 import { useBiometric } from '../hooks/useBiometric';
 import CustomModal from '../components/modals/CustomModal';
+import { signInWithGoogle, SSOCancelledError } from '../services/ssoService';
 
 import { logger } from '../utils/logger';
 export default function LoginScreen() {
@@ -29,6 +30,7 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [loadingBiometric, setLoadingBiometric] = useState(false);
+  const [loadingSSO, setLoadingSSO] = useState(false);
   const [errors, setErrors] = useState<any>({});
   const [rememberEmail, setRememberEmail] = useState(false);
   const [needsVerification, setNeedsVerification] = useState(false);
@@ -89,6 +91,22 @@ export default function LoginScreen() {
 
     loadRememberedEmail();
   }, []);
+
+  const handleGoogleSignIn = async () => {
+    try {
+      setLoadingSSO(true);
+      setErrors({});
+      await signInWithGoogle();
+      // El AppNavigator detecta isAuthenticated y navega automáticamente.
+    } catch (err: any) {
+      if (err instanceof SSOCancelledError) return;
+      logger.error('[LoginScreen] Google sign-in error:', err);
+      const apiMsg = err?.response?.data?.message;
+      Alert.alert('Error', apiMsg || 'No se pudo iniciar sesión con Google. Intenta de nuevo.');
+    } finally {
+      setLoadingSSO(false);
+    }
+  };
 
   const handleBiometricLogin = async () => {
     try {
@@ -324,6 +342,26 @@ export default function LoginScreen() {
             </View>
 
             <View style={styles.form}>
+              <TouchableOpacity
+                style={[styles.googleButton, loadingSSO && styles.disabledButton]}
+                onPress={handleGoogleSignIn}
+                disabled={loadingSSO}
+              >
+                {loadingSSO ? (
+                  <ActivityIndicator color="#1f2937" size="small" />
+                ) : (
+                  <>
+                    <Ionicons name="logo-google" size={20} color="#1f2937" />
+                    <Text style={styles.googleButtonText}>Continuar con Google</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+              <View style={styles.divider}>
+                <View style={styles.dividerLine} />
+                <Text style={styles.dividerText}>o</Text>
+                <View style={styles.dividerLine} />
+              </View>
+
               <View style={styles.inputContainer}>
                 <Text style={styles.inputLabel}>Email</Text>
                 <View style={[styles.inputWrapper, errors.email && styles.inputError]}>
@@ -675,6 +713,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#374151',
     fontWeight: '500',
+  },
+  // Estilos para SSO (Google)
+  googleButton: {
+    width: '100%',
+    height: 48,
+    backgroundColor: 'white',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    flexDirection: 'row',
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  googleButtonText: {
+    color: '#1f2937',
+    fontSize: 16,
+    fontWeight: '600',
   },
   // Estilos para biometría
   divider: {
