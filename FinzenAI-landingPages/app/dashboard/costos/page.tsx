@@ -2,11 +2,12 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { RefreshCw, Loader2, Plus, Trash2, Save, X, DollarSign, Users, TrendingUp, Info } from 'lucide-react';
+import { RefreshCw, Loader2, Plus, Trash2, Save, X, DollarSign, Users, TrendingUp, Info, EyeOff, Eye } from 'lucide-react';
 import {
   fetchCampaignCosts,
   upsertCampaignCost,
   deleteCampaignCost,
+  setCampaignHidden,
   type CampaignCostRow,
   type CampaignCostsResponse,
 } from '@/lib/dashboard-api';
@@ -311,12 +312,13 @@ export default function CostosPage() {
   const [error, setError] = useState<string | null>(null);
   const [showManualForm, setShowManualForm] = useState(false);
   const [page, setPage] = useState(1);
+  const [showHidden, setShowHidden] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetchCampaignCosts();
+      const response = await fetchCampaignCosts(showHidden);
       setData(response);
     } catch (err) {
       if (err instanceof Error && err.message === 'UNAUTHORIZED') {
@@ -327,7 +329,7 @@ export default function CostosPage() {
     } finally {
       setLoading(false);
     }
-  }, [router]);
+  }, [router, showHidden]);
 
   useEffect(() => {
     load();
@@ -370,6 +372,15 @@ export default function CostosPage() {
     await load();
   };
 
+  const handleToggleHidden = async (row: CampaignCostRow, hidden: boolean) => {
+    try {
+      await setCampaignHidden({ source: row.source, campaign: row.campaign, hidden });
+      await load();
+    } catch (e) {
+      alert(e instanceof Error ? e.message : 'Error al cambiar visibilidad');
+    }
+  };
+
   const rows = data?.rows ?? [];
   const summary = data?.summary;
 
@@ -395,14 +406,29 @@ export default function CostosPage() {
             Inversión manual por campaña. Métricas lifetime (no aplica filtro de fechas).
           </p>
         </div>
-        <button
-          onClick={load}
-          disabled={loading}
-          className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-finzen-white transition-colors disabled:opacity-50"
-        >
-          <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
-          Actualizar
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => { setShowHidden((v) => !v); setPage(1); }}
+            disabled={loading}
+            className={`flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border transition-colors disabled:opacity-50 ${
+              showHidden
+                ? 'border-finzen-blue/40 text-finzen-blue bg-finzen-blue/5'
+                : 'border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-finzen-white'
+            }`}
+            title="Mostrar también las campañas ocultas para poder restaurarlas"
+          >
+            {showHidden ? <Eye size={14} /> : <EyeOff size={14} />}
+            {showHidden ? 'Ocultando' : 'Mostrar ocultas'}
+          </button>
+          <button
+            onClick={load}
+            disabled={loading}
+            className="flex items-center gap-2 px-4 py-2 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-finzen-white transition-colors disabled:opacity-50"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            Actualizar
+          </button>
+        </div>
       </div>
 
       {/* Summary KPIs */}
@@ -515,13 +541,18 @@ export default function CostosPage() {
                 {pagedRows.map((row) => (
                   <tr
                     key={`${row.source}::${row.campaign}`}
-                    className="hover:bg-finzen-white/50 transition-colors"
+                    className={`hover:bg-finzen-white/50 transition-colors ${row.hidden ? 'opacity-50' : ''}`}
                   >
                     <td className="px-4 py-3 font-medium text-finzen-black">
                       {row.source}
                       {row.isManual && (
                         <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700 font-normal">
                           manual
+                        </span>
+                      )}
+                      {row.hidden && (
+                        <span className="ml-2 text-[10px] px-1.5 py-0.5 rounded bg-finzen-gray/15 text-finzen-gray font-normal">
+                          oculta
                         </span>
                       )}
                     </td>
@@ -547,15 +578,34 @@ export default function CostosPage() {
                     <td className="px-4 py-3 text-right text-finzen-gray">{formatMoney(row.cpl)}</td>
                     <td className="px-4 py-3 text-right text-finzen-black font-medium">{formatMoney(row.cac)}</td>
                     <td className="px-4 py-3 text-center">
-                      {row.id && (
-                        <button
-                          onClick={() => handleDelete(row)}
-                          className="p-1 text-finzen-gray hover:text-finzen-red transition-colors"
-                          title="Borrar costo"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      )}
+                      <div className="flex items-center justify-center gap-1">
+                        {row.hidden ? (
+                          <button
+                            onClick={() => handleToggleHidden(row, false)}
+                            className="p-1 text-finzen-gray hover:text-finzen-blue transition-colors"
+                            title="Restaurar campaña"
+                          >
+                            <Eye size={14} />
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => handleToggleHidden(row, true)}
+                            className="p-1 text-finzen-gray hover:text-finzen-blue transition-colors"
+                            title="Ocultar campaña (de prueba)"
+                          >
+                            <EyeOff size={14} />
+                          </button>
+                        )}
+                        {row.id && (
+                          <button
+                            onClick={() => handleDelete(row)}
+                            className="p-1 text-finzen-gray hover:text-finzen-red transition-colors"
+                            title="Borrar costo"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

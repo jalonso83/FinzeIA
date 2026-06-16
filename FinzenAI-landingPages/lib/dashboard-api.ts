@@ -181,6 +181,8 @@ export interface AcquisitionData {
     subscriptions: number;
     revenue: number;
     conversionRate: number;
+    costUSD: number;            // inversión manual cruzada desde Costos (0 si no hay)
+    campaignDate: string | null; // ISO; fecha de inicio (de Costos)
   }[];
   cohort: {
     trackingStartDate: string | null;
@@ -382,6 +384,7 @@ export interface CampaignCostRow {
   costUSD: number;
   notes: string | null;
   campaignDate: string | null; // ISO; fecha de inicio (solo filas con costo manual)
+  hidden: boolean;             // borrado lógico: oculta del dashboard
   visitors: number;
   leads: number;
   registrations: number;   // anonymousIds únicos con Lead (atribuidos)
@@ -401,8 +404,11 @@ export interface CampaignCostsResponse {
   };
 }
 
-export async function fetchCampaignCosts(): Promise<CampaignCostsResponse> {
-  const res = await fetch('/api/admin/campaign-costs');
+export async function fetchCampaignCosts(includeHidden = false): Promise<CampaignCostsResponse> {
+  const url = includeHidden
+    ? '/api/admin/campaign-costs?includeHidden=true'
+    : '/api/admin/campaign-costs';
+  const res = await fetch(url);
   if (!res.ok) {
     if (res.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error(`API error: ${res.status}`);
@@ -437,6 +443,23 @@ export async function deleteCampaignCost(id: string): Promise<void> {
   if (!res.ok) {
     if (res.status === 401) throw new Error('UNAUTHORIZED');
     throw new Error(`API error: ${res.status}`);
+  }
+}
+
+export async function setCampaignHidden(input: {
+  source: string;
+  campaign: string;
+  hidden: boolean;
+}): Promise<void> {
+  const res = await fetch('/api/admin/campaign-costs/hidden', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(input),
+  });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
   }
 }
 
