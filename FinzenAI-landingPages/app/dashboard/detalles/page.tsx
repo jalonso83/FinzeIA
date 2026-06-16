@@ -305,6 +305,8 @@ function TabEngagement({ engagement }: { engagement: any }) {
           />
 
           {/* ── Fila 3 — Detalle de Zenio + Viralidad ─────────────── */}
+          <StatBox label="Mensajes a Zenio (total)" value={String(engagement.zenioMessagesTotal ?? 0)} tooltip="Total acumulado de mensajes reales enviados a Zenio por todos los usuarios (de por vida). Cada mensaje suma 1 — no son hilos de conversación. Excluye saludos automáticos y onboarding. Es la suma de la columna 'Zenio' de la tabla de Usuarios. NOTA: contador corrido, NO respeta el filtro de período." />
+          <StatBox label="Mensajes a Zenio (mes)" value={String(engagement.zenioMessagesThisMonth ?? 0)} tooltip="Mensajes a Zenio del mes en curso (la cuota mensual que se resetea cada mes por usuario). Cada mensaje suma 1. NOTA: contador corrido por usuario, se resetea de forma perezosa al primer uso del nuevo mes; NO respeta el filtro de período." />
           <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
           <StatBox label="Referidos Enviados" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido creadas en el período (top del funnel viral)." />
           <StatBox label="Conversión Referidos" value={`${engagement.referrals?.converted ?? 0} (${engagement.referrals?.conversionRate ?? 0}%)`} tooltip="Referidos creados en el período que terminaron convirtiéndose en usuarios activos. El % es vs total de referidos enviados (mismo cohorte)." />
