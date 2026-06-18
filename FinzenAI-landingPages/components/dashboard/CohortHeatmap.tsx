@@ -1,11 +1,17 @@
 'use client';
 
+interface CohortCell {
+  pct: number;
+  raw: number;
+}
+
 interface CohortRow {
   semana: string;
-  d1: number | null;
-  d7: number | null;
-  d14: number | null;
-  d30: number | null;
+  size: number;
+  d1: CohortCell | null;
+  d7: CohortCell | null;
+  d14: CohortCell | null;
+  d30: CohortCell | null;
 }
 
 function getCellColor(value: number | null): string {
@@ -44,18 +50,30 @@ export default function CohortHeatmap({ data }: { data: CohortRow[] }) {
             </tr>
           </thead>
           <tbody>
-            {data.map((row) => (
+            {data.map((row) => {
+              const smallSample = row.size > 0 && row.size < 30;
+              return (
               <tr key={row.semana}>
-                <td className="text-sm font-medium text-finzen-black py-1.5 pr-4">{row.semana}</td>
-                {[row.d1, row.d7, row.d14, row.d30].map((val, i) => (
+                <td className="text-sm font-medium text-finzen-black py-1.5 pr-4 whitespace-nowrap">
+                  {row.semana}
+                  {smallSample && (
+                    <span
+                      title="Muestra chica (n<30): interpretar los porcentajes con cautela"
+                      className="ml-1.5 align-middle text-[10px] font-semibold text-finzen-yellow bg-finzen-yellow/15 rounded px-1 py-0.5"
+                    >
+                      n={row.size}
+                    </span>
+                  )}
+                </td>
+                {[row.d1, row.d7, row.d14, row.d30].map((cell, i) => (
                   <td key={i} className="py-1.5 px-1">
-                    <div className={`text-center text-sm font-semibold rounded-md py-2 ${getCellColor(val)}`}>
-                      {val !== null ? `${val}%` : '—'}
+                    <div className={`text-center text-sm font-semibold rounded-md py-2 ${getCellColor(cell?.pct ?? null)}`}>
+                      {cell ? `${cell.pct}% (${cell.raw}/${row.size})` : '—'}
                     </div>
                   </td>
                 ))}
               </tr>
-            ))}
+            );})}
           </tbody>
         </table>
       </div>

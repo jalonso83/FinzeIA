@@ -54,7 +54,7 @@ export default function BannerSuperior({ data }: { data: BannerData | null }) {
           <div className={`w-2.5 h-2.5 rounded-full ${getRunwayDot(runway)} animate-pulse`} />
           <Fuel size={18} />
           <div>
-            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">Runway</p><Tooltip text="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. ∞ = cash flow positivo (no hay burn)." /></div>
+            <div className="flex items-center gap-1"><p className="text-xs font-medium opacity-70">Cobertura</p><Tooltip text="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. NO es runway de caja (no se rastrea caja disponible). ∞ = cash flow positivo (no hay burn)." /></div>
             <p className="text-lg font-bold">{runwayLabel}</p>
           </div>
         </div>

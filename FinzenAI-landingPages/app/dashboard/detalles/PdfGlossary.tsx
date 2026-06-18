@@ -196,8 +196,8 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
     definition: 'Ingresos totales de RevenueCat (compras in-app iOS/Android) en el período.',
   },
   {
-    name: 'Runway',
-    definition: 'Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. ∞ si actualmente no hay burn (cash flow positivo).',
+    name: 'Cobertura (ingreso acum. / burn)',
+    definition: 'Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. NO es runway de caja real: el sistema no rastrea caja disponible, solo ingreso acumulado. ∞ si actualmente no hay burn (cash flow positivo).',
   },
   {
     name: 'Stripe',

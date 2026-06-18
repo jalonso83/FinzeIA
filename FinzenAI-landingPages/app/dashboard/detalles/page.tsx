@@ -135,13 +135,17 @@ function buildCohortData(users: any) {
     // The cohort is a week, so we use the END of the week (start + 7d) as the youngest user.
     // A bucket is evaluable when (now - end-of-cohort-week) >= N days.
     const evaluable = (n: number) => now - (weekStart + 7 * DAY) >= n * DAY;
-    const pct = (v: number | null) => (v === null ? null : size > 0 ? Number(((v / size) * 100).toFixed(2)) : 0);
+    // Devolvemos % + conteo crudo (numerador/denominador). Redondeo a ENTERO (no 2
+    // decimales) para no sugerir una precisión que no existe con muestras chicas.
+    const cell = (v: number | null, n: number) =>
+      !evaluable(n) || v === null ? null : { pct: size > 0 ? Math.round((v / size) * 100) : 0, raw: v };
     return {
       semana: label,
-      d1: evaluable(1) ? pct(c.d1) : null,
-      d7: evaluable(7) ? pct(c.d7) : null,
-      d14: evaluable(14) ? pct(c.d14) : null,
-      d30: evaluable(30) ? pct(c.d30) : null,
+      size,
+      d1: cell(c.d1, 1),
+      d7: cell(c.d7, 7),
+      d14: cell(c.d14, 14),
+      d30: cell(c.d30, 30),
     };
   });
 }
@@ -302,7 +306,7 @@ function TabEngagement({ engagement }: { engagement: any }) {
           <StatBox label="Adopción Zenio" value={`${engagement.zenioAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que usó Zenio (chat v2, agentes o transcripción) durante el mismo período. Cohort-consistent — no incluye legacy users. Mide adopción del feature diferenciador (AI) por usuarios nuevos." />
 
           {/* ── Fila 2 — Calidad del funnel y profundidad ─────────── */}
-          <StatBox label="Racha Activa" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos con racha (streak) viva en el período. Indica formación de hábito vía gamification. Si está estancado, las streaks no están enganchando." />
+          <StatBox label="Racha de Hábito" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos (≥1 tx) con racha de hábito real: currentStreak ≥ 2 (volvieron en días consecutivos). Se exige ≥2 porque una racha de 1 la crea cualquier actividad única y no indica hábito. Mide retorno real, no cobertura de la tabla de rachas." />
           <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que ya completaron el onboarding con Zenio." />
           <StatBox
             label="Time-to-First-TX"
@@ -529,10 +533,10 @@ function TabSalud({ financialHealth }: { financialHealth: any }) {
             tooltip={`Costos fijos ($${financialHealth.fixedExpensesThisMonth.toFixed(2)}) + variables (OpenAI + fees: $${financialHealth.variableExpensesThisMonth.toFixed(2)}) del mes en curso.`}
           />
           <StatBox
-            label="Runway"
+            label="Cobertura (ingreso acum./burn)"
             value={runwayLabel}
             highlight
-            tooltip="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. ∞ si actualmente no hay burn (cash flow positivo)."
+            tooltip="Meses que el ingreso bruto acumulado cubriría la pérdida mensual actual. NO es runway de caja: no se rastrea caja disponible. ∞ si actualmente no hay burn (cash flow positivo)."
           />
           <StatBox
             label="Burn Rate"
