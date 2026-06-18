@@ -5,6 +5,10 @@ export interface PulseData {
   totalUsers: number;
   newRegistrations: number;
   registrationChange: number;
+  // #8: true cuando el período de comparación cruza el inicio del tracking limpio,
+  // por lo que los % "vs período anterior" tienen base parcial y pueden estar inflados.
+  prevPeriodTruncated: boolean;
+  trackingStart: string | null;
   activatedUsers: number;
   planDistribution: Record<string, number>;
   churnRate: number;
@@ -28,6 +32,8 @@ export interface UsersData {
     activated: number;
     retainedD1: number;
     retainedD7: number;
+    cohortD1: number;
+    cohortD7: number;
     trialStarted: number;
     paid: number;
   };

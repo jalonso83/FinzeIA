@@ -104,13 +104,19 @@ function buildFunnelData(users: any) {
   const f = users.funnel;
   const base = f.registered || 1;
   const pct = (v: number) => `${((v / base) * 100).toFixed(2)}%`;
+  // D1/D7 NO se dividen contra `registered` (incluye users sin edad para cumplir
+  // la ventana → tasa hundida). Se dividen contra su cohorte madura (cohortD1/D7),
+  // que el backend ya calcula con el mismo LEAST que el numerador. Si la cohorte
+  // madura es 0 (período entero dentro de la ventana), no es evaluable → "—".
+  const pctOf = (v: number, denom: number) =>
+    denom > 0 ? `${((v / denom) * 100).toFixed(2)}%` : '—';
   return [
     { etapa: 'Registro', valor: f.registered, porcentaje: '100%' },
     { etapa: 'Verificados', valor: f.verified, porcentaje: pct(f.verified) },
     { etapa: 'Onboarding', valor: f.onboarded, porcentaje: pct(f.onboarded) },
     { etapa: 'Activación', valor: f.activated, porcentaje: pct(f.activated) },
-    { etapa: 'Retención D1', valor: f.retainedD1, porcentaje: pct(f.retainedD1) },
-    { etapa: 'Retención D7', valor: f.retainedD7, porcentaje: pct(f.retainedD7) },
+    { etapa: 'Retención D1', valor: f.retainedD1, porcentaje: pctOf(f.retainedD1, f.cohortD1) },
+    { etapa: 'Retención D7', valor: f.retainedD7, porcentaje: pctOf(f.retainedD7, f.cohortD7) },
     { etapa: 'Trial', valor: f.trialStarted, porcentaje: pct(f.trialStarted) },
     { etapa: 'Paid', valor: f.paid, porcentaje: pct(f.paid) },
   ];
@@ -934,6 +940,14 @@ function DashboardDetallesInner() {
 
       {/* Banner Superior */}
       <BannerSuperior data={bannerData} />
+
+      {/* #8: disclaimer en las pestañas con comparaciones "vs período anterior" */}
+      {pulse?.prevPeriodTruncated && (activeTab === 'adquisicion' || activeTab === 'revenue') && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ Los porcentajes <strong>"vs período anterior"</strong> de esta vista usan un período previo anterior al inicio del tracking limpio
+          {pulse.trackingStart ? ` (${new Date(pulse.trackingStart).toLocaleDateString('es-ES')})` : ''}. La base es parcial y los % pueden estar inflados.
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex overflow-x-auto gap-1 bg-white rounded-xl border border-finzen-gray/20 p-1.5 mb-6 no-scrollbar">

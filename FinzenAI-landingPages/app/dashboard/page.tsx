@@ -184,6 +184,14 @@ export default function DashboardPulso() {
         <DateRangePicker value={range} onChange={setRange} />
       </div>
 
+      {/* #8: disclaimer cuando el período de comparación cruza el inicio del tracking */}
+      {pulse?.prevPeriodTruncated && (
+        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ Las comparaciones <strong>"vs período anterior"</strong> (ej. % de cambio en registros y MRR) usan un período previo que es anterior al inicio del tracking limpio
+          {pulse.trackingStart ? ` (${new Date(pulse.trackingStart).toLocaleDateString('es-ES')})` : ''}. La base de comparación es parcial, por lo que esos porcentajes pueden estar inflados. Interprétalos con cautela.
+        </div>
+      )}
+
       {/* Banner Superior */}
       <BannerSuperior data={bannerData} />
 
