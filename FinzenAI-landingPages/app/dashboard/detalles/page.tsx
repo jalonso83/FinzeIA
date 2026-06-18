@@ -944,7 +944,7 @@ function DashboardDetallesInner() {
       {/* #8: disclaimer en las pestañas con comparaciones "vs período anterior" */}
       {pulse?.prevPeriodTruncated && (activeTab === 'adquisicion' || activeTab === 'revenue') && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          ⚠️ Los porcentajes <strong>"vs período anterior"</strong> de esta vista usan un período previo anterior al inicio del tracking limpio
+          ⚠️ Los porcentajes <strong>«vs período anterior»</strong> de esta vista usan un período previo anterior al inicio del tracking limpio
           {pulse.trackingStart ? ` (${new Date(pulse.trackingStart).toLocaleDateString('es-ES')})` : ''}. La base es parcial y los % pueden estar inflados.
         </div>
       )}
