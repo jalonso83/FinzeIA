@@ -64,6 +64,20 @@ function buildKpiCards(pulse: any) {
       changeType: 'neutral' as const,
       tooltip: 'Usuarios que están actualmente en período de prueba gratuita de 7 días.',
     },
+    {
+      label: 'Trials Iniciados',
+      value: String(pulse.trialsStarted ?? 0),
+      change: null,
+      changeType: 'neutral' as const,
+      tooltip: 'Trials que arrancaron dentro del período seleccionado (por fecha real de inicio del trial), no solo los que siguen activos.',
+    },
+    {
+      label: 'Conversión Trial→Pago',
+      value: `${pulse.trialConversionRate ?? 0}%`,
+      change: null,
+      changeType: pulse.trialConversionRate >= 20 ? ('positive' as const) : 'neutral' as const,
+      tooltip: 'De los trials iniciados en el período, % que llegó a tener un pago exitoso. Trials recientes aún pueden convertir, así que en rangos cortos esta tasa puede subir con el tiempo.',
+    },
   ];
 }
 

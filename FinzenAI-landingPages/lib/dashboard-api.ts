@@ -13,6 +13,8 @@ export interface PulseData {
   planDistribution: Record<string, number>;
   churnRate: number;
   trialsActive: number;
+  trialsStarted: number;
+  trialConversionRate: number;
   mrrEstimated: number;
   dau: number;
   mau: number;
