@@ -293,31 +293,60 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
 function TabEngagement({ engagement }: { engagement: any }) {
   if (!engagement) return null;
 
+  const ob = engagement.onboarding ?? {};
+
   return (
     <div>
+      {/* ── GRUPO A — BASE ACTIVA (top-line, highlight) ──────────── */}
       <Section
-        title="Métricas de Engagement"
-        tooltip="Actividad y profundidad de uso. Arriba lo que un directivo evalúa primero: base activa, adopción del feature core (Zenio) y formación de hábito (rachas). Abajo: calidad del onboarding, profundidad y viralidad."
+        title="Base Activa"
+        tooltip="Lo primero que evalúa un directivo: cuántos usan la app de verdad y qué tanto adoptan los features core (transacciones y Zenio)."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          {/* ── Fila 1 — TOP-LINE de engagement (highlight) ───────── */}
           <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Usuarios que registraron al menos 1 transacción (con fecha en el período seleccionado). Mide actividad financiera, no toda actividad en la app." />
           <StatBox label="Adopción TX" value={`${engagement.txAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app." />
-          <StatBox label="Adopción Zenio" value={`${engagement.zenioAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que usó Zenio (chat v2, agentes o transcripción) durante el mismo período. Cohort-consistent — no incluye legacy users. Mide adopción del feature diferenciador (AI) por usuarios nuevos." />
+          <StatBox label="Adopción Zenio real" value={`${engagement.zenioRealAdoptionRate ?? 0}%`} highlight tooltip="% del cohort que usó Zenio en un día POSTERIOR a su registro = uso voluntario real. Excluye el onboarding conversacional (que cae en el día de registro e infla la métrica). Esta es la adopción honesta del feature AI." />
+        </div>
+      </Section>
 
-          {/* ── Fila 2 — Calidad del funnel y profundidad ─────────── */}
-          <StatBox label="Racha de Hábito" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos (≥1 tx) con racha de hábito real: currentStreak ≥ 2 (volvieron en días consecutivos). Se exige ≥2 porque una racha de 1 la crea cualquier actividad única y no indica hábito. Mide retorno real, no cobertura de la tabla de rachas." />
-          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que ya completaron el onboarding con Zenio." />
+      {/* ── GRUPO B — ONBOARDING & ACTIVACIÓN ────────────────────── */}
+      <Section
+        title="Onboarding & Activación"
+        tooltip="Calidad del arranque: cuántos completan, saltan o abandonan el onboarding, qué tan rápido llegan a su primera transacción y si saltar ayuda o estorba a activarse."
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que completaron el onboarding (por chat con Zenio o por skip — ambos marcan onboardingCompleted=true)." />
+          <StatBox label="Tasa Skip" value={`${ob.skipRate ?? 0}% (${ob.skippedCount ?? 0})`} tooltip="% del cohort que SALTÓ el onboarding (onboardingMethod='skipped'). NOTA: el skip está tras feature flag por usuario, así que el % es sobre TODO el cohort, no solo sobre quienes tenían el botón disponible." />
+          <StatBox label="Sin terminar" value={`${ob.unfinishedRate ?? 0}% (${ob.unfinishedCount ?? 0})`} tooltip="% del cohort que ni completó ni saltó el onboarding (onboardingCompleted=false) — abandono puro en el arranque." />
           <StatBox
             label="Time-to-First-TX"
             value={engagement.timeToFirstTx?.medianHours !== null ? `${engagement.timeToFirstTx?.medianHours}h (${engagement.timeToFirstTx?.firstTxRate}%)` : '—'}
             tooltip="Mediana de horas entre registro y primera transacción del cohorte del período. Entre paréntesis: % del cohorte que llegó a hacer primera tx. Solo cohortes con ≥1h desde registro."
           />
+          <StatBox label="Activación: Saltó vs Chat" value={`${ob.txAdoptionSkipped ?? 0}% vs ${ob.txAdoptionCompleted ?? 0}%`} tooltip="Adopción TX (≥1 transacción) según el camino de onboarding: izquierda = los que SALTARON, derecha = los que lo COMPLETARON por chat. Responde si el onboarding conversacional ayuda o estorba para activarse. Ojo con denominadores chicos." />
+          <StatBox label="Tocó Zenio (incl. onboarding)" value={`${engagement.zenioAdoptionRate}%`} tooltip="% del cohort que generó CUALQUIER uso de Zenio en el período, incluido el onboarding conversacional. Está INFLADO (casi todos pasan por el onboarding). Se mantiene como referencia; la métrica honesta es 'Adopción Zenio real' en Base Activa." />
+        </div>
+      </Section>
 
-          {/* ── Fila 3 — Detalle de Zenio + Viralidad ─────────────── */}
+      {/* ── GRUPO C — HÁBITO & PROFUNDIDAD ───────────────────────── */}
+      <Section
+        title="Hábito & Profundidad"
+        tooltip="Qué tan pegajosa es la app: formación de hábito (rachas) y profundidad de uso (transacciones y mensajes por usuario)."
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+          <StatBox label="Racha de Hábito" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos (≥1 tx) con racha de hábito real: currentStreak ≥ 2 (volvieron en días consecutivos). Se exige ≥2 porque una racha de 1 la crea cualquier actividad única y no indica hábito. Mide retorno real, no cobertura de la tabla de rachas." />
+          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
           <StatBox label="Mensajes a Zenio (total)" value={String(engagement.zenioMessagesTotal ?? 0)} tooltip="Total acumulado de mensajes reales enviados a Zenio por todos los usuarios (de por vida). Cada mensaje suma 1 — no son hilos de conversación. Excluye saludos automáticos y onboarding. Es la suma de la columna 'Zenio' de la tabla de Usuarios. NOTA: contador corrido, NO respeta el filtro de período." />
           <StatBox label="Mensajes a Zenio (mes)" value={String(engagement.zenioMessagesThisMonth ?? 0)} tooltip="Mensajes a Zenio del mes en curso (la cuota mensual que se resetea cada mes por usuario). Cada mensaje suma 1. NOTA: contador corrido por usuario, se resetea de forma perezosa al primer uso del nuevo mes; NO respeta el filtro de período." />
-          <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
+        </div>
+      </Section>
+
+      {/* ── GRUPO D — VIRALIDAD ──────────────────────────────────── */}
+      <Section
+        title="Viralidad"
+        tooltip="Crecimiento orgánico vía referidos: cuántas invitaciones se generan y cuántas convierten."
+      >
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
           <StatBox label="Referidos Enviados" value={String(engagement.referrals?.total ?? 0)} tooltip="Invitaciones de referido creadas en el período (top del funnel viral)." />
           <StatBox label="Conversión Referidos" value={`${engagement.referrals?.converted ?? 0} (${engagement.referrals?.conversionRate ?? 0}%)`} tooltip="Referidos creados en el período que terminaron convirtiéndose en usuarios activos. El % es vs total de referidos enviados (mismo cohorte)." />
         </div>

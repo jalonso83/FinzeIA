@@ -74,6 +74,7 @@ export interface EngagementData {
   onboardingRate: number;
   zenioActiveUsers: number;
   zenioAdoptionRate: number;
+  zenioRealAdoptionRate: number;
   zenioMessagesTotal: number;
   zenioMessagesThisMonth: number;
   txAdoptionRate: number;
@@ -83,6 +84,15 @@ export interface EngagementData {
     medianHours: number | null;
     firstTxRate: number;
     cohortSize: number;
+  };
+  onboarding: {
+    skipRate: number;
+    skippedCount: number;
+    unfinishedRate: number;
+    unfinishedCount: number;
+    completedChatCount: number;
+    txAdoptionSkipped: number;
+    txAdoptionCompleted: number;
   };
   referrals: { total: number; converted: number; conversionRate: number };
   registrationsByChannel: { country: string; count: number }[];
