@@ -10,12 +10,14 @@ import FinScoreProgressBar from '../components/gamification/FinScoreProgressBar'
 import StreakCounterFinZen, { StreakCompact } from '../components/gamification/StreakCounter';
 import PatternsAndTrends from '../components/reports/PatternsAndTrends';
 import VibeCard from '../components/dashboard/VibeCard';
+import AnnouncementSlot, { SlotMessage } from '../components/dashboard/AnnouncementSlot';
 import ExpensesPieChart from '../components/dashboard/ExpensesPieChart';
-import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI } from '../utils/api';
+import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI, configAPI } from '../utils/api';
 import api from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
 import { useCurrency } from '../hooks/useCurrency';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
+import { useAuthStore } from '../stores/auth';
 import SubscriptionsScreen from './SubscriptionsScreen';
 
 import { logger } from '../utils/logger';
@@ -71,6 +73,9 @@ export default function DashboardScreen() {
 
   // Hook para suscripción
   const { subscription, fetchSubscription } = useSubscriptionStore();
+
+  // Auth (para refrescar el user tras la señal de entrada H10)
+  const { user, updateUser } = useAuthStore();
 
   // Memoizado: Carga de datos del dashboard (definido antes de useEffects que lo usan)
   const loadDashboardData = useCallback(async () => {
@@ -401,6 +406,26 @@ export default function DashboardScreen() {
     fetchSubscription(); // Cargar suscripción
   }, [loadDashboardData, fetchSubscription]);
 
+  // H10 — señal de entrada a la app (server-side, idempotente). Marca firstAppEntryAt
+  // para ambos brazos del experimento y, en la variante no-bloqueante, flipea
+  // onboardingCompleted='nonblocking'. Una sola vez al montar el dashboard.
+  useEffect(() => {
+    let cancelled = false;
+    configAPI.markAppEntered()
+      .then(async () => {
+        // Solo la variante no-bloqueante entra sin onboarding completado: app-entered
+        // le flipeó onboardingCompleted en el server, así que refrescamos el user
+        // local para que el gate quede estable (sin re-evaluar el flag / parpadear).
+        if (user?.onboardingCompleted) return;
+        try {
+          const res = await api.get('/auth/profile');
+          if (!cancelled) updateUser(res.data);
+        } catch (e) { logger.error('[H10] Error refrescando perfil tras app-entered:', e); }
+      })
+      .catch((e) => { logger.error('[H10] Error en app-entered:', e); });
+    return () => { cancelled = true; };
+  }, []);
+
   // Log cuando subscription cambia (NO refrescar aquí para evitar loop)
   useEffect(() => {
     logger.log('Dashboard - Subscription state changed:', subscription);
@@ -479,23 +504,28 @@ export default function DashboardScreen() {
     );
   }
 
+  // Mensajes del slot dinámico. Fase 1: regla local en cliente (CTA de primera
+  // transacción). Cuando el backend soporte surface:'slot', estos se mezclarán
+  // con los mensajes que venga del servidor (broadcast).
+  const slotMessages: SlotMessage[] = [];
+  if ((dashboardData.transactions?.length ?? 0) === 0) {
+    slotMessages.push({
+      id: 'local-first-transaction',
+      variant: 'info',
+      icon: '🚀',
+      title: 'Registra tu primera transacción',
+      body: 'Empieza a controlar tus finanzas hoy mismo.',
+      cta: { label: 'Registrar ahora', action: 'Transactions' },
+      dismissible: false,
+    });
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
-        {/* Plan Badge - Siempre visible */}
-        <TouchableOpacity
-          style={styles.planBadge}
-          onPress={() => setShowSubscriptions(true)}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.planBadgeIcon}>
-            {!subscription || subscription.plan === 'FREE' ? '🆓' : subscription.plan === 'PREMIUM' ? '👑' : '💎'}
-          </Text>
-          <Text style={styles.planBadgeText}>
-            {!subscription || subscription.plan === 'FREE' ? 'Plan Gratis' : subscription.plan === 'PREMIUM' ? 'Plus' : 'Pro'}
-          </Text>
-          <Ionicons name="chevron-forward" size={16} color="#6B7280" />
-        </TouchableOpacity>
+        {/* Slot dinámico (donde antes estaba el Plan Badge, que ahora vive en el header).
+            Se expande solo si hay un mensaje activo; si no, no ocupa espacio. */}
+        <AnnouncementSlot messages={slotMessages} />
 
         {/* Limits Card - Solo para usuarios FREE - Versión Compacta */}
         {(!subscription || subscription.plan === 'FREE') && dashboardData && (
@@ -1888,30 +1918,6 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#d97706',
     fontWeight: '500',
-  },
-  // Estilos para Plan Badge
-  planBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: 'white',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 16,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-    gap: 8,
-  },
-  planBadgeIcon: {
-    fontSize: 20,
-  },
-  planBadgeText: {
-    flex: 1,
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#1F2937',
   },
   // Estilos para Limits Card - Versión Compacta
   limitsCard: {

@@ -2,7 +2,7 @@
   "expo": {
     "name": "FinZen AI",
     "slug": "finzenai-mobile",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "scheme": "finzenai",
     "orientation": "portrait",
     "userInterfaceStyle": "light",
@@ -16,7 +16,7 @@
     "ios": {
       "supportsTablet": false,
       "bundleIdentifier": "com.jl.alonso.finzenaimobile",
-      "buildNumber": "40",
+      "buildNumber": "43",
       "usesAppleSignIn": true,
       "associatedDomains": [
         "applinks:finzenai-backend-production.up.railway.app"
@@ -78,7 +78,15 @@
           "iosUrlScheme": "com.googleusercontent.apps.736460729278-edd38kc44617nnmcq8on0fjijdpbuhos"
         }
       ],
-      "expo-localization"
+      "expo-localization",
+      [
+        "expo-build-properties",
+        {
+          "ios": {
+            "useFrameworks": "static"
+          }
+        }
+      ]
     ]
   }
 }
