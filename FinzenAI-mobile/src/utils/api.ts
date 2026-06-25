@@ -293,7 +293,10 @@ export const onboardingAPI = {
 // API de configuración / feature flags por usuario
 export const configAPI = {
   getFeatures: () =>
-    api.get<{ onboardingSkipEnabled: boolean }>('/config/features'),
+    api.get<{ onboardingSkipEnabled: boolean; onboardingNonblockingEnabled: boolean }>('/config/features'),
+  // Señal de entrada a la app (H10). Idempotente en el backend: marca firstAppEntryAt
+  // para todos y, en la variante no-bloqueante, flipea onboardingCompleted='nonblocking'.
+  markAppEntered: () => api.post<{ ok: boolean }>('/config/app-entered'),
 };
 
 // API de gamificación

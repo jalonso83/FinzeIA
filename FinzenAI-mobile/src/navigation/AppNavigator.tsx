@@ -7,12 +7,12 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform, Linking } from 'react-native';
+import { TouchableOpacity, Alert, View, Text, Modal, Image, Platform, Linking, ActivityIndicator } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import CustomModal from '../components/modals/CustomModal';
-import api from '../utils/api';
+import api, { configAPI } from '../utils/api';
 
 // Screens (las crearemos después)
 import DashboardScreen from '../screens/DashboardScreen';
@@ -95,13 +95,16 @@ function ToolsStackNavigator() {
 // Navegación principal con tabs
 function MainTabNavigator({
   setShowUserMenu,
-  setShowNotifications
+  setShowNotifications,
+  setShowSubscriptions
 }: {
   setShowUserMenu: (show: boolean) => void;
   setShowNotifications: (show: boolean) => void;
+  setShowSubscriptions: (show: boolean) => void;
 }) {
   const insets = useSafeAreaInsets();
   const { user } = useAuthStore();
+  const { subscription } = useSubscriptionStore();
 
   
   return (
@@ -140,8 +143,42 @@ function MainTabNavigator({
         tabBarActiveTintColor: '#2563EB', // Azul principal de FinZen
         tabBarInactiveTintColor: 'gray',
         headerShown: route.name === 'Dashboard', // Solo mostrar header en Dashboard
-        headerTitle: route.name === 'Dashboard' ? `Hola, ${user?.name}!` : '',
-        headerTitleAlign: 'left', // Alinear título a la izquierda en ambas plataformas
+        headerTitle: '', // El "Hola, {user}" se movió al modal de usuario; aquí va el chip de plan
+        headerTitleAlign: 'left',
+        // Chip de plan a la izquierda (donde estaba el saludo). Abre Suscripciones.
+        // Label sin la palabra "Plan" para ser consistente con Plus/Pro.
+        headerLeft: route.name === 'Dashboard' ? () => {
+          const plan = subscription?.plan;
+          const planIcon = !plan || plan === 'FREE' ? '🆓' : plan === 'PREMIUM' ? '👑' : '💎';
+          const planLabel = !plan || plan === 'FREE' ? 'Gratis' : plan === 'PREMIUM' ? 'Plus' : 'Pro';
+          return (
+            <TouchableOpacity
+              onPress={() => setShowSubscriptions(true)}
+              activeOpacity={0.7}
+              style={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                gap: 6,
+                marginLeft: Platform.OS === 'ios' ? Math.max(insets.left + 12, 20) : 16,
+                marginTop: Platform.OS === 'ios' ? Math.max(insets.top - 20, 0) : 4,
+                marginBottom: Platform.OS === 'ios' ? 20 : 5,
+                paddingVertical: 6,
+                paddingHorizontal: 12,
+                backgroundColor: '#f8fafc',
+                borderRadius: 22,
+                shadowColor: '#000',
+                shadowOffset: { width: 0, height: 3 },
+                shadowOpacity: 0.15,
+                shadowRadius: 4,
+                elevation: 3,
+              }}
+            >
+              <Text style={{ fontSize: 14 }}>{planIcon}</Text>
+              <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>{planLabel}</Text>
+              <Ionicons name="chevron-down" size={14} color="#64748b" />
+            </TouchableOpacity>
+          );
+        } : undefined,
         headerStyle: {
           backgroundColor: 'white',
           borderBottomWidth: 1,
@@ -317,7 +354,7 @@ function MainNavigator({ route }: any) {
   const [showFeedback, setShowFeedback] = React.useState(false);
   const [showFeedbackSuccessModal, setShowFeedbackSuccessModal] = React.useState(false);
   const [feedbackSuccessMessage, setFeedbackSuccessMessage] = React.useState('');
-  const { updateUser, logout } = useAuthStore();
+  const { user, updateUser, logout } = useAuthStore();
   const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal } = useSubscriptionStore();
   const { onTransactionChange } = useDashboardStore();
 
@@ -419,7 +456,7 @@ function MainNavigator({ route }: any) {
             borderBottomColor: '#f1f5f9',
           }}>
             <Text style={{ fontSize: 14, fontWeight: '600', color: '#374151' }}>
-              Mi Cuenta
+              {user?.name ? `Hola, ${user.name}!` : 'Hola!'}
             </Text>
           </View>
 
@@ -632,7 +669,7 @@ function MainNavigator({ route }: any) {
     <React.Fragment>
       <Stack.Navigator screenOptions={{ headerShown: false }}>
         <Stack.Screen name="Main">
-          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} setShowNotifications={setShowNotifications} />}
+          {() => <MainTabNavigator setShowUserMenu={setShowUserMenu} setShowNotifications={setShowNotifications} setShowSubscriptions={setShowSubscriptions} />}
         </Stack.Screen>
       </Stack.Navigator>
       
@@ -903,6 +940,10 @@ export default function AppNavigator() {
   const [showPaymentSuccessModal, setShowPaymentSuccessModal] = useState(false);
   const [showPaymentCancelModal, setShowPaymentCancelModal] = useState(false);
   const [processingPayment, setProcessingPayment] = useState(false);
+  // H10 — flag de onboarding no-bloqueante. Decide si un usuario sin onboarding
+  // completado entra igual al dashboard (variante) o ve el muro (control).
+  const [nonblockingEnabled, setNonblockingEnabled] = useState(false);
+  const [flagChecked, setFlagChecked] = useState(false);
 
   // Manejar URLs entrantes (Deep Links / App Links)
   useEffect(() => {
@@ -1006,6 +1047,30 @@ export default function AppNavigator() {
     }
   }, [isAuthenticated, user]);
 
+  // H10 — leer el flag no-bloqueante SOLO para usuarios sin onboarding completado.
+  // Los que ya lo completaron van directo a Main (no necesitan el flag). Si el
+  // fetch falla, el fallback es seguro = muro (comportamiento actual).
+  useEffect(() => {
+    if (!isAuthenticated || !user) {
+      setFlagChecked(false);
+      setNonblockingEnabled(false);
+      return;
+    }
+    if (user.onboardingCompleted) {
+      setFlagChecked(true);
+      return;
+    }
+    let cancelled = false;
+    setFlagChecked(false);
+    configAPI.getFeatures()
+      .then((res) => { if (!cancelled) setNonblockingEnabled(!!res.data?.onboardingNonblockingEnabled); })
+      .catch((e) => { if (!cancelled) { setNonblockingEnabled(false); logger.error('[H10] Error leyendo feature flag, fallback a muro:', e); } })
+      .finally(() => { if (!cancelled) setFlagChecked(true); });
+    return () => { cancelled = true; };
+    // Deps acotadas a id + onboardingCompleted (no a la referencia de `user`) para
+    // no re-disparar el flag —y parpadear el loader— ante cambios no relacionados.
+  }, [isAuthenticated, user?.id, user?.onboardingCompleted]);
+
   // Verificar si hay un setup pendiente de biometría
   useEffect(() => {
     if (isAuthenticated && user) {
@@ -1070,8 +1135,16 @@ export default function AppNavigator() {
     <>
       <NavigationContainer ref={navigationRef} linking={linking}>
         {isAuthenticated ? (
-          // Si está autenticado pero no completó onboarding, mostrar onboarding
-          user && !user.onboardingCompleted ? <OnboardingNavigator /> : <MainStackNavigator />
+          user && !user.onboardingCompleted ? (
+            // H10: la variante no-bloqueante entra a Main aunque no haya completado
+            // el onboarding; el control ve el muro. Mientras se resuelve el flag,
+            // mostramos un loader para no parpadear el muro a la variante.
+            !flagChecked ? (
+              <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: '#f8fafc' }}>
+                <ActivityIndicator size="large" color="#2563EB" />
+              </View>
+            ) : nonblockingEnabled ? <MainStackNavigator /> : <OnboardingNavigator />
+          ) : <MainStackNavigator />
         ) : (
           <AuthNavigator />
         )}

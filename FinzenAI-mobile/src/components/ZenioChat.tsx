@@ -198,9 +198,8 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         type: cat.type
       }));
 
-      // Flag de agentes: usar /zenio/agents/chat cuando NO es onboarding.
+      // Chat normal usa /zenio/agents/chat (router de 3 agentes, en producción).
       // Onboarding sigue usando /zenio/v2/chat con onboardingVersion flag.
-      // Apps desplegadas usan /zenio/v2/chat (este cambio solo está en preview).
       const zenioEndpoint = !isOnboarding ? '/zenio/agents/chat' : '/zenio/v2/chat';
       const response = await api.post(zenioEndpoint, payload);
 
