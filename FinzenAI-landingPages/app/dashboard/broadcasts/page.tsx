@@ -513,8 +513,12 @@ export default function BroadcastsPage() {
               <tbody className="divide-y divide-finzen-gray/10">
                 {historyItems.map((b) => {
                   const status = STATUS_META[b.status] ?? { label: b.status, chip: 'bg-gray-100 text-gray-600' };
-                  const delivery = b.targetCount && b.successCount != null && b.targetCount > 0
-                    ? `${Math.round((b.successCount / b.targetCount) * 100)}%` : '—';
+                  // Entrega = tokens entregados / tokens intentados (≤100%). Antes
+                  // dividía por usuarios, y como un usuario puede tener varios
+                  // dispositivos, daba >100% (ej. 200% = 1 usuario con 2 dispositivos).
+                  const attempted = (b.successCount ?? 0) + (b.failureCount ?? 0);
+                  const delivery = b.successCount != null && attempted > 0
+                    ? `${Math.round((b.successCount / attempted) * 100)}%` : '—';
                   return (
                     <tr
                       key={b.id}
