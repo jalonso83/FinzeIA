@@ -45,9 +45,15 @@ const SCREEN_OPTIONS = [
   { value: 'Zenio', label: 'Zenio (chat IA)' },
   { value: 'Subscriptions', label: 'Suscripciones / Upgrade' },
   { value: 'Transactions', label: 'Transacciones' },
+  { value: 'Budgets', label: 'Presupuestos' },
   { value: 'Goals', label: 'Metas' },
   { value: 'AntExpenseDetective', label: 'Detector de gastos hormiga' },
 ];
+
+// Destinos que el SLOT del dashboard sabe abrir (= Action Registry del móvil,
+// AnnouncementSlot.tsx KNOWN_ACTIONS). Push soporta más; el slot solo estos. Si el
+// admin elige otro destino para el slot, el botón no se mostrará ahí.
+const SLOT_ACTIONS = ['Transactions', 'Budgets', 'Goals', 'Subscriptions'];
 
 const COUNTRY_OPTIONS = ['Todos', 'República Dominicana', 'México', 'Colombia', 'Estados Unidos', 'España'];
 
@@ -92,6 +98,49 @@ function PhonePreview({ title, body, type }: { title: string; body: string; type
           {TYPE_META[type].label}
         </span>
         Así lo verá el usuario
+      </p>
+    </div>
+  );
+}
+
+// ─── Vista previa del slot (mini-dashboard) ──────────────────────────────
+function SlotPreview({ title, body, ctaLabel, screen, type }: { title: string; body: string; ctaLabel: string; screen: string; type: BroadcastType }) {
+  const accent = type === 'MARKETING'
+    ? { bg: '#ecfdf5', border: '#a7f3d0', btn: '#059669' }
+    : type === 'SYSTEM'
+      ? { bg: '#fffbeb', border: '#fde68a', btn: '#d97706' }
+      : { bg: '#eff6ff', border: '#bfdbfe', btn: '#2563EB' };
+  return (
+    <div className="flex flex-col items-center">
+      <div className="w-[260px] rounded-2xl border border-finzen-gray/20 bg-finzen-white overflow-hidden shadow-sm">
+        {/* header mock con el chip de plan */}
+        <div className="flex items-center justify-between px-3 py-2 bg-white border-b border-finzen-gray/10">
+          <span className="text-[10px] font-medium text-finzen-gray">🆓 Gratis ⌄</span>
+          <span className="text-[10px] text-finzen-gray">🔔 (J)</span>
+        </div>
+        <div className="p-2.5 space-y-2">
+          {/* banner del slot */}
+          <div className="rounded-xl border p-2.5" style={{ backgroundColor: accent.bg, borderColor: accent.border }}>
+            <p className="text-[12px] font-bold text-finzen-black leading-tight break-words">{title || 'Título del mensaje'}</p>
+            {body ? <p className="text-[11px] text-finzen-gray leading-snug mt-0.5 break-words">{body}</p> : null}
+            {screen && SLOT_ACTIONS.includes(screen) ? (
+              <span className="mt-2 inline-flex items-center gap-1 rounded-md px-2.5 py-1" style={{ backgroundColor: accent.btn }}>
+                <span className="text-[11px] font-semibold text-white">{ctaLabel || 'Ver'}</span>
+                <span className="text-white text-[11px]">›</span>
+              </span>
+            ) : null}
+          </div>
+          {/* resto del dash atenuado */}
+          <div className="rounded-lg bg-white border border-finzen-gray/10 p-2 opacity-50">
+            <p className="text-[10px] text-finzen-gray">Balance Actual…</p>
+          </div>
+        </div>
+      </div>
+      <p className="text-xs text-finzen-gray mt-3 flex items-center gap-1.5">
+        <span className={`inline-block px-2 py-0.5 rounded-full text-[10px] font-medium ${TYPE_META[type].chip}`}>
+          {TYPE_META[type].label}
+        </span>
+        En el slot del dashboard
       </p>
     </div>
   );
@@ -167,6 +216,9 @@ export default function BroadcastsPage() {
   const [title, setTitle] = useState('');
   const [body, setBody] = useState('');
   const [screen, setScreen] = useState('');
+  const [surface, setSurface] = useState<'push' | 'slot' | 'both'>('push'); // dónde aparece
+  const [ctaLabel, setCtaLabel] = useState('');   // texto del botón del slot
+  const [holdoutPct, setHoldoutPct] = useState(0); // % control para medir efecto
 
   // Audiencia
   const [plans, setPlans] = useState<Plan[]>(['FREE', 'PREMIUM', 'PRO']);
@@ -243,11 +295,17 @@ export default function BroadcastsPage() {
     setSending(true);
     setSendError(null);
     try {
+      // data lleva el destino (screen) y, para el slot, el texto del botón (ctaLabel).
+      const data: Record<string, string> = {};
+      if (screen) data.screen = screen;
+      if (ctaLabel.trim()) data.ctaLabel = ctaLabel.trim();
       const created = await createBroadcast({
         title: title.trim(),
         body: body.trim(),
         type,
-        data: screen ? { screen } : undefined,
+        data: Object.keys(data).length ? data : undefined,
+        surface,
+        holdoutPct,
         audience: buildAudience(),
       });
       const result = await sendBroadcastById(created.id);
@@ -256,6 +314,7 @@ export default function BroadcastsPage() {
       setTitle('');
       setBody('');
       setScreen('');
+      setCtaLabel('');
       setEstimate(null);
     } catch (e: any) {
       setSendError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada, vuelve a iniciar sesión.' : (e?.message || 'Error al enviar.'));
@@ -448,6 +507,63 @@ export default function BroadcastsPage() {
                 >
                   {SCREEN_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
                 </select>
+                {surface !== 'push' && screen && !SLOT_ACTIONS.includes(screen) && (
+                  <p className="text-[11px] text-amber-600 mt-1">
+                    ⚠ Este destino no abre desde el slot del dashboard; ahí el botón no se mostrará (sí funciona en push).
+                  </p>
+                )}
+              </div>
+
+              {/* Superficie: dónde aparece el mensaje (ortogonal al tipo) */}
+              <div className="mt-4">
+                <label className="text-sm font-medium text-finzen-black block mb-1.5">Mostrar en</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {([['push', 'Push'], ['slot', 'Slot dashboard'], ['both', 'Ambos']] as const).map(([val, label]) => (
+                    <button
+                      key={val}
+                      onClick={() => setSurface(val)}
+                      className={`text-center rounded-lg border px-2 py-2 text-sm transition-all ${
+                        surface === val
+                          ? 'border-finzen-blue bg-finzen-blue/5 text-finzen-blue ring-1 ring-finzen-blue'
+                          : 'border-finzen-gray/20 text-finzen-gray hover:border-finzen-gray/40'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* Texto del botón del slot (solo si aparece en el slot) */}
+              {surface !== 'push' && (
+                <div className="mt-4">
+                  <label className="text-sm font-medium text-finzen-black block mb-1">Texto del botón (slot)</label>
+                  <input
+                    type="text" value={ctaLabel} maxLength={30}
+                    onChange={(e) => setCtaLabel(e.target.value)}
+                    placeholder="Ej: Registrar gasto"
+                    className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue transition-all"
+                  />
+                  <p className="text-[11px] text-finzen-gray mt-1">
+                    El botón lleva a la pantalla de arriba. Solo aparece si elegiste una pantalla destino; si dejas el texto vacío, dice "Ver".
+                  </p>
+                </div>
+              )}
+
+              {/* Holdout: % de control que NO recibe (para medir el efecto causal) */}
+              <div className="mt-4">
+                <label className="text-sm font-medium text-finzen-black block mb-1">
+                  Holdout (control): <span className="text-finzen-blue font-semibold">{holdoutPct}%</span>
+                </label>
+                <input
+                  type="range" min={0} max={50} step={5}
+                  value={holdoutPct}
+                  onChange={(e) => setHoldoutPct(Number(e.target.value))}
+                  className="w-full accent-finzen-blue"
+                />
+                <p className="text-[11px] text-finzen-gray mt-1">
+                  % de la audiencia elegible que NO recibe el mensaje, para medir su efecto real (expuestos vs control). 0 = sin medición causal.
+                </p>
               </div>
             </div>
 
@@ -633,7 +749,14 @@ export default function BroadcastsPage() {
               <h3 className="text-sm font-semibold text-finzen-black mb-4 flex items-center gap-1.5">
                 <Megaphone size={14} /> Vista previa
               </h3>
-              <PhonePreview title={title} body={body} type={type} />
+              <div className="flex flex-col items-center gap-5">
+                {(surface === 'push' || surface === 'both') && (
+                  <PhonePreview title={title} body={body} type={type} />
+                )}
+                {(surface === 'slot' || surface === 'both') && (
+                  <SlotPreview title={title} body={body} ctaLabel={ctaLabel} screen={screen} type={type} />
+                )}
+              </div>
             </div>
           </div>
         </div>

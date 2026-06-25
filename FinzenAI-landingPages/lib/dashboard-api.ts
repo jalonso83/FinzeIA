@@ -546,11 +546,15 @@ export async function previewBroadcast(
   return json.data as BroadcastPreviewResult;
 }
 
+export type BroadcastSurface = 'push' | 'slot' | 'both';
+
 export async function createBroadcast(input: {
   title: string;
   body: string;
   type: BroadcastApiType;
   data?: Record<string, string>;
+  surface?: BroadcastSurface;   // dónde aparece: push / slot del dashboard / ambos
+  holdoutPct?: number;          // 0-100: % de la audiencia elegible que NO recibe (control)
   audience: BroadcastAudience;
 }): Promise<BroadcastItem> {
   const res = await fetch('/api/admin/broadcasts', {
