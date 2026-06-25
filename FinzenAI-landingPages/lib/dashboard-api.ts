@@ -571,6 +571,68 @@ export async function createBroadcast(input: {
   return json.data as BroadcastItem;
 }
 
+export interface BroadcastStats {
+  exposed: number;
+  holdout: number;
+  impressions: number;
+  clicks: number;
+  exposedTx: number;
+  holdoutTx: number;
+  exposedTxRate: number;
+  holdoutTxRate: number;
+  liftPts: number;
+}
+
+export async function fetchBroadcastStats(id: string): Promise<BroadcastStats> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/stats`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as BroadcastStats;
+}
+
+// ─── Experimentos ───────────────────────────────────────────────
+
+export interface ExperimentArm {
+  n: number;
+  entered: number;
+  enteredRate: number;
+  activated: number;
+  activationRate: number;
+}
+
+export interface H10Stats {
+  enabled: boolean;
+  pct: number;
+  from: string | null;
+  to: string;
+  experimentStart: string | null;
+  activationWindowDays: number;
+  rollbackThresholdPts: number;
+  rollbackTriggered: boolean;
+  variant: ExperimentArm;
+  control: ExperimentArm;
+  activationLiftPts: number;
+  entryLiftPts: number;
+}
+
+export async function fetchH10Stats(from?: string, to?: string): Promise<H10Stats> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await fetch(`/api/admin/experiments/h10/stats?${params.toString()}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as H10Stats;
+}
+
 export async function sendBroadcastById(id: string): Promise<BroadcastSendResult> {
   const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/send`, {
     method: 'POST',

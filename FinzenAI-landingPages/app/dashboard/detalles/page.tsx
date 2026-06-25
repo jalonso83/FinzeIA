@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2 } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import PdfExportPopover from '@/components/dashboard/PdfExportPopover';
@@ -11,7 +11,7 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { computeRollingParams, type AcquisitionData } from '@/lib/dashboard-api';
+import { computeRollingParams, fetchH10Stats, type AcquisitionData, type H10Stats } from '@/lib/dashboard-api';
 import { PdfCoverPage } from './PdfCoverPage';
 import { PdfGlossary } from './PdfGlossary';
 import { TabPulso } from './TabPulso';
@@ -24,6 +24,7 @@ const tabs = [
   { id: 'engagement', label: 'Engagement', icon: Activity },
   { id: 'economics', label: 'Unit Economics', icon: Calculator },
   { id: 'salud', label: 'Salud Fin.', icon: HeartPulse },
+  { id: 'experimentos', label: 'Experimentos', icon: FlaskConical },
 ];
 
 // ─── Collapsible Section ─────────────────────────────────────────
@@ -800,6 +801,110 @@ function DashboardError({ message }: { message: string }) {
   );
 }
 
+// ─── Tab: Experimentos ───────────────────────────────────────────
+function ExpRow({ label, value, sub, strong }: { label: string; value: string; sub?: string; strong?: boolean }) {
+  return (
+    <div className="flex items-center justify-between">
+      <span className="text-xs text-finzen-gray">{label}</span>
+      <span className={`text-sm ${strong ? 'font-bold text-finzen-black' : 'text-finzen-black'}`}>
+        {value}{sub ? <span className="text-[11px] text-finzen-gray ml-1">({sub})</span> : null}
+      </span>
+    </div>
+  );
+}
+
+function ArmCard({ title, arm, accent }: { title: string; arm: H10Stats['variant']; accent: string }) {
+  return (
+    <div className="rounded-lg border border-finzen-gray/20 p-4">
+      <p className="text-sm font-semibold mb-3" style={{ color: accent }}>{title}</p>
+      <div className="space-y-2">
+        <ExpRow label="Usuarios (n)" value={arm.n.toLocaleString('es')} />
+        <ExpRow label="Entraron a la app" value={`${arm.enteredRate}%`} sub={`${arm.entered}/${arm.n}`} />
+        <ExpRow label="Activación (1ª tx 7d)" value={`${arm.activationRate}%`} sub={`${arm.activated}/${arm.n}`} strong />
+      </div>
+    </div>
+  );
+}
+
+function TabExperimentos({ from, to }: { from?: string; to?: string }) {
+  const [stats, setStats] = useState<H10Stats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchH10Stats(from, to)
+      .then((s) => { if (!cancelled) setStats(s); })
+      .catch((e) => { if (!cancelled) setError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [from, to]);
+
+  if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-finzen-blue" size={28} /></div>;
+  if (error) return <div className="p-6 text-center text-red-600 text-sm">{error}</div>;
+  if (!stats) return null;
+
+  const { variant, control, activationLiftPts, entryLiftPts, rollbackTriggered, rollbackThresholdPts, pct, enabled, activationWindowDays, experimentStart } = stats;
+
+  return (
+    <div className="space-y-6">
+      <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
+        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+          <div className="flex items-center gap-2">
+            <FlaskConical size={18} className="text-finzen-blue" />
+            <h3 className="text-lg font-bold text-finzen-black">Entrada libre</h3>
+            <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">onboarding no bloqueante · H10</span>
+          </div>
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+            {enabled ? `Corriendo · ${pct}% variante` : 'Apagado'}
+          </span>
+        </div>
+        <p className="text-sm text-finzen-gray mb-4">
+          Deja entrar al dashboard sin forzar el onboarding. La métrica que decide es la <strong>activación</strong> (1ª transacción válida en {activationWindowDays} días): no debe caer ≥{rollbackThresholdPts} pts vs el control.
+        </p>
+
+        {!enabled && (
+          <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+            ⚠️ El experimento está <strong>apagado</strong> (flag en false). El split por bucket se calcula igual, pero la variante todavía NO recibe el tratamiento — los números no son concluyentes hasta prender el flag.
+          </div>
+        )}
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ArmCard title="Variante (sin muro)" arm={variant} accent="#2563EB" />
+          <ArmCard title="Control (con muro)" arm={control} accent="#64748b" />
+        </div>
+
+        <div className={`mt-4 rounded-lg border px-4 py-3 ${rollbackTriggered ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+          <p className="text-sm text-finzen-black">
+            <span className="font-semibold">Lift de activación:</span>{' '}
+            <span className={`font-bold ${activationLiftPts < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+              {activationLiftPts >= 0 ? '+' : ''}{activationLiftPts} pts
+            </span>{' '}
+            <span className="text-finzen-gray">(variante {variant.activationRate}% vs control {control.activationRate}%)</span>
+          </p>
+          <p className="text-xs text-finzen-gray mt-1">
+            {rollbackTriggered
+              ? `🔴 La activación cayó ≥${rollbackThresholdPts} pts → señal de ROLLBACK (canibalización).`
+              : `🟢 No-inferioridad sostenida. Tasa de entrada: ${entryLiftPts >= 0 ? '+' : ''}${entryLiftPts} pts.`}
+          </p>
+        </div>
+
+        {experimentStart ? (
+          <p className="text-[11px] text-finzen-gray mt-4">
+            Inicio del experimento auto-detectado ({new Date(experimentStart).toLocaleDateString('es-ES')}): la cohorte se ancla ahí y excluye usuarios pre-experimento automáticamente. Whitelist de QA excluida. Split reconstruido con el mismo bucket que decide la entrada.
+          </p>
+        ) : (
+          <p className="text-[11px] text-amber-600 mt-4">
+            ⚠️ Todavía no hay usuarios que hayan entrado por el camino sin muro (el flag está apagado o nadie nuevo ha entrado aún). En cuanto entre el primero, el inicio se detecta solo y los números se vuelven concluyentes.
+          </p>
+        )}
+      </div>
+    </div>
+  );
+}
+
 // ─── PDF Render — todos los tabs apilados + cover + glosario ─────
 interface PdfRenderProps {
   periodLabel: string;
@@ -953,6 +1058,10 @@ function DashboardDetallesInner() {
       case 'engagement': return <TabEngagement engagement={engagement} />;
       case 'economics': return <TabEconomics openaiCosts={openaiCosts} unitEconomics={unitEconomics} />;
       case 'salud': return <TabSalud financialHealth={financialHealth} />;
+      case 'experimentos': {
+        const period = customPeriod ?? computeRollingParams(range);
+        return <TabExperimentos from={period.from} to={period.to} />;
+      }
       default: return null;
     }
   };

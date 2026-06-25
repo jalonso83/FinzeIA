@@ -12,8 +12,8 @@ import {
   Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2,
 } from 'lucide-react';
 import {
-  previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts,
-  type BroadcastAudience, type BroadcastItem, type BroadcastSendResult,
+  previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts, fetchBroadcastStats,
+  type BroadcastAudience, type BroadcastItem, type BroadcastSendResult, type BroadcastStats,
 } from '@/lib/dashboard-api';
 
 type BroadcastType = 'ANNOUNCEMENT' | 'MARKETING' | 'SYSTEM';
@@ -207,6 +207,100 @@ function ConfirmModal({
   );
 }
 
+// ─── Métricas de campaña (funnel + holdout) ──────────────────────────────
+function FunnelBox({ label, value, sub }: { label: string; value: number; sub?: string }) {
+  return (
+    <div className="rounded-lg bg-finzen-white border border-finzen-gray/20 p-3 text-center">
+      <p className="text-lg font-bold text-finzen-black">{value.toLocaleString('es')}</p>
+      <p className="text-[11px] text-finzen-gray">{label}</p>
+      {sub ? <p className="text-[11px] text-finzen-blue font-medium">{sub}</p> : null}
+    </div>
+  );
+}
+
+function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; onClose: () => void }) {
+  const [stats, setStats] = useState<BroadcastStats | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    fetchBroadcastStats(broadcast.id)
+      .then((s) => { if (!cancelled) setStats(s); })
+      .catch((e) => { if (!cancelled) setError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.')); })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, [broadcast.id]);
+
+  const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-finzen-black">Efecto de la campaña</h3>
+          <button onClick={onClose} className="text-finzen-gray hover:text-finzen-black"><X size={18} /></button>
+        </div>
+        <p className="text-sm text-finzen-gray mb-4 truncate">{broadcast.title}</p>
+
+        {loading ? (
+          <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-finzen-blue" size={26} /></div>
+        ) : error ? (
+          <div className="text-center text-red-600 text-sm py-8">{error}</div>
+        ) : stats ? (
+          <div className="space-y-5">
+            <div>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Funnel del slot</p>
+              <div className="grid grid-cols-3 gap-2">
+                <FunnelBox label="Expuestos" value={stats.exposed} />
+                <FunnelBox label="Impresiones" value={stats.impressions} sub={`${pct(stats.impressions, stats.exposed)}%`} />
+                <FunnelBox label="Clicks" value={stats.clicks} sub={`${pct(stats.clicks, stats.impressions)}%`} />
+              </div>
+              {stats.impressions === 0 && (
+                <p className="text-[11px] text-finzen-gray mt-1.5">Sin impresiones de slot (campaña de push, o el slot todavía no llegó a las apps).</p>
+              )}
+            </div>
+
+            <div>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Efecto en activación (tx en 7d)</p>
+              {stats.holdout === 0 ? (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                  Esta campaña no tuvo holdout (control). Sin grupo de comparación no se mide el efecto causal — solo el funnel de arriba. Para la próxima, ponle un holdout mayor a 0.
+                </div>
+              ) : (
+                <div className="rounded-lg border border-finzen-gray/20 p-4">
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <p className="text-xs text-finzen-gray">Expuestos</p>
+                      <p className="text-xl font-bold text-finzen-blue">{stats.exposedTxRate}%</p>
+                      <p className="text-[11px] text-finzen-gray">{stats.exposedTx}/{stats.exposed}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-finzen-gray">Control (holdout)</p>
+                      <p className="text-xl font-bold text-finzen-gray">{stats.holdoutTxRate}%</p>
+                      <p className="text-[11px] text-finzen-gray">{stats.holdoutTx}/{stats.holdout}</p>
+                    </div>
+                  </div>
+                  <div className={`rounded-md px-3 py-2 text-sm ${stats.liftPts > 0 ? 'bg-emerald-50 text-emerald-700' : stats.liftPts < 0 ? 'bg-red-50 text-red-700' : 'bg-finzen-white text-finzen-gray'}`}>
+                    <span className="font-semibold">Lift:</span> {stats.liftPts >= 0 ? '+' : ''}{stats.liftPts} pts{' '}
+                    {stats.liftPts > 0 ? '(el mensaje sumó activación)' : stats.liftPts < 0 ? '(el mensaje restó — revisar)' : '(sin efecto medible)'}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            <p className="text-[11px] text-finzen-gray">
+              Activación = ≥1 transacción válida en los 7 días posteriores al envío. Expuestos vs holdout reconstruido por el bucket de la campaña.
+            </p>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────
 export default function BroadcastsPage() {
   const [view, setView] = useState<'new' | 'history'>('new');
@@ -242,6 +336,7 @@ export default function BroadcastsPage() {
   const [historyItems, setHistoryItems] = useState<BroadcastItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [statsTarget, setStatsTarget] = useState<BroadcastItem | null>(null); // campaña cuyas métricas se ven
 
   const togglePlan = (p: Plan) =>
     setPlans((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -421,7 +516,12 @@ export default function BroadcastsPage() {
                   const delivery = b.targetCount && b.successCount != null && b.targetCount > 0
                     ? `${Math.round((b.successCount / b.targetCount) * 100)}%` : '—';
                   return (
-                    <tr key={b.id} className="hover:bg-finzen-white/80 transition-colors">
+                    <tr
+                      key={b.id}
+                      onClick={() => setStatsTarget(b)}
+                      title="Ver métricas de la campaña"
+                      className="hover:bg-finzen-white/80 transition-colors cursor-pointer"
+                    >
                       <td className="px-4 py-3 text-sm text-finzen-gray">
                         {new Date(b.createdAt).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
                       </td>
@@ -772,6 +872,10 @@ export default function BroadcastsPage() {
           onCancel={() => setShowConfirm(false)}
           onConfirm={handleConfirm}
         />
+      )}
+
+      {statsTarget && (
+        <CampaignStatsModal broadcast={statsTarget} onClose={() => setStatsTarget(null)} />
       )}
     </div>
   );
