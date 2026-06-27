@@ -65,7 +65,7 @@ function buildKpiCards(pulse: any) {
       value: String(pulse.trialsStarted ?? 0),
       change: null,
       changeType: 'neutral' as const,
-      tooltip: 'Trials que arrancaron dentro del período seleccionado (por fecha real de inicio del trial), no solo los que siguen activos.',
+      tooltip: 'Trials que arrancaron dentro del período seleccionado, contados por su fecha real de activación (trial_device_registry). Incluye los que ya terminaron o convirtieron, no solo los activos.',
     },
     {
       label: 'Conversión Trial→Pago',
@@ -95,6 +95,17 @@ function buildMrrTrend(revenue: any) {
     return {
       date: d.toLocaleDateString('es', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       mrr: m.mrr,
+    };
+  });
+}
+
+function buildTrialsByMonth(pulse: any) {
+  if (!pulse?.trialsByMonth) return [];
+  return pulse.trialsByMonth.map((m: any) => {
+    const d = new Date(m.month + '-01T00:00:00Z');
+    return {
+      date: d.toLocaleDateString('es', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
+      trials: m.trials,
     };
   });
 }
@@ -180,6 +191,7 @@ export default function DashboardPulso() {
   const userGrowthData = buildUserGrowthData(users);
   const mrrTrendData = buildMrrTrend(revenue);
   const planDist = buildPlanDistribution(pulse);
+  const trialsByMonthData = buildTrialsByMonth(pulse);
   const channelData = buildChannelData(engagement);
   const quickStatsData = buildQuickStats(pulse);
   const bannerData = buildBannerData(pulse, revenue, financialHealth);
@@ -246,6 +258,23 @@ export default function DashboardPulso() {
           title="Registros por País"
           data={channelData}
         />
+      </div>
+
+      {/* Charts Row 3 — Tendencia de trials (últimos 12 meses, independiente del filtro) */}
+      <div className="grid grid-cols-1 gap-6 mb-6">
+        <div>
+          <ChartLine
+            title="Trials Iniciados por Mes (últimos 12 meses)"
+            data={trialsByMonthData}
+            xKey="date"
+            lines={[
+              { dataKey: 'trials', color: '#6cad7f', name: 'Trials' },
+            ]}
+          />
+          <p className="text-xs text-finzen-gray mt-2 px-1">
+            Por fecha real de activación (trial_device_registry). Esta serie es de los últimos 12 meses y no depende del filtro de fechas de arriba.
+          </p>
+        </div>
       </div>
 
       {/* Quick Stats */}

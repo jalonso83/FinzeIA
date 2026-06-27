@@ -69,7 +69,7 @@ function buildKpiCards(pulse: any) {
       value: String(pulse.trialsStarted ?? 0),
       change: null,
       changeType: 'neutral' as const,
-      tooltip: 'Trials que arrancaron dentro del período seleccionado (por fecha real de inicio del trial), no solo los que siguen activos.',
+      tooltip: 'Trials que arrancaron dentro del período seleccionado, contados por su fecha real de activación (trial_device_registry). Incluye los que ya terminaron o convirtieron, no solo los activos.',
     },
     {
       label: 'Conversión Trial→Pago',

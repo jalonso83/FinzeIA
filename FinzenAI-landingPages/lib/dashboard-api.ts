@@ -15,6 +15,7 @@ export interface PulseData {
   trialsActive: number;
   trialsStarted: number;
   trialConversionRate: number;
+  trialsByMonth: { month: string; trials: number }[];
   mrrEstimated: number;
   dau: number;
   mau: number;
