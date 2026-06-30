@@ -613,6 +613,8 @@ export interface H10Stats {
   experimentStart: string | null;
   activationWindowDays: number;
   rollbackThresholdPts: number;
+  minSamplePerArm: number;
+  sufficientSample: boolean;
   rollbackTriggered: boolean;
   variant: ExperimentArm;
   control: ExperimentArm;

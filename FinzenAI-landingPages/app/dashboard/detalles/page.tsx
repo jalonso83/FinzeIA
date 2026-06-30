@@ -846,7 +846,7 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
   if (error) return <div className="p-6 text-center text-red-600 text-sm">{error}</div>;
   if (!stats) return null;
 
-  const { variant, control, activationLiftPts, entryLiftPts, rollbackTriggered, rollbackThresholdPts, pct, enabled, activationWindowDays, experimentStart } = stats;
+  const { variant, control, activationLiftPts, entryLiftPts, rollbackTriggered, rollbackThresholdPts, pct, enabled, activationWindowDays, experimentStart, sufficientSample, minSamplePerArm } = stats;
 
   return (
     <div className="space-y-6">
@@ -876,16 +876,18 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
           <ArmCard title="Control (con muro)" arm={control} accent="#64748b" />
         </div>
 
-        <div className={`mt-4 rounded-lg border px-4 py-3 ${rollbackTriggered ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
+        <div className={`mt-4 rounded-lg border px-4 py-3 ${!sufficientSample ? 'border-gray-200 bg-gray-50' : rollbackTriggered ? 'border-red-200 bg-red-50' : 'border-emerald-200 bg-emerald-50'}`}>
           <p className="text-sm text-finzen-black">
             <span className="font-semibold">Lift de activación:</span>{' '}
-            <span className={`font-bold ${activationLiftPts < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+            <span className={`font-bold ${!sufficientSample ? 'text-finzen-gray' : activationLiftPts < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
               {activationLiftPts >= 0 ? '+' : ''}{activationLiftPts} pts
             </span>{' '}
             <span className="text-finzen-gray">(variante {variant.activationRate}% vs control {control.activationRate}%)</span>
           </p>
           <p className="text-xs text-finzen-gray mt-1">
-            {rollbackTriggered
+            {!sufficientSample
+              ? `⏳ Acumulando muestra (${variant.n} variante / ${control.n} control; se necesitan ≥${minSamplePerArm} por brazo). El lift aún NO es concluyente — con pocos usuarios es ruido.`
+              : rollbackTriggered
               ? `🔴 La activación cayó ≥${rollbackThresholdPts} pts → señal de ROLLBACK (canibalización).`
               : `🟢 No-inferioridad sostenida. Tasa de entrada: ${entryLiftPts >= 0 ? '+' : ''}${entryLiftPts} pts.`}
           </p>
@@ -893,7 +895,7 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
 
         {experimentStart ? (
           <p className="text-[11px] text-finzen-gray mt-4">
-            Inicio del experimento auto-detectado ({new Date(experimentStart).toLocaleDateString('es-ES')}): la cohorte se ancla ahí y excluye usuarios pre-experimento automáticamente. Whitelist de QA excluida. Split reconstruido con el mismo bucket que decide la entrada.
+            Inicio del experimento: {new Date(experimentStart).toLocaleDateString('es-ES')}. La cohorte se ancla ahí (registros desde esa fecha) y excluye usuarios pre-experimento. Whitelist de QA excluida. Split reconstruido con el mismo bucket que decide la entrada.
           </p>
         ) : (
           <p className="text-[11px] text-amber-600 mt-4">
