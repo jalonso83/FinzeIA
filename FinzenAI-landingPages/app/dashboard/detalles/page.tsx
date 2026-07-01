@@ -2,7 +2,7 @@
 
 import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical, Check, Minus, LayoutGrid } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import PdfExportPopover from '@/components/dashboard/PdfExportPopover';
@@ -290,6 +290,130 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
   );
 }
 
+// ─── Base activa de funcionalidades (inventario estático × plan) ──
+// Verificado contra config/stripe.ts PLANS + gating por ruta (2026-06-30).
+// Valores = límites ENFORCED (no marketing). "Plus" = nombre visible de PREMIUM.
+type CellVal = boolean | string;
+const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; note?: string; free: CellVal; plus: CellVal; pro: CellVal }[] }[] = [
+  {
+    group: 'Core — todos los planes',
+    accent: 'text-emerald-700 bg-emerald-50',
+    rows: [
+      { name: 'Transacciones', free: '∞', plus: '∞', pro: '∞' },
+      { name: 'Categorías', free: true, plus: true, pro: true },
+      { name: 'Gamificación', note: 'FinScore, rachas, badges, retos, ranking', free: true, plus: true, pro: true },
+      { name: 'Reportes básicos', free: true, plus: true, pro: true },
+      { name: 'Calculadoras financieras básicas', free: true, plus: true, pro: true },
+      { name: 'Calculadora de inversión', free: true, plus: true, pro: true },
+      { name: 'Detector de gastos hormiga', free: 'Básico', plus: 'Completo', pro: 'Completo' },
+      { name: 'Referidos', free: true, plus: true, pro: true },
+      { name: 'Notificaciones push', free: true, plus: true, pro: true },
+      { name: 'Prueba gratis 7 días', free: true, plus: true, pro: true },
+    ],
+  },
+  {
+    group: 'Límites que escalan',
+    accent: 'text-finzen-blue bg-blue-50',
+    rows: [
+      { name: 'Presupuestos', free: '4', plus: '∞', pro: '∞' },
+      { name: 'Metas de ahorro', free: '2', plus: '∞', pro: '∞' },
+      { name: 'Consultas Zenio (IA)', free: '15/mes', plus: '∞', pro: '∞' },
+      { name: 'Recordatorios de pago', free: '2', plus: '∞', pro: '∞' },
+    ],
+  },
+  {
+    group: 'Plus y Pro',
+    accent: 'text-indigo-700 bg-indigo-50',
+    rows: [
+      { name: 'Alertas de umbral en presupuestos', free: false, plus: true, pro: true },
+      { name: 'Zenio con voz (Text-to-Speech)', free: false, plus: true, pro: true },
+      { name: 'Reportes avanzados con IA', free: false, plus: true, pro: true },
+      { name: 'Exportar datos (CSV/PDF)', free: false, plus: true, pro: true },
+      { name: 'Reto Skip vs Save', free: false, plus: true, pro: true },
+    ],
+  },
+  {
+    group: 'Pro exclusivo',
+    accent: 'text-purple-700 bg-purple-50',
+    rows: [
+      { name: 'Integración bancaria / Email Sync', free: false, plus: false, pro: true },
+      { name: 'Alertas automáticas de gastos hormiga', free: false, plus: false, pro: true },
+      { name: 'Reportes quincenales con IA', free: false, plus: false, pro: true },
+      { name: 'Acceso anticipado a nuevas features', free: false, plus: false, pro: true },
+    ],
+  },
+];
+
+function FeatureCell({ value }: { value: CellVal }) {
+  if (value === true) return <Check size={16} className="text-emerald-600 inline" strokeWidth={3} />;
+  if (value === false) return <Minus size={15} className="text-finzen-gray/30 inline" />;
+  return <span className="inline-block text-xs font-bold text-finzen-black bg-finzen-white rounded px-1.5 py-0.5">{value}</span>;
+}
+
+function FeatureInventory() {
+  const flat: Array<any> = [];
+  FEATURE_INVENTORY.forEach((g) => {
+    flat.push({ kind: 'group', group: g.group, accent: g.accent });
+    g.rows.forEach((r) => flat.push({ kind: 'row', ...r }));
+  });
+  const totalFeatures = FEATURE_INVENTORY.reduce((s, g) => s + g.rows.length, 0);
+
+  return (
+    <Section
+      title="Base activa de funcionalidades"
+      tooltip="Inventario completo de funcionalidades de FinZen y qué incluye cada plan. Verificado contra la configuración real de planes (no el marketing)."
+    >
+      <div className="rounded-xl border border-finzen-gray/20 bg-white overflow-hidden">
+        <div className="flex items-center gap-2 px-4 py-3 border-b border-finzen-gray/10">
+          <LayoutGrid size={16} className="text-finzen-blue" />
+          <span className="text-sm font-semibold text-finzen-black">Stock de funcionalidades</span>
+          <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">{totalFeatures} funcionalidades</span>
+        </div>
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm border-collapse">
+            <thead>
+              <tr className="bg-white">
+                <th className="text-left font-semibold text-finzen-black px-4 py-3 min-w-[220px]">Funcionalidad</th>
+                <th className="text-center font-semibold text-finzen-gray px-3 py-3 w-24">
+                  Gratis<span className="block text-[10px] font-normal text-finzen-gray/70">$0</span>
+                </th>
+                <th className="text-center font-semibold text-finzen-green px-3 py-3 w-24 bg-finzen-green/5">
+                  Plus<span className="block text-[10px] font-normal text-finzen-green/70">$4.99</span>
+                </th>
+                <th className="text-center font-semibold text-finzen-blue px-3 py-3 w-24">
+                  Pro<span className="block text-[10px] font-normal text-finzen-blue/70">$9.99</span>
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {flat.map((item, i) =>
+                item.kind === 'group' ? (
+                  <tr key={`g-${i}`}>
+                    <td colSpan={4} className={`px-4 py-1.5 text-[11px] font-bold uppercase tracking-wide ${item.accent}`}>{item.group}</td>
+                  </tr>
+                ) : (
+                  <tr key={`r-${i}`} className="border-t border-finzen-gray/10 hover:bg-finzen-white/40 transition-colors">
+                    <td className="px-4 py-2.5 text-finzen-black align-top">
+                      {item.name}
+                      {item.note && <span className="block text-[11px] text-finzen-gray">{item.note}</span>}
+                    </td>
+                    <td className="text-center px-3 py-2.5"><FeatureCell value={item.free} /></td>
+                    <td className="text-center px-3 py-2.5 bg-finzen-green/5"><FeatureCell value={item.plus} /></td>
+                    <td className="text-center px-3 py-2.5"><FeatureCell value={item.pro} /></td>
+                  </tr>
+                )
+              )}
+            </tbody>
+          </table>
+        </div>
+        <p className="text-[11px] text-finzen-gray px-4 py-2.5 border-t border-finzen-gray/10 bg-finzen-white/30">
+          <Check size={11} className="inline text-emerald-600" strokeWidth={3} /> incluido · <Minus size={11} className="inline text-finzen-gray/40" /> no incluido · ∞ ilimitado. Verificado contra la config real de planes. "Plus" es el nombre visible de PREMIUM.
+        </p>
+      </div>
+    </Section>
+  );
+}
+
 // ─── Tab: Engagement ─────────────────────────────────────────────
 function TabEngagement({ engagement }: { engagement: any }) {
   if (!engagement) return null;
@@ -298,6 +422,9 @@ function TabEngagement({ engagement }: { engagement: any }) {
 
   return (
     <div>
+      {/* ── INVENTARIO DE FUNCIONALIDADES (estático, arriba de todo) ─ */}
+      <FeatureInventory />
+
       {/* ── GRUPO A — BASE ACTIVA (top-line, highlight) ──────────── */}
       <Section
         title="Base Activa"
@@ -341,6 +468,41 @@ function TabEngagement({ engagement }: { engagement: any }) {
           <StatBox label="Mensajes a Zenio (mes)" value={String(engagement.zenioMessagesThisMonth ?? 0)} tooltip="Mensajes a Zenio del mes en curso (la cuota mensual que se resetea cada mes por usuario). Cada mensaje suma 1. NOTA: contador corrido por usuario, se resetea de forma perezosa al primer uso del nuevo mes; NO respeta el filtro de período." />
         </div>
       </Section>
+
+      {/* ── GRUPO E — FUNCIONALIDADES EXTRA (uso de features) ────── */}
+      {engagement.featureUsage && (() => {
+        const fu = engagement.featureUsage;
+        const desglose = (fu.calculatorsFree?.breakdown ?? []).map((c: any) => `${c.label} ${c.calls}`).join(' · ') || '—';
+        return (
+          <Section
+            title="Funcionalidades Extra"
+            tooltip="Uso de herramientas más allá del core (Gastos Hormiga, calculadoras). La adopción de features de pago se mide contra la base CON ACCESO (pagando + trial), no toda la base."
+          >
+            <p className="text-xs font-semibold text-finzen-gray mb-2 mt-1">🐜 Gastos Hormiga</p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-5">
+              <StatBox label="Usuarios" value={String(fu.antExpense?.users ?? 0)} tooltip="Usuarios únicos que corrieron un análisis de gastos hormiga en el período." />
+              <StatBox label="Adopción" value={`${fu.antExpense?.adoptionRate ?? 0}%`} tooltip="Usuarios que usaron Gastos Hormiga / usuarios activos del período. Feature de todos los planes → base = activos." />
+              <StatBox label="Abrió → Usó" value={`${fu.antExpense?.openedUsers ?? 0} → ${fu.antExpense?.users ?? 0} (${fu.antExpense?.openedToUsedRate ?? 0}%)`} tooltip="Embudo: abrieron la pantalla → corrieron un análisis. % = de los que abrieron, cuántos la usaron. Bajo = problema de valor/UX; pocos que abren = problema de descubrimiento." />
+            </div>
+
+            <p className="text-xs font-semibold text-finzen-gray mb-2">🧮 Calculadoras <span className="font-normal">(gratis · todos los planes)</span></p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">
+              <StatBox label="Usuarios" value={String(fu.calculatorsFree?.users ?? 0)} tooltip="Usuarios únicos que usaron alguna calculadora gratis (inversión, meta o inflación) en el período." />
+              <StatBox label="Usos totales" value={String(fu.calculatorsFree?.calls ?? 0)} tooltip="Total de cálculos corridos (inversión + meta + inflación)." />
+              <StatBox label="Adopción" value={`${fu.calculatorsFree?.adoptionRate ?? 0}%`} tooltip="Usuarios que usaron calculadoras / usuarios activos. Base = activos (son gratis)." />
+            </div>
+            <p className="text-[11px] text-finzen-gray mb-5 px-1">Desglose: {desglose}</p>
+
+            <p className="text-xs font-semibold text-finzen-gray mb-2">💸 Skip vs Save <span className="font-normal">(Plus / Pro)</span></p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">
+              <StatBox label="Usuarios" value={String(fu.skipVsSave?.users ?? 0)} tooltip="Usuarios únicos que usaron el reto Skip vs Save en el período (exclusivo de planes Plus/Pro)." />
+              <StatBox label="Adopción" value={`${fu.skipVsSave?.adoptionRate ?? 0}%`} highlight tooltip="Usuarios que usaron Skip vs Save / BASE CON ACCESO (pagando PREMIUM/PRO + en trial). NO se mide contra toda la base porque los FREE no pueden abrirlo." />
+              <StatBox label="Usos totales" value={String(fu.skipVsSave?.calls ?? 0)} tooltip="Total de cálculos de Skip vs Save en el período." />
+            </div>
+            <p className="text-[11px] text-finzen-gray mb-1 px-1">Base con acceso (pagando + trial): {fu.skipVsSave?.accessBase ?? 0} usuarios.</p>
+          </Section>
+        );
+      })()}
 
       {/* ── GRUPO D — VIRALIDAD ──────────────────────────────────── */}
       <Section
