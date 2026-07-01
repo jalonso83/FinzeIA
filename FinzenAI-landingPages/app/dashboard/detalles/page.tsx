@@ -455,7 +455,6 @@ function TabEngagement({ engagement }: { engagement: any }) {
       {/* ── GRUPO E — FUNCIONALIDADES EXTRA (uso de features) ────── */}
       {engagement.featureUsage && (() => {
         const fu = engagement.featureUsage;
-        const desglose = (fu.calculatorsFree?.breakdown ?? []).map((c: any) => `${c.label} ${c.calls}`).join(' · ') || '—';
         return (
           <Section
             title="Funcionalidades Extra"
@@ -474,7 +473,15 @@ function TabEngagement({ engagement }: { engagement: any }) {
               <StatBox label="Usos totales" value={String(fu.calculatorsFree?.calls ?? 0)} tooltip="Total de cálculos corridos (inversión + meta + inflación)." />
               <StatBox label="Adopción" value={`${fu.calculatorsFree?.adoptionRate ?? 0}%`} tooltip="Usuarios que usaron calculadoras / usuarios activos. Base = activos (son gratis)." />
             </div>
-            <p className="text-[11px] text-finzen-gray mb-5 px-1">Desglose: {desglose}</p>
+            <div className="flex flex-wrap items-center gap-2 mb-5 px-1">
+              <span className="text-xs text-finzen-gray font-semibold mr-1">Desglose:</span>
+              {(fu.calculatorsFree?.breakdown ?? []).map((c: any) => (
+                <span key={c.key} className="inline-flex items-center gap-1.5 text-sm bg-white border border-finzen-gray/25 rounded-full px-3 py-1">
+                  <span className="text-finzen-black font-medium">{c.label}</span>
+                  <span className="font-bold text-finzen-blue">{c.calls}</span>
+                </span>
+              ))}
+            </div>
 
             <p className="text-xs font-semibold text-finzen-gray mb-2">💸 Skip vs Save <span className="font-normal">(Plus / Pro)</span></p>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">

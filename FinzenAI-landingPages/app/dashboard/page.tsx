@@ -4,6 +4,7 @@ import { Loader2 } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import KPICard from '@/components/dashboard/KPICard';
 import ChartLine from '@/components/dashboard/ChartLine';
+import UserGrowthChart from '@/components/dashboard/UserGrowthChart';
 import ChartDonut from '@/components/dashboard/ChartDonut';
 import ChartBar from '@/components/dashboard/ChartBar';
 import QuickStats from '@/components/dashboard/QuickStats';
@@ -77,16 +78,6 @@ function buildKpiCards(pulse: any) {
   ];
 }
 
-function buildUserGrowthData(users: any) {
-  if (!users?.registrationsByDay) return [];
-  return users.registrationsByDay.map((r: any) => {
-    const d = new Date(r.day);
-    return {
-      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
-      registros: r.count,
-    };
-  });
-}
 
 function buildMrrTrend(revenue: any) {
   if (!revenue?.mrrTrend) return [];
@@ -188,7 +179,6 @@ export default function DashboardPulso() {
   }
 
   const kpiCards = buildKpiCards(pulse);
-  const userGrowthData = buildUserGrowthData(users);
   const mrrTrendData = buildMrrTrend(revenue);
   const planDist = buildPlanDistribution(pulse);
   const trialsByMonthData = buildTrialsByMonth(pulse);
@@ -230,14 +220,7 @@ export default function DashboardPulso() {
 
       {/* Charts Row 1 */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
-        <ChartLine
-          title="Crecimiento de Usuarios"
-          data={userGrowthData}
-          xKey="date"
-          lines={[
-            { dataKey: 'registros', color: '#204274', name: 'Registros' },
-          ]}
-        />
+        <UserGrowthChart title="Crecimiento de Usuarios" registrationsByDay={users?.registrationsByDay} />
         <ChartLine
           title="MRR Neto (Trend)"
           data={mrrTrendData}
