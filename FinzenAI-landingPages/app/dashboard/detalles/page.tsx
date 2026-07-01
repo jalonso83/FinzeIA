@@ -7,6 +7,7 @@ import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import PdfExportPopover from '@/components/dashboard/PdfExportPopover';
 import ChartLine from '@/components/dashboard/ChartLine';
+import UserGrowthChart from '@/components/dashboard/UserGrowthChart';
 import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
@@ -89,17 +90,6 @@ function StatBox({ label, value, highlight, tooltip }: { label: string; value: s
 
 // ─── Data transformers ───────────────────────────────────────────
 
-function buildUserGrowthData(users: any) {
-  if (!users?.registrationsByDay) return [];
-  return users.registrationsByDay.map((r: any) => {
-    const d = new Date(r.day);
-    return {
-      date: d.toLocaleDateString('es', { day: '2-digit', month: 'short', timeZone: 'UTC' }),
-      registros: r.count,
-    };
-  });
-}
-
 function buildFunnelData(users: any) {
   if (!users?.funnel) return [];
   const f = users.funnel;
@@ -167,17 +157,10 @@ function TabUsuarios({ users }: { users: any }) {
   return (
     <div>
       <Section
-        title="Registros Diarios"
-        tooltip="Muestra el número de nuevas registraciones por día. Útil para identificar picos de adquisición o efectividad de campañas de marketing."
+        title="Registros de Usuarios"
+        tooltip="Nuevas registraciones en el período, con periodicidad seleccionable (diaria, semanal o mensual). Útil para identificar picos de adquisición o efectividad de campañas."
       >
-        <ChartLine
-          title=""
-          data={buildUserGrowthData(users)}
-          xKey="date"
-          lines={[
-            { dataKey: 'registros', color: '#204274', name: 'Registros' },
-          ]}
-        />
+        <UserGrowthChart title="" registrationsByDay={users?.registrationsByDay} />
       </Section>
 
       <Section
