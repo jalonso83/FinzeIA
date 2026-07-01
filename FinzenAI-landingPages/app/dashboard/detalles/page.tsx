@@ -407,7 +407,7 @@ function FeatureInventory() {
           </table>
         </div>
         <p className="text-[11px] text-finzen-gray px-4 py-2.5 border-t border-finzen-gray/10 bg-finzen-white/30">
-          <Check size={11} className="inline text-emerald-600" strokeWidth={3} /> incluido · <Minus size={11} className="inline text-finzen-gray/40" /> no incluido · ∞ ilimitado. Verificado contra la config real de planes. "Plus" es el nombre visible de PREMIUM.
+          <Check size={11} className="inline text-emerald-600" strokeWidth={3} /> incluido · <Minus size={11} className="inline text-finzen-gray/40" /> no incluido · ∞ ilimitado. Verificado contra la config real de planes. «Plus» es el nombre visible de PREMIUM.
         </p>
       </div>
     </Section>
