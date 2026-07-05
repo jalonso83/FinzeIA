@@ -243,7 +243,12 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
           <h3 className="text-lg font-bold text-finzen-black">Efecto de la campaña</h3>
           <button onClick={onClose} className="text-finzen-gray hover:text-finzen-black"><X size={18} /></button>
         </div>
-        <p className="text-sm text-finzen-gray mb-4 truncate">{broadcast.title}</p>
+        <div className="mb-4 rounded-lg border border-finzen-gray/15 bg-finzen-white px-3 py-2.5">
+          <p className="text-sm font-semibold text-finzen-black">{broadcast.title}</p>
+          {broadcast.body ? (
+            <p className="text-[13px] text-finzen-gray leading-snug mt-1 whitespace-pre-wrap">{broadcast.body}</p>
+          ) : null}
+        </div>
 
         {loading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-finzen-blue" size={26} /></div>
