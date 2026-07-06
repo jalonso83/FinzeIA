@@ -1,24 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
-
-// Fallback admin emails in case env var fails to load
-const FALLBACK_ADMIN_EMAILS = [
-  'jalonso83@gmail.com',
-  'junior.urena15@gmail.com',
-];
-
-function getAdminEmails(): string[] {
-  const envEmails = process.env.ADMIN_EMAILS;
-  if (envEmails && envEmails.trim().length > 0) {
-    return envEmails.split(',').map(e => e.trim().toLowerCase().replace(/\r/g, ''));
-  }
-  return FALLBACK_ADMIN_EMAILS;
-}
+import { getRoleForEmail } from '@/lib/roles';
 
 export async function POST(req: NextRequest) {
   try {
     const { email, password } = await req.json();
 
-    const ADMIN_EMAILS = getAdminEmails();
     const BACKEND_URL = process.env.BACKEND_URL || 'https://finzenai-backend-production.up.railway.app';
 
     if (!email || !password) {
@@ -28,8 +14,10 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Check whitelist before calling backend
-    if (!ADMIN_EMAILS.includes(email.toLowerCase().trim())) {
+    // Resolver rol (admin | marketing) antes de llamar al backend.
+    // null = email no autorizado en ninguna whitelist.
+    const role = getRoleForEmail(email);
+    if (!role) {
       return NextResponse.json(
         { error: 'No tienes permisos de administrador' },
         { status: 403 }
@@ -58,6 +46,7 @@ export async function POST(req: NextRequest) {
       user: {
         name: data.user.name,
         email: data.user.email,
+        role,
       },
     });
 
@@ -72,8 +61,19 @@ export async function POST(req: NextRequest) {
     response.cookies.set('admin-user', JSON.stringify({
       name: data.user.name,
       email: data.user.email,
+      role, // usado por la UI para filtrar navegación/widgets
     }), {
       httpOnly: false, // readable by client for UI
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 60 * 60 * 24 * 7,
+    });
+
+    // Cookie httpOnly con el rol: la leen el middleware y el proxy para el
+    // enforcement REAL (bloqueo de rutas/endpoints). No accesible por JS del cliente.
+    response.cookies.set('admin-role', role, {
+      httpOnly: true,
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'lax',
       path: '/',

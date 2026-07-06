@@ -5,6 +5,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { LayoutDashboard, BarChart3, Users, MessageSquare, DollarSign, Megaphone, LogOut } from 'lucide-react';
 import { DashboardProvider } from '@/hooks/useDashboardData';
+import { canAccessSection, getClientRole, type Role } from '@/lib/roles';
 
 const navItems = [
   { label: 'Pulso', href: '/dashboard', icon: LayoutDashboard },
@@ -33,6 +34,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<AdminUser | null>(null);
+  const [role, setRole] = useState<Role>('admin');
 
   useEffect(() => {
     try {
@@ -46,7 +48,11 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     } catch {
       // ignore parse errors
     }
+    setRole(getClientRole());
   }, []);
+
+  // El menú solo muestra las secciones que el rol puede abrir.
+  const visibleNavItems = navItems.filter((item) => canAccessSection(role, item.href));
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { method: 'POST' });
@@ -70,7 +76,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
 
             {/* Nav Tabs */}
             <div className="hidden sm:flex items-center gap-1">
-              {navItems.map((item) => {
+              {visibleNavItems.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
                 return (

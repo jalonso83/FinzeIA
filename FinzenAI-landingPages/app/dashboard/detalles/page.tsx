@@ -13,6 +13,7 @@ import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { computeRollingParams, fetchH10Stats, type AcquisitionData, type H10Stats } from '@/lib/dashboard-api';
+import { canSeeDetallesTab, canSeeFinancials, getClientRole, type Role } from '@/lib/roles';
 import { PdfCoverPage } from './PdfCoverPage';
 import { PdfGlossary } from './PdfGlossary';
 import { TabPulso } from './TabPulso';
@@ -1143,6 +1144,17 @@ function DashboardDetallesInner() {
 
   const { range, setRange, customPeriod, setCustomPeriod, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error } = useDashboardData();
   const [activeTab, setActiveTab] = useState('usuarios');
+  const [role, setRole] = useState<Role>('admin');
+  useEffect(() => { setRole(getClientRole()); }, []);
+
+  // Sub-pestañas visibles según rol (marketing no ve Revenue/Unit Economics/Salud).
+  const visibleTabs = tabs.filter((t) => canSeeDetallesTab(role, t.id));
+  // Si el rol no puede ver la pestaña activa, caer a la primera permitida.
+  useEffect(() => {
+    if (!canSeeDetallesTab(role, activeTab)) {
+      setActiveTab(visibleTabs[0]?.id ?? 'adquisicion');
+    }
+  }, [role, activeTab, visibleTabs]);
 
   // Aplicar el periodo absoluto que viene en la URL (caso PDF generado por backend
   // vía Puppeteer): from/to/label. Dispara el fetch con esas fechas exactas.
@@ -1230,12 +1242,13 @@ function DashboardDetallesInner() {
         </div>
         <div className="flex items-center gap-3">
           <DateRangePicker value={range} onChange={setRange} />
-          <PdfExportPopover />
+          {/* El PDF incluye todos los tabs (finanzas + PII): solo admin */}
+          {canSeeFinancials(role) && <PdfExportPopover />}
         </div>
       </div>
 
-      {/* Banner Superior */}
-      <BannerSuperior data={bannerData} />
+      {/* Banner Superior — solo roles con acceso a finanzas (MRR/runway) */}
+      {canSeeFinancials(role) && <BannerSuperior data={bannerData} />}
 
       {/* #8: disclaimer en las pestañas con comparaciones "vs período anterior" */}
       {pulse?.prevPeriodTruncated && (activeTab === 'adquisicion' || activeTab === 'revenue') && (
@@ -1247,7 +1260,7 @@ function DashboardDetallesInner() {
 
       {/* Tabs */}
       <div className="flex overflow-x-auto gap-1 bg-white rounded-xl border border-finzen-gray/20 p-1.5 mb-6 no-scrollbar">
-        {tabs.map((tab) => {
+        {visibleTabs.map((tab) => {
           const isActive = activeTab === tab.id;
           const Icon = tab.icon;
           return (

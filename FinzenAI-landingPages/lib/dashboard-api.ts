@@ -338,6 +338,9 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
   const res = await fetch(`/api/admin/${endpoint}?${params.toString()}`);
   if (!res.ok) {
     if (res.status === 401) throw new Error('UNAUTHORIZED');
+    // 403 = el rol (ej. marketing) no puede ver este endpoint. Se maneja como
+    // "sección vacía" en fetchAllDashboardData, no como error global.
+    if (res.status === 403) throw new Error('FORBIDDEN');
     throw new Error(`API error: ${res.status}`);
   }
   const json = await res.json();
@@ -347,17 +350,29 @@ async function fetchEndpoint<T>(endpoint: string, from: string, to: string): Pro
 // ─── Public API ─────────────────────────────────────────────────
 
 export async function fetchAllDashboardData(from: string, to: string) {
+  // Un endpoint bloqueado por rol (403/FORBIDDEN) devuelve null para esa sección
+  // en vez de tumbar toda la carga. UNAUTHORIZED (token inválido) sí propaga para
+  // redirigir a login; cualquier otro error también propaga (comportamiento admin).
+  const orNull = async <T>(p: Promise<T>): Promise<T | null> => {
+    try {
+      return await p;
+    } catch (e) {
+      if (e instanceof Error && e.message === 'FORBIDDEN') return null;
+      throw e;
+    }
+  };
+
   const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition] = await Promise.all([
-    fetchEndpoint<PulseData>('pulse', from, to),
-    fetchEndpoint<UsersData>('users', from, to),
-    fetchEndpoint<RevenueData>('revenue', from, to),
-    fetchEndpoint<EngagementData>('engagement', from, to),
-    fetchEndpoint<OpenAICostsData>('openai-costs', from, to),
-    fetchEndpoint<UnitEconomicsData>('unit-economics', from, to),
+    orNull(fetchEndpoint<PulseData>('pulse', from, to)),
+    orNull(fetchEndpoint<UsersData>('users', from, to)),
+    orNull(fetchEndpoint<RevenueData>('revenue', from, to)),
+    orNull(fetchEndpoint<EngagementData>('engagement', from, to)),
+    orNull(fetchEndpoint<OpenAICostsData>('openai-costs', from, to)),
+    orNull(fetchEndpoint<UnitEconomicsData>('unit-economics', from, to)),
     // Financial health no usa rango (siempre mes actual + bruto acumulado),
     // pero pasamos los params igual por uniformidad. El backend los ignora.
-    fetchEndpoint<FinancialHealthData>('financial-health', from, to),
-    fetchEndpoint<AcquisitionData>('acquisition', from, to),
+    orNull(fetchEndpoint<FinancialHealthData>('financial-health', from, to)),
+    orNull(fetchEndpoint<AcquisitionData>('acquisition', from, to)),
   ]);
 
   return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition };

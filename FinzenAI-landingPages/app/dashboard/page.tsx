@@ -10,6 +10,8 @@ import ChartBar from '@/components/dashboard/ChartBar';
 import QuickStats from '@/components/dashboard/QuickStats';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import { useDashboardData } from '@/hooks/useDashboardData';
+import { useEffect, useState } from 'react';
+import { canSeeFinancials, getClientRole, type Role } from '@/lib/roles';
 
 function formatCurrency(value: number): string {
   return new Intl.NumberFormat('es-ES', {
@@ -157,6 +159,9 @@ function buildBannerData(pulse: any, revenue: any, financialHealth: any) {
 
 export default function DashboardPulso() {
   const { range, setRange, pulse, users, revenue, engagement, openaiCosts, financialHealth, loading, error } = useDashboardData();
+  const [role, setRole] = useState<Role>('admin');
+  useEffect(() => { setRole(getClientRole()); }, []);
+  const showFinancials = canSeeFinancials(role);
 
   if (loading && !pulse) {
     return (
@@ -208,8 +213,8 @@ export default function DashboardPulso() {
         </div>
       )}
 
-      {/* Banner Superior */}
-      <BannerSuperior data={bannerData} />
+      {/* Banner Superior — solo roles con acceso a finanzas (MRR/runway) */}
+      {showFinancials && <BannerSuperior data={bannerData} />}
 
       {/* KPI Cards */}
       <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
@@ -218,17 +223,19 @@ export default function DashboardPulso() {
         ))}
       </div>
 
-      {/* Charts Row 1 */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      {/* Charts Row 1 — el trend de MRR es financiero: solo admin */}
+      <div className={`grid grid-cols-1 ${showFinancials ? 'lg:grid-cols-2' : ''} gap-6 mb-6`}>
         <UserGrowthChart title="Crecimiento de Usuarios" registrationsByDay={users?.registrationsByDay} />
-        <ChartLine
-          title="MRR Neto (Trend)"
-          data={mrrTrendData}
-          xKey="date"
-          lines={[
-            { dataKey: 'mrr', color: '#6cad7f', name: 'MRR ($)' },
-          ]}
-        />
+        {showFinancials && (
+          <ChartLine
+            title="MRR Neto (Trend)"
+            data={mrrTrendData}
+            xKey="date"
+            lines={[
+              { dataKey: 'mrr', color: '#6cad7f', name: 'MRR ($)' },
+            ]}
+          />
+        )}
       </div>
 
       {/* Charts Row 2 */}

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
+import { canAccessApi, fieldsToRedact, getRoleFromToken } from '@/lib/roles';
 
 const BACKEND_URL =
   process.env.BACKEND_URL ||
@@ -20,6 +21,15 @@ export async function GET(
   }
 
   const path = params.path.join('/');
+
+  // Enforcement por rol: bloquear endpoints sensibles (PII/finanzas) para
+  // marketing. El rol se deriva del token (no forjable). El PDF interno de
+  // Puppeteer usa pdfToken sin admin-token, así que este check se salta para él.
+  const role = getRoleFromToken(token);
+  if (token && !canAccessApi(role, path)) {
+    return NextResponse.json({ error: 'No autorizado para este recurso' }, { status: 403 });
+  }
+
   const url = new URL(`${BACKEND_URL}/api/admin/${path}`);
 
   // Forward query params (incluye pdfToken si está presente)
@@ -38,7 +48,8 @@ export async function GET(
       cache: 'no-store',
     });
 
-    return await passthroughResponse(backendRes);
+    // Redacción de campos sensibles en endpoints permitidos (ej. pulse → mrr).
+    return await passthroughResponse(backendRes, token ? fieldsToRedact(role, path) : []);
   } catch {
     return NextResponse.json(
       { error: 'Error conectando con el backend' },
@@ -52,11 +63,18 @@ export async function GET(
  * vía NextResponse.json. Para binarios (application/pdf, imágenes, etc.)
  * hace stream del body con sus headers originales.
  */
-async function passthroughResponse(backendRes: Response): Promise<NextResponse> {
+async function passthroughResponse(
+  backendRes: Response,
+  redactFields: string[] = []
+): Promise<NextResponse> {
   const contentType = backendRes.headers.get('content-type') || '';
 
   if (contentType.includes('application/json')) {
     const data = await backendRes.json();
+    // Quitar campos sensibles del payload ANTES de que salga al navegador.
+    if (redactFields.length > 0 && data && typeof data.data === 'object' && data.data !== null) {
+      for (const f of redactFields) delete data.data[f];
+    }
     return NextResponse.json(data, { status: backendRes.status });
   }
 
@@ -88,6 +106,13 @@ async function forwardWithBody(
   }
 
   const path = params.path.join('/');
+
+  // Enforcement por rol también en escrituras (POST/PATCH/PUT/DELETE).
+  const role = getRoleFromToken(token);
+  if (token && !canAccessApi(role, path)) {
+    return NextResponse.json({ error: 'No autorizado para este recurso' }, { status: 403 });
+  }
+
   const url = new URL(`${BACKEND_URL}/api/admin/${path}`);
 
   req.nextUrl.searchParams.forEach((value, key) => {
