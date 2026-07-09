@@ -283,8 +283,34 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
             <div>
               <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Efecto en activación (tx en 7d)</p>
               {stats.holdout === 0 ? (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-                  Esta campaña no tuvo holdout (control). Sin grupo de comparación no se mide el efecto causal — solo el funnel de arriba. Para la próxima, ponle un holdout mayor a 0.
+                // Sin holdout no hay medición causal, pero sí referencia descriptiva:
+                // % de expuestos con tx después del envío vs. los 7 días anteriores
+                // (cada usuario como su propio control).
+                <div className="rounded-lg border border-finzen-gray/20 p-4">
+                  <div className="grid grid-cols-2 gap-4 mb-3">
+                    <div>
+                      <p className="text-xs text-finzen-gray">Transaccionaron después (7d)</p>
+                      <p className="text-xl font-bold text-finzen-blue">{stats.exposedTxRate}%</p>
+                      <p className="text-[11px] text-finzen-gray">{stats.exposedTx}/{stats.exposed}</p>
+                    </div>
+                    <div>
+                      <p className="text-xs text-finzen-gray">Antes del envío (7d previos)</p>
+                      <p className="text-xl font-bold text-finzen-gray">
+                        {stats.exposedTxBeforeRate != null ? `${stats.exposedTxBeforeRate}%` : '—'}
+                      </p>
+                      <p className="text-[11px] text-finzen-gray">
+                        {stats.exposedTxBefore != null ? `${stats.exposedTxBefore}/${stats.exposed}` : 'no disponible'}
+                      </p>
+                    </div>
+                  </div>
+                  {stats.prePostPts != null && (
+                    <div className={`rounded-md px-3 py-2 text-sm ${stats.prePostPts > 0 ? 'bg-emerald-50 text-emerald-700' : stats.prePostPts < 0 ? 'bg-red-50 text-red-700' : 'bg-finzen-white text-finzen-gray'}`}>
+                      <span className="font-semibold">Pre/post:</span> {stats.prePostPts >= 0 ? '+' : ''}{stats.prePostPts} pts
+                    </div>
+                  )}
+                  <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-md px-2.5 py-1.5 mt-2">
+                    Sin holdout esto es una <span className="font-semibold">referencia descriptiva, no efecto causal</span> (quincenas, tendencias, etc. también mueven el número). Para medir el efecto real usa holdout &gt; 0 en audiencias de 300+ usuarios.
+                  </p>
                 </div>
               ) : (
                 <div className="rounded-lg border border-finzen-gray/20 p-4">

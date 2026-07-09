@@ -603,6 +603,11 @@ export interface BroadcastStats {
   exposedTxRate: number;
   holdoutTxRate: number;
   liftPts: number;
+  // Pre/post (referencia descriptiva para campañas sin holdout).
+  // Opcionales por retrocompatibilidad con backends sin el campo.
+  exposedTxBefore?: number;
+  exposedTxBeforeRate?: number;
+  prePostPts?: number;
 }
 
 export async function fetchBroadcastStats(id: string): Promise<BroadcastStats> {
