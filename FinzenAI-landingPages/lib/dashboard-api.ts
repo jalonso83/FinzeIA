@@ -509,6 +509,7 @@ export interface BroadcastAudience {
   country?: string;
   segments: string[];
   dormantDays?: number;
+  trialEndingDays?: number; // segmento trial_ending (propuestas del agente)
   test?: boolean;
   targetEmail?: string; // envío dirigido a un usuario específico
 }
@@ -530,11 +531,16 @@ export interface BroadcastItem {
   title: string;
   body: string;
   type: BroadcastApiType;
-  status: string; // DRAFT | SENDING | SENT | FAILED
+  status: string; // PENDING_APPROVAL (agente) | REJECTED | DRAFT | SENDING | SENT | FAILED
   targetCount: number | null;
   successCount: number | null;
   failureCount: number | null;
   audience: BroadcastAudience;
+  surface?: string;
+  holdoutPct?: number;
+  createdBy?: string; // userId del admin, o 'growth-agent' si lo propuso el agente
+  // Para propuestas del agente: { rationale, segment_slug, segment_params, proposed_by }
+  data?: Record<string, unknown> | null;
   createdAt: string;
   sentAt: string | null;
 }
@@ -664,6 +670,27 @@ export async function sendBroadcastById(id: string): Promise<BroadcastSendResult
   }
   const json = await res.json();
   return json.data as BroadcastSendResult;
+}
+
+// Aprueba una propuesta del agente de crecimiento: PENDING_APPROVAL → DRAFT.
+// Después de aprobar, el envío sigue el flujo normal (sendBroadcastById).
+export async function approveBroadcastById(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/approve`, { method: 'POST' });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+}
+
+// Rechaza una propuesta del agente: PENDING_APPROVAL → REJECTED (queda en el historial).
+export async function rejectBroadcastById(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
 }
 
 export async function fetchBroadcasts(page = 1): Promise<BroadcastsListResponse> {

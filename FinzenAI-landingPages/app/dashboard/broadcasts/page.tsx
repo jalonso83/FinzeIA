@@ -9,10 +9,11 @@
 import { useState, useEffect } from 'react';
 import {
   Megaphone, Send, Bell, Save, AlertTriangle, Check, ChevronRight, X,
-  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2,
+  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2, Bot,
 } from 'lucide-react';
 import {
   previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts, fetchBroadcastStats,
+  approveBroadcastById, rejectBroadcastById,
   type BroadcastAudience, type BroadcastItem, type BroadcastSendResult, type BroadcastStats,
 } from '@/lib/dashboard-api';
 
@@ -61,10 +62,21 @@ const TITLE_MAX = 100;
 const BODY_MAX = 200;
 
 const STATUS_META: Record<string, { label: string; chip: string }> = {
+  PENDING_APPROVAL: { label: 'Propuesta del agente', chip: 'bg-amber-100 text-amber-700' },
+  REJECTED: { label: 'Rechazada', chip: 'bg-gray-200 text-gray-500' },
   DRAFT: { label: 'Borrador', chip: 'bg-gray-100 text-gray-600' },
   SENDING: { label: 'Enviando', chip: 'bg-blue-100 text-blue-700' },
   SENT: { label: 'Enviado', chip: 'bg-emerald-100 text-emerald-700' },
   FAILED: { label: 'Falló', chip: 'bg-red-100 text-red-700' },
+};
+
+// Nombres legibles de los segmentos del catálogo del agente (Agent API).
+const AGENT_SEGMENT_LABELS: Record<string, string> = {
+  never_activated: 'Nunca activados',
+  dormant: 'Dormidos',
+  active: 'Activos',
+  budget_exceeded: 'Presupuesto excedido',
+  trial_ending: 'Trial por vencer',
 };
 
 // ─── Vista previa del push (teléfono) ────────────────────────────────────
@@ -306,6 +318,188 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
   );
 }
 
+// ─── Modal de propuesta del agente / borrador ────────────────────────────
+// Flujo de aprobación humana: el agente de crecimiento crea propuestas en
+// PENDING_APPROVAL; aquí el admin las revisa (mensaje + rationale + alcance
+// real) y las aprueba (→ DRAFT), rechaza (→ REJECTED) o, ya aprobadas, las
+// envía (mismo camino /send que el composer, con countdown).
+function ProposalModal({
+  broadcast, onClose, onChanged, onSent,
+}: {
+  broadcast: BroadcastItem;
+  onClose: () => void;
+  onChanged: () => void;                       // refresca el historial tras aprobar/rechazar
+  onSent: (r: BroadcastSendResult) => void;    // banner de resultado tras enviar
+}) {
+  const [status, setStatus] = useState(broadcast.status);
+  const [estimate, setEstimate] = useState<{ target: number; optedOut: number } | null>(null);
+  const [estimateError, setEstimateError] = useState<string | null>(null);
+  const [working, setWorking] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [sendSeconds, setSendSeconds] = useState(5);
+
+  const data = (broadcast.data ?? {}) as Record<string, unknown>;
+  const rationale = typeof data.rationale === 'string' ? data.rationale : null;
+  const segmentSlug = typeof data.segment_slug === 'string' ? data.segment_slug : null;
+  const isAgent = broadcast.createdBy === 'growth-agent' || data.proposed_by === 'growth-agent';
+
+  // Alcance real recalculado en vivo (mismo /preview del composer).
+  useEffect(() => {
+    let cancelled = false;
+    previewBroadcast(broadcast.type, broadcast.audience)
+      .then((r) => { if (!cancelled) setEstimate(r); })
+      .catch((e: any) => {
+        if (!cancelled) setEstimateError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al calcular audiencia.'));
+      });
+    return () => { cancelled = true; };
+  }, [broadcast]);
+
+  // Countdown de seguridad para el envío (solo cuando está en DRAFT).
+  useEffect(() => {
+    if (status !== 'DRAFT' || sendSeconds <= 0) return;
+    const t = setTimeout(() => setSendSeconds((s) => s - 1), 1000);
+    return () => clearTimeout(t);
+  }, [status, sendSeconds]);
+
+  const run = async (action: () => Promise<void>) => {
+    setWorking(true);
+    setError(null);
+    try {
+      await action();
+    } catch (e: any) {
+      setError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada, vuelve a iniciar sesión.' : (e?.message || 'Error.'));
+    } finally {
+      setWorking(false);
+    }
+  };
+
+  const handleApprove = () => run(async () => {
+    await approveBroadcastById(broadcast.id);
+    setStatus('DRAFT');
+    setSendSeconds(5);
+    onChanged();
+  });
+  const handleReject = () => run(async () => {
+    await rejectBroadcastById(broadcast.id);
+    setStatus('REJECTED');
+    onChanged();
+  });
+  const handleSend = () => run(async () => {
+    const result = await sendBroadcastById(broadcast.id);
+    onChanged();
+    onSent(result);
+    onClose();
+  });
+
+  const segmentLabel = segmentSlug
+    ? (AGENT_SEGMENT_LABELS[segmentSlug] ?? segmentSlug)
+    : (broadcast.audience?.segments ?? []).map((s) => AGENT_SEGMENT_LABELS[s] ?? s).join(', ') || '—';
+
+  return (
+    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
+      <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-1">
+          <h3 className="text-lg font-bold text-finzen-black flex items-center gap-2">
+            {isAgent ? <><Bot size={18} className="text-amber-600" /> Propuesta del agente</> : 'Borrador'}
+          </h3>
+          <button onClick={onClose} className="text-finzen-gray hover:text-finzen-black"><X size={18} /></button>
+        </div>
+        <p className="text-xs text-finzen-gray mb-4">
+          {new Date(broadcast.createdAt).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' })}
+          {' · '}Segmento: <span className="font-medium text-finzen-black">{segmentLabel}</span>
+          {' · '}Superficie: {broadcast.surface ?? 'push'}
+          {' · '}Holdout: {broadcast.holdoutPct ?? 0}%
+        </p>
+
+        {/* Mensaje propuesto */}
+        <div className="rounded-lg border border-finzen-gray/15 bg-finzen-white px-3 py-2.5 mb-3">
+          <p className="text-sm font-semibold text-finzen-black">{broadcast.title}</p>
+          <p className="text-[13px] text-finzen-gray leading-snug mt-1 whitespace-pre-wrap">{broadcast.body}</p>
+        </div>
+
+        {/* Rationale del agente */}
+        {rationale && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5 mb-3">
+            <p className="text-[11px] font-semibold text-amber-700 uppercase tracking-wider mb-1">Por qué lo propone</p>
+            <p className="text-[13px] text-amber-900 leading-snug whitespace-pre-wrap">{rationale}</p>
+          </div>
+        )}
+
+        {/* Alcance real */}
+        <div className="rounded-lg bg-finzen-white border border-finzen-gray/20 p-3 mb-4">
+          {estimateError ? (
+            <p className="text-sm text-finzen-red flex items-center gap-1.5"><AlertTriangle size={14} /> {estimateError}</p>
+          ) : estimate ? (
+            <p className="text-sm text-finzen-black">
+              👥 <span className="font-bold text-finzen-blue">{estimate.target.toLocaleString('es')}</span> usuarios recibirían esto
+              {estimate.optedOut > 0 ? <span className="text-xs text-finzen-gray"> · {estimate.optedOut.toLocaleString('es')} excluidos por opt-out</span> : null}
+            </p>
+          ) : (
+            <p className="text-sm text-finzen-gray flex items-center gap-2"><Loader2 size={14} className="animate-spin" /> Calculando alcance…</p>
+          )}
+        </div>
+
+        {error && (
+          <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 mb-3 text-sm text-red-700 flex items-center gap-1.5">
+            <AlertTriangle size={14} /> {error}
+          </div>
+        )}
+
+        {/* Acciones según estado */}
+        {status === 'PENDING_APPROVAL' ? (
+          <div className="flex items-center justify-end gap-2">
+            <button
+              onClick={handleReject}
+              disabled={working}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-red-200 text-red-600 hover:bg-red-50 transition-colors disabled:opacity-50"
+            >
+              Rechazar
+            </button>
+            <button
+              onClick={handleApprove}
+              disabled={working}
+              className="px-4 py-2 text-sm font-medium rounded-lg bg-finzen-blue text-white hover:bg-blue-700 transition-colors disabled:opacity-50 flex items-center gap-1.5"
+            >
+              {working ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />} Aprobar
+            </button>
+          </div>
+        ) : status === 'DRAFT' ? (
+          <div>
+            <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2 mb-3 text-sm text-emerald-700 flex items-center gap-1.5">
+              <Check size={14} /> Aprobada. Puedes enviarla ahora o cerrar y enviarla luego desde el historial.
+            </div>
+            <div className="flex items-center justify-end gap-2">
+              <button
+                onClick={onClose}
+                disabled={working}
+                className="px-4 py-2 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white transition-colors disabled:opacity-50"
+              >
+                Cerrar
+              </button>
+              <button
+                onClick={handleSend}
+                disabled={working || sendSeconds > 0 || !estimate || estimate.target === 0}
+                className="px-4 py-2 text-sm font-medium rounded-lg bg-finzen-red text-white hover:bg-red-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+              >
+                {working
+                  ? <><Loader2 size={14} className="animate-spin" /> Enviando…</>
+                  : sendSeconds > 0
+                    ? <><Clock size={14} /> Enviar ({sendSeconds}s)</>
+                    : <><Send size={14} /> Enviar ahora</>}
+              </button>
+            </div>
+          </div>
+        ) : status === 'REJECTED' ? (
+          <div className="flex items-center justify-between">
+            <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-gray-200 text-gray-500">Rechazada</span>
+            <button onClick={onClose} className="px-4 py-2 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white transition-colors">Cerrar</button>
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 // ─── Página ──────────────────────────────────────────────────────────────
 export default function BroadcastsPage() {
   const [view, setView] = useState<'new' | 'history'>('new');
@@ -341,7 +535,9 @@ export default function BroadcastsPage() {
   const [historyItems, setHistoryItems] = useState<BroadcastItem[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
+  const [historyReload, setHistoryReload] = useState(0); // bump para refrescar tras aprobar/rechazar/enviar
   const [statsTarget, setStatsTarget] = useState<BroadcastItem | null>(null); // campaña cuyas métricas se ven
+  const [proposalTarget, setProposalTarget] = useState<BroadcastItem | null>(null); // propuesta/borrador en revisión
 
   const togglePlan = (p: Plan) =>
     setPlans((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -423,7 +619,7 @@ export default function BroadcastsPage() {
     }
   };
 
-  // Carga del historial al entrar a esa vista.
+  // Carga del historial al entrar a esa vista (y al bumpear historyReload).
   useEffect(() => {
     if (view !== 'history') return;
     let cancelled = false;
@@ -434,7 +630,7 @@ export default function BroadcastsPage() {
       .catch((e: any) => { if (!cancelled) setHistoryError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.')); })
       .finally(() => { if (!cancelled) setHistoryLoading(false); });
     return () => { cancelled = true; };
-  }, [view]);
+  }, [view, historyReload]);
 
   return (
     <div className="space-y-6">
@@ -524,17 +720,22 @@ export default function BroadcastsPage() {
                   const attempted = (b.successCount ?? 0) + (b.failureCount ?? 0);
                   const delivery = b.successCount != null && attempted > 0
                     ? `${Math.round((b.successCount / attempted) * 100)}%` : '—';
+                  // Propuestas del agente y borradores se revisan/aprueban/envían
+                  // en su propio modal; el resto abre las métricas de campaña.
+                  const needsReview = b.status === 'PENDING_APPROVAL' || b.status === 'DRAFT' || b.status === 'REJECTED';
+                  const isAgentRow = b.createdBy === 'growth-agent';
                   return (
                     <tr
                       key={b.id}
-                      onClick={() => setStatsTarget(b)}
-                      title="Ver métricas de la campaña"
+                      onClick={() => (needsReview ? setProposalTarget(b) : setStatsTarget(b))}
+                      title={needsReview ? 'Revisar propuesta / borrador' : 'Ver métricas de la campaña'}
                       className="hover:bg-finzen-white/80 transition-colors cursor-pointer"
                     >
                       <td className="px-4 py-3 text-sm text-finzen-gray">
                         {new Date(b.createdAt).toLocaleDateString('es', { day: '2-digit', month: 'short' })}
                       </td>
                       <td className="px-4 py-3 text-sm font-medium text-finzen-black">
+                        {isAgentRow ? <Bot size={13} className="inline mr-1.5 -mt-0.5 text-amber-600" aria-label="Propuesto por el agente" /> : null}
                         {b.title}{b.audience?.test ? <span className="ml-1.5 text-[10px] text-finzen-blue">(prueba)</span> : null}
                       </td>
                       <td className="px-4 py-3">
@@ -885,6 +1086,15 @@ export default function BroadcastsPage() {
 
       {statsTarget && (
         <CampaignStatsModal broadcast={statsTarget} onClose={() => setStatsTarget(null)} />
+      )}
+
+      {proposalTarget && (
+        <ProposalModal
+          broadcast={proposalTarget}
+          onClose={() => setProposalTarget(null)}
+          onChanged={() => setHistoryReload((n) => n + 1)}
+          onSent={(r) => setSentResult(r)}
+        />
       )}
     </div>
   );
