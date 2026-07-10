@@ -8,12 +8,12 @@
 
 import { useState, useEffect } from 'react';
 import {
-  Megaphone, Send, Bell, Save, AlertTriangle, Check, ChevronRight, X,
-  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2, Bot,
+  Megaphone, Send, Bell, Save, AlertTriangle, Check, ChevronRight, ChevronLeft, X,
+  Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2, Bot, Trash2,
 } from 'lucide-react';
 import {
   previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts, fetchBroadcastStats,
-  approveBroadcastById, rejectBroadcastById,
+  approveBroadcastById, rejectBroadcastById, deleteBroadcastById,
   type BroadcastAudience, type BroadcastItem, type BroadcastSendResult, type BroadcastStats,
 } from '@/lib/dashboard-api';
 
@@ -219,6 +219,36 @@ function ConfirmModal({
   );
 }
 
+// ─── Criterios de audiencia en lenguaje humano ───────────────────────────
+// Traduce el JSON de audiencia guardado en la campaña (broadcast.audience) a
+// bullets legibles: "quién exactamente recibió/recibirá esto".
+function audienceCriteriaLines(b: BroadcastItem): string[] {
+  const a = b.audience ?? ({} as BroadcastAudience);
+  if (a.targetEmail) return [`Envío dirigido a un solo usuario: ${a.targetEmail}`];
+  if (a.test) return ['Envío de prueba (solo al admin que lo creó)'];
+
+  const segLabel = (s: string) => {
+    switch (s) {
+      case 'never_activated': return 'Nunca activaron (0 transacciones de por vida)';
+      case 'dormant': return `Dormidos (sin actividad hace ${a.dormantDays ?? 14}+ días)`;
+      case 'active': return `Activos (actividad en los últimos ${a.dormantDays ?? 14} días)`;
+      case 'budget_exceeded': return 'Presupuesto excedido (gasto superó el monto de un presupuesto vigente)';
+      case 'trial_ending': return `Trial por vencer (en los próximos ${a.trialEndingDays ?? 3} días)`;
+      default: return s;
+    }
+  };
+  const planName = (p: string) => (p === 'PREMIUM' ? 'Plus' : p === 'FREE' ? 'Free' : p === 'PRO' ? 'Pro' : p);
+  const plans = a.plans ?? [];
+  const platforms = a.platforms ?? [];
+
+  return [
+    `Segmento: ${(a.segments ?? []).map(segLabel).join('  ·  o  ·  ') || '—'}`,
+    `Planes: ${plans.length >= 3 ? 'todos (Free, Plus, Pro)' : plans.map(planName).join(', ') || '—'}`,
+    `Plataforma: ${platforms.length >= 2 ? 'iOS y Android' : platforms.map((p) => (p === 'IOS' ? 'iOS' : 'Android')).join(', ') || '—'}`,
+    `País: ${a.country && a.country !== 'Todos' ? a.country : 'todos'}`,
+  ];
+}
+
 // ─── Métricas de campaña (funnel + holdout) ──────────────────────────────
 function FunnelBox({ label, value, sub }: { label: string; value: number; sub?: string }) {
   return (
@@ -234,6 +264,7 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
   const [stats, setStats] = useState<BroadcastStats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [tab, setTab] = useState<'efecto' | 'criterios'>('efecto');
 
   useEffect(() => {
     let cancelled = false;
@@ -248,6 +279,12 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
 
   const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
 
+  // Ventana post-envío (7d) aún abierta: los números "después" siguen creciendo.
+  const daysSinceSend = broadcast.sentAt
+    ? Math.floor((Date.now() - new Date(broadcast.sentAt).getTime()) / (24 * 60 * 60 * 1000))
+    : null;
+  const windowIncomplete = daysSinceSend !== null && daysSinceSend < 7;
+
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4" onClick={onClose}>
       <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl p-6" onClick={(e) => e.stopPropagation()}>
@@ -255,19 +292,72 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
           <h3 className="text-lg font-bold text-finzen-black">Efecto de la campaña</h3>
           <button onClick={onClose} className="text-finzen-gray hover:text-finzen-black"><X size={18} /></button>
         </div>
-        <div className="mb-4 rounded-lg border border-finzen-gray/15 bg-finzen-white px-3 py-2.5">
+        <div className="mb-3 rounded-lg border border-finzen-gray/15 bg-finzen-white px-3 py-2.5">
           <p className="text-sm font-semibold text-finzen-black">{broadcast.title}</p>
           {broadcast.body ? (
             <p className="text-[13px] text-finzen-gray leading-snug mt-1 whitespace-pre-wrap">{broadcast.body}</p>
           ) : null}
         </div>
 
-        {loading ? (
+        {/* Tabs internos: efecto (métricas) / criterios (a quién se envió) */}
+        <div className="flex items-center gap-1 bg-finzen-white rounded-lg p-1 border border-finzen-gray/20 w-fit mb-4">
+          {([['efecto', 'Efecto'], ['criterios', 'Criterios de la campaña']] as const).map(([t, label]) => (
+            <button
+              key={t}
+              onClick={() => setTab(t)}
+              className={`px-3 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                tab === t ? 'bg-white text-finzen-black shadow-sm' : 'text-finzen-gray hover:text-finzen-black'
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {tab === 'criterios' ? (
+          <div className="space-y-4">
+            <div>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Se eligieron los usuarios que cumplen</p>
+              <ul className="space-y-1.5">
+                {audienceCriteriaLines(broadcast).map((line, i) => (
+                  <li key={i} className="text-sm text-finzen-black flex items-start gap-2">
+                    <Check size={14} className="text-finzen-blue mt-0.5 shrink-0" />
+                    <span>{line}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            <div>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Configuración del envío</p>
+              <ul className="space-y-1.5 text-sm text-finzen-black">
+                <li>Superficie: {broadcast.surface === 'slot' ? 'slot del dashboard' : broadcast.surface === 'both' ? 'push + slot' : 'push'}</li>
+                <li>Holdout (control): {broadcast.holdoutPct ?? 0}%</li>
+                <li>Tipo: {TYPE_META[broadcast.type]?.label ?? broadcast.type}</li>
+                {broadcast.sentAt ? (
+                  <li>Enviada: {new Date(broadcast.sentAt).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' })}</li>
+                ) : null}
+                {broadcast.createdBy === 'growth-agent' ? (
+                  <li className="flex items-center gap-1.5"><Bot size={13} className="text-amber-600" /> Propuesta por el agente de crecimiento</li>
+                ) : null}
+              </ul>
+            </div>
+            <p className="text-[11px] text-finzen-gray">
+              Los usuarios con opt-out de este tipo de notificación se excluyen automáticamente al enviar.
+            </p>
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center py-12"><Loader2 className="animate-spin text-finzen-blue" size={26} /></div>
         ) : error ? (
           <div className="text-center text-red-600 text-sm py-8">{error}</div>
         ) : stats ? (
           <div className="space-y-5">
+            {windowIncomplete && (
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-800">
+                ⏳ La ventana de medición de 7 días aún no se completa (van {daysSinceSend} {daysSinceSend === 1 ? 'día' : 'días'}).
+                Las impresiones y el % de &quot;transaccionaron después&quot; seguirán subiendo — revisa de nuevo el{' '}
+                {broadcast.sentAt ? new Date(new Date(broadcast.sentAt).getTime() + 7 * 24 * 60 * 60 * 1000).toLocaleDateString('es', { day: '2-digit', month: 'short' }) : ''}.
+              </div>
+            )}
             <div>
               <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Funnel del slot</p>
               <div className="grid grid-cols-3 gap-2">
@@ -562,8 +652,13 @@ export default function BroadcastsPage() {
   const [historyLoading, setHistoryLoading] = useState(false);
   const [historyError, setHistoryError] = useState<string | null>(null);
   const [historyReload, setHistoryReload] = useState(0); // bump para refrescar tras aprobar/rechazar/enviar
+  const [historyPage, setHistoryPage] = useState(1);
+  const [historyTotalPages, setHistoryTotalPages] = useState(1);
   const [statsTarget, setStatsTarget] = useState<BroadcastItem | null>(null); // campaña cuyas métricas se ven
   const [proposalTarget, setProposalTarget] = useState<BroadcastItem | null>(null); // propuesta/borrador en revisión
+  // Eliminación con confirmación de dos clicks (el primero arma, el segundo ejecuta).
+  const [deleteArmedId, setDeleteArmedId] = useState<string | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const togglePlan = (p: Plan) =>
     setPlans((cur) => (cur.includes(p) ? cur.filter((x) => x !== p) : [...cur, p]));
@@ -645,18 +740,39 @@ export default function BroadcastsPage() {
     }
   };
 
-  // Carga del historial al entrar a esa vista (y al bumpear historyReload).
+  // Carga del historial al entrar a esa vista (y al cambiar de página o bumpear historyReload).
   useEffect(() => {
     if (view !== 'history') return;
     let cancelled = false;
     setHistoryLoading(true);
     setHistoryError(null);
-    fetchBroadcasts(1)
-      .then((r) => { if (!cancelled) setHistoryItems(r.items); })
+    setDeleteArmedId(null);
+    fetchBroadcasts(historyPage)
+      .then((r) => {
+        if (cancelled) return;
+        setHistoryItems(r.items);
+        setHistoryTotalPages(r.pagination?.totalPages ?? 1);
+        // Si la página quedó vacía (ej. se eliminó el último ítem), retrocede una.
+        if (r.items.length === 0 && historyPage > 1) setHistoryPage((p) => p - 1);
+      })
       .catch((e: any) => { if (!cancelled) setHistoryError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.')); })
       .finally(() => { if (!cancelled) setHistoryLoading(false); });
     return () => { cancelled = true; };
-  }, [view, historyReload]);
+  }, [view, historyReload, historyPage]);
+
+  // Eliminar/ocultar campaña (segundo click del basurero).
+  const handleDelete = async (b: BroadcastItem) => {
+    setDeletingId(b.id);
+    try {
+      await deleteBroadcastById(b.id);
+      setDeleteArmedId(null);
+      setHistoryReload((n) => n + 1);
+    } catch (e: any) {
+      setHistoryError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al eliminar.'));
+    } finally {
+      setDeletingId(null);
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -735,6 +851,7 @@ export default function BroadcastsPage() {
                   <th className="px-4 py-3">Estado</th>
                   <th className="px-4 py-3 text-center">Audiencia</th>
                   <th className="px-4 py-3 text-center">Entrega</th>
+                  <th className="px-4 py-3 text-center w-24"></th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-finzen-gray/10">
@@ -774,11 +891,54 @@ export default function BroadcastsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-center text-finzen-black">{b.targetCount ?? '—'}</td>
                       <td className="px-4 py-3 text-sm text-center text-finzen-gray">{delivery}</td>
+                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                        {deleteArmedId === b.id ? (
+                          <button
+                            onClick={() => handleDelete(b)}
+                            disabled={deletingId === b.id}
+                            title={b.status === 'SENT' || b.status === 'FAILED' || b.status === 'SENDING'
+                              ? 'Ocultar del historial (la medición se conserva)'
+                              : 'Eliminar definitivamente'}
+                            className="px-2 py-1 text-[11px] font-semibold rounded-md bg-finzen-red text-white hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center gap-1 mx-auto"
+                          >
+                            {deletingId === b.id ? <Loader2 size={11} className="animate-spin" /> : <Trash2 size={11} />}
+                            ¿Seguro?
+                          </button>
+                        ) : (
+                          <button
+                            onClick={() => setDeleteArmedId(b.id)}
+                            title="Quitar del historial"
+                            className="p-1.5 rounded-md text-finzen-gray/60 hover:text-finzen-red hover:bg-red-50 transition-colors"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
+          )}
+          {/* Paginado */}
+          {!historyLoading && !historyError && historyTotalPages > 1 && (
+            <div className="flex items-center justify-between px-4 py-3 border-t border-finzen-gray/10 bg-finzen-white">
+              <button
+                onClick={() => setHistoryPage((p) => Math.max(1, p - 1))}
+                disabled={historyPage <= 1}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <ChevronLeft size={14} /> Anterior
+              </button>
+              <span className="text-xs text-finzen-gray">Página {historyPage} de {historyTotalPages}</span>
+              <button
+                onClick={() => setHistoryPage((p) => Math.min(historyTotalPages, p + 1))}
+                disabled={historyPage >= historyTotalPages}
+                className="flex items-center gap-1 px-3 py-1.5 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:text-finzen-black hover:bg-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                Siguiente <ChevronRight size={14} />
+              </button>
+            </div>
           )}
         </div>
       ) : (

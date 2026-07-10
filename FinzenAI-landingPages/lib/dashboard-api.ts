@@ -698,6 +698,19 @@ export async function rejectBroadcastById(id: string): Promise<void> {
   }
 }
 
+// Quita una campaña del historial. El backend decide: nunca enviada → borrado
+// real ('deleted'); ya enviada → soft delete ('hidden', la medición se conserva).
+export async function deleteBroadcastById(id: string): Promise<{ action: 'deleted' | 'hidden' }> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}`, { method: 'DELETE' });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as { action: 'deleted' | 'hidden' };
+}
+
 export async function fetchBroadcasts(page = 1): Promise<BroadcastsListResponse> {
   const res = await fetch(`/api/admin/broadcasts?page=${page}`);
   if (!res.ok) {
