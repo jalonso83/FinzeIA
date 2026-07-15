@@ -14,6 +14,7 @@ import {
 import {
   previewBroadcast, createBroadcast, sendBroadcastById, fetchBroadcasts, fetchBroadcastStats,
   approveBroadcastById, rejectBroadcastById, deleteBroadcastById,
+  activateBroadcastById, deactivateBroadcastById,
   type BroadcastAudience, type BroadcastItem, type BroadcastSendResult, type BroadcastStats,
 } from '@/lib/dashboard-api';
 
@@ -68,6 +69,8 @@ const STATUS_META: Record<string, { label: string; chip: string }> = {
   SENDING: { label: 'Enviando', chip: 'bg-blue-100 text-blue-700' },
   SENT: { label: 'Enviado', chip: 'bg-emerald-100 text-emerald-700' },
   FAILED: { label: 'Falló', chip: 'bg-red-100 text-red-700' },
+  ACTIVE: { label: 'Activa (siempre encendida)', chip: 'bg-teal-100 text-teal-700' },
+  ENDED: { label: 'Apagada', chip: 'bg-gray-200 text-gray-500' },
 };
 
 // Nombres legibles de los segmentos del catálogo del agente (Agent API).
@@ -160,17 +163,51 @@ function SlotPreview({ title, body, ctaLabel, screen, type }: { title: string; b
 
 // ─── Modal de confirmación con countdown ─────────────────────────────────
 function ConfirmModal({
-  target, type, audienceLabel, singleTarget, sending, onCancel, onConfirm,
+  target, type, audienceLabel, singleTarget, sending, evergreen, onCancel, onConfirm,
 }: {
   target: number; type: BroadcastType; audienceLabel: string; singleTarget: boolean; sending: boolean;
+  evergreen?: boolean;
   onCancel: () => void; onConfirm: () => void;
 }) {
-  const [seconds, setSeconds] = useState(singleTarget ? 0 : 5);
+  const [seconds, setSeconds] = useState(singleTarget || evergreen ? 0 : 5);
   useEffect(() => {
     if (seconds <= 0) return;
     const t = setTimeout(() => setSeconds((s) => s - 1), 1000);
     return () => clearTimeout(t);
   }, [seconds]);
+
+  if (evergreen) {
+    return (
+      <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
+        <div className="w-full max-w-md rounded-xl bg-white shadow-2xl p-6">
+          <div className="flex items-center gap-2 mb-3">
+            <Megaphone size={20} className="text-teal-600" />
+            <h3 className="text-lg font-bold text-finzen-black">Activar campaña siempre encendida</h3>
+          </div>
+          <p className="text-sm text-finzen-black">
+            A partir de ahora, <span className="font-semibold">cada usuario nuevo</span> verá este slot en el dashboard al entrar por primera vez. La campaña se irá inscribiendo sola; puedes apagarla cuando quieras desde el historial.
+          </p>
+          <p className="text-xs text-finzen-gray mt-1">{TYPE_META[type].label} · Slot del dashboard · Disparador: primera entrada</p>
+          <div className="flex items-center justify-end gap-2 mt-5">
+            <button
+              onClick={onCancel}
+              disabled={sending}
+              className="px-4 py-2 text-sm font-medium rounded-lg border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white transition-colors disabled:opacity-50"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={onConfirm}
+              disabled={sending}
+              className="px-4 py-2 text-sm font-medium rounded-lg text-white bg-teal-600 hover:bg-teal-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1.5"
+            >
+              {sending ? <><Loader2 size={14} className="animate-spin" /> Activando…</> : <><Check size={14} /> Activar campaña</>}
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4">
@@ -351,6 +388,13 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
           <div className="text-center text-red-600 text-sm py-8">{error}</div>
         ) : stats ? (
           <div className="space-y-5">
+            {stats.mode === 'EVERGREEN' && (
+              <div className="rounded-lg border border-teal-200 bg-teal-50 px-3 py-2.5 text-[13px] text-teal-800">
+                <span className="font-semibold">Campaña siempre encendida.</span>{' '}
+                Inscritos hasta ahora: <span className="font-bold">{(stats.enrolled ?? 0).toLocaleString('es')}</span>.
+                Cada usuario nuevo se inscribe al entrar; la ventana de 7 días de activación se mide desde la inscripción de cada uno.
+              </div>
+            )}
             {windowIncomplete && (
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-[12px] text-blue-800">
                 ⏳ La ventana de medición de 7 días aún no se completa (van {daysSinceSend} {daysSinceSend === 1 ? 'día' : 'días'}).
@@ -372,7 +416,20 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
 
             <div>
               <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Efecto en activación (tx en 7d)</p>
-              {stats.holdout === 0 ? (
+              {stats.mode === 'EVERGREEN' ? (
+                // Evergreen sin holdout: la ven todos los nuevos. Métrica descriptiva
+                // = % de los expuestos que hizo su 1ª transacción en 7d desde que se
+                // inscribió. La comparación pre/inscripción no aplica (antes de entrar
+                // a la app casi nadie transacciona), así que no la mostramos.
+                <div className="rounded-lg border border-finzen-gray/20 p-4">
+                  <p className="text-xs text-finzen-gray">Activaron (1ª tx en 7d desde que vieron el slot)</p>
+                  <p className="text-2xl font-bold text-finzen-blue">{stats.exposedTxRate}%</p>
+                  <p className="text-[11px] text-finzen-gray">{stats.exposedTx}/{stats.exposed} usuarios expuestos</p>
+                  <p className="text-[11px] text-finzen-gray bg-finzen-white border border-finzen-gray/20 rounded-md px-2.5 py-1.5 mt-2">
+                    Sin holdout (la ve todo usuario nuevo) esto es la tasa de activación de la cohorte, <span className="font-semibold">no un efecto causal</span>. Para comparar, mira la activación histórica de usuarios nuevos antes de existir el slot.
+                  </p>
+                </div>
+              ) : stats.holdout === 0 ? (
                 // Sin holdout no hay medición causal, pero sí referencia descriptiva:
                 // % de expuestos con tx después del envío vs. los 7 días anteriores
                 // (cada usuario como su propio control).
@@ -628,6 +685,9 @@ export default function BroadcastsPage() {
   const [surface, setSurface] = useState<'push' | 'slot' | 'both'>('push'); // dónde aparece
   const [ctaLabel, setCtaLabel] = useState('');   // texto del botón del slot
   const [holdoutPct, setHoldoutPct] = useState(0); // % control para medir efecto
+  // Modo de la campaña: puntual (default) o siempre encendida (evergreen).
+  const [mode, setMode] = useState<'ONE_SHOT' | 'EVERGREEN'>('ONE_SHOT');
+  const isEvergreen = mode === 'EVERGREEN';
 
   // Audiencia
   const [plans, setPlans] = useState<Plan[]>(['FREE', 'PREMIUM', 'PRO']);
@@ -646,6 +706,7 @@ export default function BroadcastsPage() {
   const [sending, setSending] = useState(false);
   const [sendError, setSendError] = useState<string | null>(null);
   const [sentResult, setSentResult] = useState<BroadcastSendResult | null>(null);
+  const [evergreenActivated, setEvergreenActivated] = useState(false);
 
   // Historial
   const [historyItems, setHistoryItems] = useState<BroadcastItem[]>([]);
@@ -701,21 +762,58 @@ export default function BroadcastsPage() {
       ? segments.map((s) => (s === 'dormant' ? `Dormidos ${dormantDays}d` : SEGMENT_META[s].label)).join(', ')
       : 'Sin segmento';
 
-  const canSend = !!estimate && estimate.target > 0
-    && title.trim().length > 0 && body.trim().length > 0
-    && (
-      (targetMode === 'user' && targetEmail.trim().length > 0)
-      || (targetMode === 'segments' && segments.length > 0)
-    );
+  // Evergreen no necesita estimación previa: inscribe a cada usuario nuevo al entrar
+  // (la audiencia es "todos los nuevos"); basta con título y mensaje.
+  const canSend = isEvergreen
+    ? (title.trim().length > 0 && body.trim().length > 0)
+    : (!!estimate && estimate.target > 0
+      && title.trim().length > 0 && body.trim().length > 0
+      && (
+        (targetMode === 'user' && targetEmail.trim().length > 0)
+        || (targetMode === 'segments' && segments.length > 0)
+      ));
+
+  const resetComposer = () => {
+    setTitle('');
+    setBody('');
+    setScreen('');
+    setCtaLabel('');
+    setEstimate(null);
+  };
 
   const handleConfirm = async () => {
     setSending(true);
     setSendError(null);
     try {
       // data lleva el destino (screen) y, para el slot, el texto del botón (ctaLabel).
-      const data: Record<string, string> = {};
+      const data: Record<string, string | number> = {};
       if (screen) data.screen = screen;
       if (ctaLabel.trim()) data.ctaLabel = ctaLabel.trim();
+
+      if (isEvergreen) {
+        // Evergreen de bienvenida: siempre en el slot, sin holdout (la ven todos los
+        // nuevos), y con prioridad alta para ganarle al mensaje local hardcodeado
+        // del dashboard (que tiene prioridad 0). Se crea y se activa (no se "envía").
+        data.priority = 100;
+        const created = await createBroadcast({
+          title: title.trim(),
+          body: body.trim(),
+          type,
+          data,
+          surface: 'slot',
+          holdoutPct: 0,
+          mode: 'EVERGREEN',
+          trigger: 'first_app_entry',
+          audience: buildAudience(),
+        });
+        await activateBroadcastById(created.id);
+        setShowConfirm(false);
+        setEvergreenActivated(true);
+        resetComposer();
+        setMode('ONE_SHOT');
+        return;
+      }
+
       const created = await createBroadcast({
         title: title.trim(),
         body: body.trim(),
@@ -728,13 +826,9 @@ export default function BroadcastsPage() {
       const result = await sendBroadcastById(created.id);
       setShowConfirm(false);
       setSentResult(result);
-      setTitle('');
-      setBody('');
-      setScreen('');
-      setCtaLabel('');
-      setEstimate(null);
+      resetComposer();
     } catch (e: any) {
-      setSendError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada, vuelve a iniciar sesión.' : (e?.message || 'Error al enviar.'));
+      setSendError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada, vuelve a iniciar sesión.' : (e?.message || (isEvergreen ? 'Error al activar la campaña.' : 'Error al enviar.')));
     } finally {
       setSending(false);
     }
@@ -771,6 +865,22 @@ export default function BroadcastsPage() {
       setHistoryError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al eliminar.'));
     } finally {
       setDeletingId(null);
+    }
+  };
+
+  // Encender / apagar una campaña evergreen desde el historial.
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const handleToggleEvergreen = async (b: BroadcastItem) => {
+    setTogglingId(b.id);
+    setHistoryError(null);
+    try {
+      if (b.status === 'ACTIVE') await deactivateBroadcastById(b.id);
+      else await activateBroadcastById(b.id);
+      setHistoryReload((n) => n + 1);
+    } catch (e: any) {
+      setHistoryError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cambiar el estado.'));
+    } finally {
+      setTogglingId(null);
     }
   };
 
@@ -825,6 +935,15 @@ export default function BroadcastsPage() {
           <button onClick={() => setSentResult(null)} className="text-emerald-700 hover:text-emerald-900"><X size={16} /></button>
         </div>
       )}
+      {evergreenActivated && (
+        <div className="flex items-center justify-between rounded-lg border border-teal-200 bg-teal-50 px-4 py-3">
+          <p className="text-sm text-teal-800 flex items-center gap-2">
+            <Check size={16} />
+            Campaña siempre encendida <span className="font-semibold">activada</span>. Se irá inscribiendo sola con cada usuario nuevo que entre; sigue su avance en el historial.
+          </p>
+          <button onClick={() => setEvergreenActivated(false)} className="text-teal-800 hover:text-teal-950"><X size={16} /></button>
+        </div>
+      )}
       {sendError && (
         <div className="flex items-center justify-between rounded-lg border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm text-red-700 flex items-center gap-2"><AlertTriangle size={16} /> {sendError}</p>
@@ -865,7 +984,9 @@ export default function BroadcastsPage() {
                     ? `${Math.round((b.successCount / attempted) * 100)}%` : '—';
                   // Propuestas del agente y borradores se revisan/aprueban/envían
                   // en su propio modal; el resto abre las métricas de campaña.
-                  const needsReview = b.status === 'PENDING_APPROVAL' || b.status === 'DRAFT' || b.status === 'REJECTED';
+                  // Las evergreen (aunque estén en DRAFT) abren métricas, no el modal de propuesta.
+                  const isEvergreenRow = b.mode === 'EVERGREEN';
+                  const needsReview = !isEvergreenRow && (b.status === 'PENDING_APPROVAL' || b.status === 'DRAFT' || b.status === 'REJECTED');
                   const isAgentRow = b.createdBy === 'growth-agent';
                   return (
                     <tr
@@ -891,7 +1012,20 @@ export default function BroadcastsPage() {
                       </td>
                       <td className="px-4 py-3 text-sm text-center text-finzen-black">{b.targetCount ?? '—'}</td>
                       <td className="px-4 py-3 text-sm text-center text-finzen-gray">{delivery}</td>
-                      <td className="px-4 py-3 text-center" onClick={(e) => e.stopPropagation()}>
+                      <td className="px-4 py-3 text-center whitespace-nowrap" onClick={(e) => e.stopPropagation()}>
+                        {isEvergreenRow && (b.status === 'ACTIVE' || b.status === 'DRAFT') && (
+                          <button
+                            onClick={() => handleToggleEvergreen(b)}
+                            disabled={togglingId === b.id}
+                            title={b.status === 'ACTIVE' ? 'Apagar (deja de inscribir; la medición se conserva)' : 'Encender (empieza a inscribir usuarios nuevos)'}
+                            className={`px-2 py-1 text-[11px] font-semibold rounded-md mr-1 transition-colors disabled:opacity-50 inline-flex items-center gap-1 ${
+                              b.status === 'ACTIVE' ? 'bg-gray-100 text-gray-600 hover:bg-gray-200' : 'bg-teal-600 text-white hover:bg-teal-700'
+                            }`}
+                          >
+                            {togglingId === b.id ? <Loader2 size={11} className="animate-spin" /> : null}
+                            {b.status === 'ACTIVE' ? 'Apagar' : 'Encender'}
+                          </button>
+                        )}
                         {deleteArmedId === b.id ? (
                           <button
                             onClick={() => handleDelete(b)}
@@ -1010,7 +1144,34 @@ export default function BroadcastsPage() {
                 )}
               </div>
 
-              {/* Superficie: dónde aparece el mensaje (ortogonal al tipo) */}
+              {/* Modo: puntual (se envía una vez) o siempre encendida (evergreen) */}
+              <div className="mt-4">
+                <label className="text-sm font-medium text-finzen-black block mb-1.5">Modo de la campaña</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([['ONE_SHOT', 'Puntual', 'Se envía una vez a la audiencia actual'], ['EVERGREEN', 'Siempre encendida', 'Inscribe a cada usuario nuevo al entrar']] as const).map(([val, label, desc]) => (
+                    <button
+                      key={val}
+                      onClick={() => setMode(val)}
+                      className={`text-left rounded-lg border px-3 py-2 transition-all ${
+                        mode === val
+                          ? 'border-finzen-blue bg-finzen-blue/5 ring-1 ring-finzen-blue'
+                          : 'border-finzen-gray/20 hover:border-finzen-gray/40'
+                      }`}
+                    >
+                      <span className={`block text-sm font-medium ${mode === val ? 'text-finzen-blue' : 'text-finzen-black'}`}>{label}</span>
+                      <span className="block text-[11px] text-finzen-gray mt-0.5">{desc}</span>
+                    </button>
+                  ))}
+                </div>
+                {isEvergreen && (
+                  <p className="text-[11px] text-teal-700 bg-teal-50 border border-teal-200 rounded-lg px-3 py-2 mt-2">
+                    Se mostrará en el <span className="font-semibold">slot del dashboard</span> a <span className="font-semibold">cada usuario nuevo</span> cuando entre por primera vez (disparador: primera entrada). La ven todos (sin holdout). Empieza a inscribir al <span className="font-semibold">activarla</span>; puedes apagarla cuando quieras desde el historial.
+                  </p>
+                )}
+              </div>
+
+              {/* Superficie: dónde aparece el mensaje (ortogonal al tipo). En evergreen va forzado a slot. */}
+              {!isEvergreen && (
               <div className="mt-4">
                 <label className="text-sm font-medium text-finzen-black block mb-1.5">Mostrar en</label>
                 <div className="grid grid-cols-3 gap-2">
@@ -1029,9 +1190,10 @@ export default function BroadcastsPage() {
                   ))}
                 </div>
               </div>
+              )}
 
-              {/* Texto del botón del slot (solo si aparece en el slot) */}
-              {surface !== 'push' && (
+              {/* Texto del botón del slot (solo si aparece en el slot; evergreen siempre es slot) */}
+              {(isEvergreen || surface !== 'push') && (
                 <div className="mt-4">
                   <label className="text-sm font-medium text-finzen-black block mb-1">Texto del botón (slot)</label>
                   <input
@@ -1046,7 +1208,8 @@ export default function BroadcastsPage() {
                 </div>
               )}
 
-              {/* Holdout: % de control que NO recibe (para medir el efecto causal) */}
+              {/* Holdout: % de control que NO recibe (para medir el efecto causal). No aplica a evergreen (la ven todos). */}
+              {!isEvergreen && (
               <div className="mt-4">
                 <label className="text-sm font-medium text-finzen-black block mb-1">
                   Holdout (control): <span className="text-finzen-blue font-semibold">{holdoutPct}%</span>
@@ -1061,6 +1224,7 @@ export default function BroadcastsPage() {
                   % de la audiencia elegible que NO recibe el mensaje, para medir su efecto real (expuestos vs control). 0 = sin medición causal.
                 </p>
               </div>
+              )}
             </div>
 
             {/* Audiencia */}
@@ -1231,10 +1395,10 @@ export default function BroadcastsPage() {
               <button
                 onClick={() => setShowConfirm(true)}
                 disabled={!canSend}
-                title={!canSend ? 'Completa título, mensaje y recalcula la audiencia' : ''}
-                className="flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg bg-finzen-blue text-white hover:bg-blue-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                title={!canSend ? (isEvergreen ? 'Completa título y mensaje' : 'Completa título, mensaje y recalcula la audiencia') : ''}
+                className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg text-white transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isEvergreen ? 'bg-teal-600 hover:bg-teal-700' : 'bg-finzen-blue hover:bg-blue-700'}`}
               >
-                {targetMode === 'segments' ? 'Enviar ahora' : 'Enviar'} <ChevronRight size={14} />
+                {isEvergreen ? 'Activar campaña' : (targetMode === 'segments' ? 'Enviar ahora' : 'Enviar')} <ChevronRight size={14} />
               </button>
             </div>
           </div>
@@ -1246,10 +1410,10 @@ export default function BroadcastsPage() {
                 <Megaphone size={14} /> Vista previa
               </h3>
               <div className="flex flex-col items-center gap-5">
-                {(surface === 'push' || surface === 'both') && (
+                {!isEvergreen && (surface === 'push' || surface === 'both') && (
                   <PhonePreview title={title} body={body} type={type} />
                 )}
-                {(surface === 'slot' || surface === 'both') && (
+                {(isEvergreen || surface === 'slot' || surface === 'both') && (
                   <SlotPreview title={title} body={body} ctaLabel={ctaLabel} screen={screen} type={type} />
                 )}
               </div>
@@ -1258,13 +1422,14 @@ export default function BroadcastsPage() {
         </div>
       )}
 
-      {showConfirm && estimate && (
+      {showConfirm && (estimate || isEvergreen) && (
         <ConfirmModal
-          target={estimate.target}
+          target={estimate?.target ?? 0}
           type={type}
           audienceLabel={segmentsSummary}
           singleTarget={targetMode !== 'segments'}
           sending={sending}
+          evergreen={isEvergreen}
           onCancel={() => setShowConfirm(false)}
           onConfirm={handleConfirm}
         />

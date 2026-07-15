@@ -531,13 +531,17 @@ export interface BroadcastItem {
   title: string;
   body: string;
   type: BroadcastApiType;
-  status: string; // PENDING_APPROVAL (agente) | REJECTED | DRAFT | SENDING | SENT | FAILED
+  status: string; // PENDING_APPROVAL | REJECTED | DRAFT | SENDING | SENT | FAILED | ACTIVE | ENDED
   targetCount: number | null;
   successCount: number | null;
   failureCount: number | null;
   audience: BroadcastAudience;
   surface?: string;
   holdoutPct?: number;
+  mode?: string;              // ONE_SHOT | EVERGREEN
+  trigger?: string | null;    // evergreen: 'first_app_entry'
+  activatedAt?: string | null;
+  endedAt?: string | null;
   createdBy?: string; // userId del admin, o 'growth-agent' si lo propuso el agente
   // Para propuestas del agente: { rationale, segment_slug, segment_params, proposed_by }
   data?: Record<string, unknown> | null;
@@ -570,13 +574,18 @@ export async function previewBroadcast(
 
 export type BroadcastSurface = 'push' | 'slot' | 'both';
 
+export type BroadcastMode = 'ONE_SHOT' | 'EVERGREEN';
+export type BroadcastTrigger = 'first_app_entry';
+
 export async function createBroadcast(input: {
   title: string;
   body: string;
   type: BroadcastApiType;
-  data?: Record<string, string>;
+  data?: Record<string, string | number>;
   surface?: BroadcastSurface;   // dónde aparece: push / slot del dashboard / ambos
   holdoutPct?: number;          // 0-100: % de la audiencia elegible que NO recibe (control)
+  mode?: BroadcastMode;         // ONE_SHOT (default) | EVERGREEN (siempre encendida)
+  trigger?: BroadcastTrigger;   // requerido si mode=EVERGREEN
   audience: BroadcastAudience;
 }): Promise<BroadcastItem> {
   const res = await fetch('/api/admin/broadcasts', {
@@ -608,6 +617,9 @@ export interface BroadcastStats {
   exposedTxBefore?: number;
   exposedTxBeforeRate?: number;
   prePostPts?: number;
+  // Evergreen: modo de la campaña + alcance vivo (inscritos = expuestos + holdout).
+  mode?: string;
+  enrolled?: number;
 }
 
 export async function fetchBroadcastStats(id: string): Promise<BroadcastStats> {
@@ -691,6 +703,26 @@ export async function approveBroadcastById(id: string): Promise<void> {
 // Rechaza una propuesta del agente: PENDING_APPROVAL → REJECTED (queda en el historial).
 export async function rejectBroadcastById(id: string): Promise<void> {
   const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/reject`, { method: 'POST' });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+}
+
+// Enciende una campaña evergreen: DRAFT → ACTIVE (empieza a inscribir usuarios nuevos).
+export async function activateBroadcastById(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/activate`, { method: 'POST' });
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+}
+
+// Apaga una campaña evergreen: ACTIVE → ENDED (deja de inscribir; la medición se conserva).
+export async function deactivateBroadcastById(id: string): Promise<void> {
+  const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/deactivate`, { method: 'POST' });
   if (!res.ok) {
     if (res.status === 401) throw new Error('UNAUTHORIZED');
     const json = await res.json().catch(() => ({}));
