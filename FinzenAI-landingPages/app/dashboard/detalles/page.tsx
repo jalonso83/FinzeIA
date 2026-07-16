@@ -629,7 +629,7 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
       {/* ── SECCIÓN 4 — DESGLOSE DE COSTOS ───────────────────────── */}
       <Section
         title="Desglose de Costos"
-        tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien) + variables calculados desde DB. % calculado sobre el total."
+        tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien) + marketing calculado desde los costos reales de campañas (por fecha) + variables calculados desde DB. % calculado sobre el total."
       >
         <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
           <table className="w-full">
@@ -646,8 +646,11 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
                 <tr key={row.concepto} className="border-b border-finzen-gray/10 last:border-0">
                   <td className="text-sm text-finzen-black p-4">{row.concepto}</td>
                   <td className="text-xs text-finzen-gray p-4 capitalize">
-                    <span className={`px-2 py-1 rounded ${row.type === 'fixed' ? 'bg-finzen-gray/10' : 'bg-finzen-blue/10 text-finzen-blue'}`}>
-                      {row.type === 'fixed' ? 'Fijo' : 'Variable'}
+                    <span className={`px-2 py-1 rounded ${
+                      row.type === 'fixed' ? 'bg-finzen-gray/10'
+                      : row.type === 'marketing' ? 'bg-emerald-100 text-emerald-700'
+                      : 'bg-finzen-blue/10 text-finzen-blue'}`}>
+                      {row.type === 'fixed' ? 'Fijo' : row.type === 'marketing' ? 'Marketing (real)' : 'Variable'}
                     </span>
                   </td>
                   <td className="text-sm text-right font-medium text-finzen-black p-4">${row.costo.toFixed(2)}</td>
