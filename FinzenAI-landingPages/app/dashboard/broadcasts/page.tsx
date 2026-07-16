@@ -1230,6 +1230,12 @@ export default function BroadcastsPage() {
             {/* Audiencia */}
             <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
               <h3 className="text-sm font-semibold text-finzen-black mb-3">Audiencia</h3>
+              {isEvergreen ? (
+                <div className="rounded-lg bg-teal-50 border border-teal-200 px-3 py-3 text-sm text-teal-800">
+                  Esta campaña alcanza a <span className="font-semibold">todos los usuarios nuevos</span> cuando entran por primera vez al dashboard. No se aplican filtros de plan, plataforma ni segmento.
+                </div>
+              ) : (
+              <>
               <div className="flex flex-wrap gap-1 mb-4 bg-finzen-white rounded-lg p-1 border border-finzen-gray/20 w-fit">
                 {([['segments', 'Por segmento'], ['user', 'Usuario específico']] as const).map(([m, label]) => (
                   <button
@@ -1385,6 +1391,8 @@ export default function BroadcastsPage() {
                   {targetMode === 'segments' ? 'Recalcular audiencia' : 'Verificar destinatario'}
                 </button>
               </div>
+              </>
+              )}
             </div>
 
             {/* Acciones */}
