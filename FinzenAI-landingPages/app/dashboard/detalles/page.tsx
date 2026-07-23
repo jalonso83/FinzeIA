@@ -895,6 +895,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
               <thead className="bg-finzen-white border-b border-finzen-gray/20">
                 <tr>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Source</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Medium</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Campaign</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-finzen-gray uppercase">Fecha inicio</th>
                   <th className="px-4 py-3 text-right text-xs font-semibold text-finzen-gray uppercase">Inversión</th>
@@ -910,6 +911,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
                 {bySource.map((row, idx) => (
                   <tr key={`${row.source}-${row.campaign ?? 'none'}-${idx}`} className="border-b border-finzen-gray/10 last:border-0 hover:bg-finzen-white/50">
                     <td className="px-4 py-3 text-finzen-black font-medium">{row.source}</td>
+                    <td className="px-4 py-3 text-finzen-black">{row.medium ?? <span className="text-finzen-gray/50">—</span>}</td>
                     <td className="px-4 py-3 text-finzen-black">{row.campaign ?? <span className="text-finzen-gray/50">—</span>}</td>
                     <td className="px-4 py-3 text-finzen-black">
                       {row.campaignDate

@@ -195,6 +195,7 @@ export interface AcquisitionData {
   }[];
   bySource: {
     source: string;
+    medium: string | null;
     campaign: string | null;
     visitors: number;
     leads: number;
