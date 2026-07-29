@@ -256,6 +256,42 @@ function ConfirmModal({
   );
 }
 
+// ─── Criterios de una campaña evergreen ──────────────────────────────────
+// Una campaña siempre encendida NO se define por filtros de audiencia: el
+// backend no consulta segmentos, inscribe usuario por usuario cuando dispara su
+// trigger (ver enrollInEvergreen). Por eso su `audience` viene vacío, y pintar
+// los bullets normales mostraba "Segmento: — · Planes: — · Plataforma: —", que
+// se lee como "faltan datos" cuando la verdad es la contraria: entran todos.
+const TRIGGER_LABELS: Record<string, string> = {
+  first_app_entry: 'entra por primera vez a la app',
+};
+
+function evergreenCriteriaLines(b: BroadcastItem): string[] {
+  const a = b.audience ?? ({} as BroadcastAudience);
+  const lines = [
+    `Disparador: ${b.trigger ? (TRIGGER_LABELS[b.trigger] ?? b.trigger) : 'sin disparador configurado'}`,
+  ];
+
+  // Hoy las evergreen no llevan filtros, pero si alguna los tuviera hay que
+  // mostrarlos: decir "todos" cuando en realidad hay un filtro sería peor que
+  // los guiones que esto vino a arreglar.
+  const plans = a.plans ?? [];
+  const platforms = a.platforms ?? [];
+  const hasCountry = Boolean(a.country && a.country !== 'Todos');
+  const hasFilters = plans.length > 0 || platforms.length > 0 || hasCountry;
+
+  if (!hasFilters) {
+    lines.push('Alcance: todos los usuarios nuevos, sin filtro de plan, plataforma ni país');
+  } else {
+    if (plans.length) lines.push(`Planes: ${plans.map((p) => (p === 'PREMIUM' ? 'Plus' : p === 'FREE' ? 'Free' : 'Pro')).join(', ')}`);
+    if (platforms.length) lines.push(`Plataforma: ${platforms.map((p) => (p === 'IOS' ? 'iOS' : 'Android')).join(', ')}`);
+    if (hasCountry) lines.push(`País: ${a.country}`);
+  }
+
+  lines.push('Cada usuario se inscribe una sola vez, en el momento en que dispara el evento');
+  return lines;
+}
+
 // ─── Criterios de audiencia en lenguaje humano ───────────────────────────
 // Traduce el JSON de audiencia guardado en la campaña (broadcast.audience) a
 // bullets legibles: "quién exactamente recibió/recibirá esto".
@@ -316,6 +352,9 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
 
   const pct = (num: number, den: number) => (den > 0 ? Math.round((num / den) * 1000) / 10 : 0);
 
+  // Una evergreen se describe por su disparador, no por filtros de audiencia.
+  const isEvergreen = broadcast.mode === 'EVERGREEN';
+
   // Ventana post-envío (7d) aún abierta: los números "después" siguen creciendo.
   const daysSinceSend = broadcast.sentAt
     ? Math.floor((Date.now() - new Date(broadcast.sentAt).getTime()) / (24 * 60 * 60 * 1000))
@@ -354,9 +393,11 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
         {tab === 'criterios' ? (
           <div className="space-y-4">
             <div>
-              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Se eligieron los usuarios que cumplen</p>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
+                {isEvergreen ? 'Se inscribe automáticamente a cada usuario que' : 'Se eligieron los usuarios que cumplen'}
+              </p>
               <ul className="space-y-1.5">
-                {audienceCriteriaLines(broadcast).map((line, i) => (
+                {(isEvergreen ? evergreenCriteriaLines(broadcast) : audienceCriteriaLines(broadcast)).map((line, i) => (
                   <li key={i} className="text-sm text-finzen-black flex items-start gap-2">
                     <Check size={14} className="text-finzen-blue mt-0.5 shrink-0" />
                     <span>{line}</span>
@@ -365,12 +406,25 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
               </ul>
             </div>
             <div>
-              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Configuración del envío</p>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
+                {isEvergreen ? 'Configuración' : 'Configuración del envío'}
+              </p>
               <ul className="space-y-1.5 text-sm text-finzen-black">
                 <li>Superficie: {broadcast.surface === 'slot' ? 'slot del dashboard' : broadcast.surface === 'both' ? 'push + slot' : 'push'}</li>
-                <li>Holdout (control): {broadcast.holdoutPct ?? 0}%</li>
+                <li>
+                  Holdout (control): {broadcast.holdoutPct ?? 0}%
+                  {/* En evergreen el holdout no se reparte sobre una audiencia
+                      calculada de golpe, sino usuario por usuario al inscribirse. */}
+                  {isEvergreen && (broadcast.holdoutPct ?? 0) > 0 ? ' — se decide al inscribir a cada usuario' : ''}
+                </li>
                 <li>Tipo: {TYPE_META[broadcast.type]?.label ?? broadcast.type}</li>
-                {broadcast.sentAt ? (
+                {isEvergreen && broadcast.activatedAt ? (
+                  <li>Encendida: {new Date(broadcast.activatedAt).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' })}{!broadcast.endedAt ? ' · inscribiendo en vivo' : ''}</li>
+                ) : null}
+                {isEvergreen && broadcast.endedAt ? (
+                  <li>Apagada: {new Date(broadcast.endedAt).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' })} — dejó de inscribir; los ya inscritos se siguen midiendo</li>
+                ) : null}
+                {!isEvergreen && broadcast.sentAt ? (
                   <li>Enviada: {new Date(broadcast.sentAt).toLocaleDateString('es', { day: '2-digit', month: 'long', year: 'numeric' })}</li>
                 ) : null}
                 {broadcast.createdBy === 'growth-agent' ? (
@@ -379,7 +433,9 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
               </ul>
             </div>
             <p className="text-[11px] text-finzen-gray">
-              Los usuarios con opt-out de este tipo de notificación se excluyen automáticamente al enviar.
+              {isEvergreen
+                ? 'Los usuarios con opt-out de este tipo de notificación se excluyen automáticamente al inscribirse.'
+                : 'Los usuarios con opt-out de este tipo de notificación se excluyen automáticamente al enviar.'}
             </p>
           </div>
         ) : loading ? (

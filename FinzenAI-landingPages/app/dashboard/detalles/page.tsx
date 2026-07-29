@@ -1,8 +1,8 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
-import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical, Check, Minus, LayoutGrid } from 'lucide-react';
+import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical, Check, Minus, LayoutGrid, ChevronDown } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import PdfExportPopover from '@/components/dashboard/PdfExportPopover';
@@ -491,6 +491,29 @@ function TabEngagement({ engagement }: { engagement: any }) {
               <StatBox label="Usos totales" value={String(fu.skipVsSave?.calls ?? 0)} tooltip="Total de cálculos de Skip vs Save en el período." />
             </div>
             <p className="text-[11px] text-finzen-gray mb-1 px-1">Base con acceso (pagando + trial): {fu.skipVsSave?.accessBase ?? 0} usuarios.</p>
+
+            <p className="text-xs font-semibold text-finzen-gray mb-2 mt-6">🎟️ Prueba gratis <span className="font-normal">(embudo: ver planes → activar)</span></p>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">
+              <StatBox
+                label="Vieron los planes"
+                value={String(fu.trialFunnel?.viewedUsers ?? 0)}
+                tooltip="Usuarios únicos que abrieron la pantalla de Suscripciones en el período. Se mide por la llamada a /subscriptions/plans, que solo hace esa pantalla."
+              />
+              <StatBox
+                label="Llegan a verla"
+                value={`${fu.trialFunnel?.viewRate ?? 0}%`}
+                highlight
+                tooltip="Vieron los planes / usuarios FREE que todavía pueden activar su prueba. Si este número es muy bajo, el problema es de DESCUBRIMIENTO: no encuentran la pantalla, y cambiar el texto de adentro no mueve nada."
+              />
+              <StatBox
+                label="Vieron → Activaron"
+                value={`${fu.trialFunnel?.startedUsers ?? 0} (${fu.trialFunnel?.viewToStartRate ?? 0}%)`}
+                tooltip="De los que vieron los planes, cuántos activaron la prueba. Si llegan muchos y activan pocos, el problema es de la PANTALLA (el mensaje de 'sin tarjeta' solo aparece después de tocar un plan de pago)."
+              />
+            </div>
+            <p className="text-[11px] text-finzen-gray mb-1 px-1">
+              Base elegible: {fu.trialFunnel?.eligibleBase ?? 0} usuarios FREE con la prueba todavía disponible (es un stock, no del período).
+            </p>
           </Section>
         );
       })()}
@@ -971,6 +994,63 @@ function ExpRow({ label, value, sub, strong }: { label: string; value: string; s
   );
 }
 
+// ─── Acordeón de experimentos ────────────────────────────────────
+// La lista va a crecer (H15, H16...), así que por defecto todo va plegado y en
+// la cabecera queda lo que se lee de un vistazo: nombre, estado y el número que
+// decide. Así se escanea la lista entera sin abrir nada, y se despliega solo el
+// que interesa. Se pueden tener varios abiertos a la vez: comparar dos
+// experimentos es un caso real, y un acordeón exclusivo lo impediría.
+function ExperimentAccordion({
+  title,
+  tag,
+  statusLabel,
+  statusOk,
+  summary,
+  defaultOpen = false,
+  children,
+}: {
+  title: string;
+  tag: string;
+  statusLabel: string;
+  statusOk: boolean;
+  summary?: ReactNode;
+  defaultOpen?: boolean;
+  children: ReactNode;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        className="w-full flex items-center justify-between gap-3 p-5 text-left hover:bg-finzen-white/60 transition-colors"
+      >
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          <ChevronDown
+            size={16}
+            className={`text-finzen-gray shrink-0 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
+          <FlaskConical size={18} className="text-finzen-blue shrink-0" />
+          <h3 className="text-lg font-bold text-finzen-black">{title}</h3>
+          <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">{tag}</span>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {/* El resumen se oculta en móvil: ahí no hay ancho para el título, el
+              estado y el número a la vez sin que se rompa la línea. */}
+          {summary ? <span className="hidden sm:inline text-xs text-finzen-gray">{summary}</span> : null}
+          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${statusOk ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+            {statusLabel}
+          </span>
+        </div>
+      </button>
+
+      {open && <div className="px-5 pb-5 pt-0">{children}</div>}
+    </div>
+  );
+}
+
 function ArmCard({ title, arm, accent }: { title: string; arm: H10Stats['variant']; accent: string }) {
   return (
     <div className="rounded-lg border border-finzen-gray/20 p-4">
@@ -1018,17 +1098,17 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
-        <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-          <div className="flex items-center gap-2">
-            <FlaskConical size={18} className="text-finzen-blue" />
-            <h3 className="text-lg font-bold text-finzen-black">Entrada libre</h3>
-            <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">onboarding no bloqueante · H10</span>
-          </div>
-          <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-            {enabled ? `Corriendo · ${pct}% variante` : 'Apagado'}
-          </span>
-        </div>
+      <ExperimentAccordion
+        title="Entrada libre"
+        tag="onboarding no bloqueante · H10"
+        statusLabel={enabled ? `Corriendo · ${pct}% variante` : 'Apagado'}
+        statusOk={enabled}
+        summary={
+          sufficientSample
+            ? `${activationLiftPts >= 0 ? '+' : ''}${activationLiftPts} pts de activación`
+            : '⏳ acumulando muestra'
+        }
+      >
         <p className="text-sm text-finzen-gray mb-4">
           Deja entrar al dashboard sin forzar el onboarding. La métrica que decide es la <strong>activación</strong> (1ª transacción válida en {activationWindowDays} días): no debe caer ≥{rollbackThresholdPts} pts vs el control.
         </p>
@@ -1070,7 +1150,7 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
             ⚠️ Todavía no hay usuarios que hayan entrado por el camino sin muro (el flag está apagado o nadie nuevo ha entrado aún). En cuanto entre el primero, el inicio se detecta solo y los números se vuelven concluyentes.
           </p>
         )}
-      </div>
+      </ExperimentAccordion>
 
       {h13 && <H13Card stats={h13} />}
     </div>
@@ -1112,17 +1192,17 @@ function H13Card({ stats }: { stats: H13Stats }) {
   const meetsThreshold = targetLiftRatio !== null && targetLiftRatio >= 2;
 
   return (
-    <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
-      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
-        <div className="flex items-center gap-2">
-          <FlaskConical size={18} className="text-finzen-blue" />
-          <h3 className="text-lg font-bold text-finzen-black">Reto de la Primera Semana</h3>
-          <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">H13 · 50/50</span>
-        </div>
-        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
-          {enabled ? 'Corriendo' : 'Apagado'}
-        </span>
-      </div>
+    <ExperimentAccordion
+      title="Reto de la Primera Semana"
+      tag="H13 · 50/50"
+      statusLabel={enabled ? 'Corriendo' : 'Apagado'}
+      statusOk={enabled}
+      summary={
+        sufficientSample
+          ? `${targetLiftPts >= 0 ? '+' : ''}${targetLiftPts} pts${targetLiftRatio !== null ? ` · ${targetLiftRatio}×` : ''}`
+          : '⏳ acumulando muestra'
+      }
+    >
       <p className="text-sm text-finzen-gray mb-4">
         Al registrar su primera transacción, la mitad recibe el reto: registrar en {targetDays} días dentro de los próximos {windowDays}, con recordatorio a la hora que elija. La otra mitad no ve nada. La métrica que decide es el <strong>% que llega a {targetDays} días con registro</strong>.
       </p>
@@ -1167,7 +1247,7 @@ function H13Card({ stats }: { stats: H13Stats }) {
           ⚠️ El experimento todavía no ha arrancado: la fecha de inicio se estampa sola la primera vez que el flag global se ve activo. Hasta entonces no se mide nada, para no mezclar usuarios pre-experimento.
         </p>
       )}
-    </div>
+    </ExperimentAccordion>
   );
 }
 
