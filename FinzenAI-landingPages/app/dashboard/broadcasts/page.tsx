@@ -21,7 +21,7 @@ import {
 type BroadcastType = 'ANNOUNCEMENT' | 'MARKETING' | 'SYSTEM';
 type Plan = 'FREE' | 'PREMIUM' | 'PRO';
 type Platform = 'IOS' | 'ANDROID';
-type Segment = 'never_activated' | 'dormant' | 'active';
+type Segment = 'never_activated' | 'dormant' | 'active' | 'trial_available';
 type DormantDays = '7' | '14' | '30';
 
 const TYPE_META: Record<BroadcastType, { label: string; desc: string; icon: typeof Sparkles; chip: string }> = {
@@ -34,6 +34,7 @@ const SEGMENT_META: Record<Segment, { label: string; desc: string }> = {
   never_activated: { label: 'Nunca activó', desc: 'Registrado, 0 transacciones de por vida' },
   dormant: { label: 'Dormidos', desc: 'Tuvo actividad, pero nada en el umbral elegido' },
   active: { label: 'Activos', desc: 'Actividad reciente (para anuncios / promos)' },
+  trial_available: { label: 'Prueba sin usar', desc: 'FREE que nunca activó sus 7 días gratis (no pedimos tarjeta)' },
 };
 
 const DORMANT_OPTIONS: { value: DormantDays; label: string }[] = [
@@ -80,6 +81,7 @@ const AGENT_SEGMENT_LABELS: Record<string, string> = {
   active: 'Activos',
   budget_exceeded: 'Presupuesto excedido',
   trial_ending: 'Trial por vencer',
+  trial_available: 'Prueba sin usar',
 };
 
 // ─── Vista previa del push (teléfono) ────────────────────────────────────
@@ -307,6 +309,7 @@ function audienceCriteriaLines(b: BroadcastItem): string[] {
       case 'active': return `Activos (actividad en los últimos ${a.dormantDays ?? 14} días)`;
       case 'budget_exceeded': return 'Presupuesto excedido (gasto superó el monto de un presupuesto vigente)';
       case 'trial_ending': return `Trial por vencer (en los próximos ${a.trialEndingDays ?? 3} días)`;
+      case 'trial_available': return 'Prueba sin usar (FREE que nunca activó sus 7 días gratis)';
       default: return s;
     }
   };
@@ -1368,7 +1371,7 @@ export default function BroadcastsPage() {
                   <div className="mb-3">
                     <p className="text-xs font-medium text-finzen-gray uppercase tracking-wider mb-1.5">Segmento</p>
                     <div className="space-y-2">
-                      {(['never_activated', 'dormant', 'active'] as Segment[]).map((s) => {
+                      {(['never_activated', 'dormant', 'active', 'trial_available'] as Segment[]).map((s) => {
                         const meta = SEGMENT_META[s];
                         const checked = segments.includes(s);
                         return (
