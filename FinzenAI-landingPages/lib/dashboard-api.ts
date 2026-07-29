@@ -31,7 +31,6 @@ export interface UsersData {
   funnel: {
     registered: number;
     verified: number;
-    onboarded: number;
     activated: number;
     retainedD1: number;
     retainedD7: number;
@@ -72,7 +71,6 @@ export interface EngagementData {
   transactionsPerActiveUser: number;
   totalTransactions: number;
   activeUsers: number;
-  onboardingRate: number;
   zenioActiveUsers: number;
   zenioAdoptionRate: number;
   zenioRealAdoptionRate: number;
@@ -86,15 +84,9 @@ export interface EngagementData {
     firstTxRate: number;
     cohortSize: number;
   };
-  onboarding: {
-    skipRate: number;
-    skippedCount: number;
-    unfinishedRate: number;
-    unfinishedCount: number;
-    completedChatCount: number;
-    txAdoptionSkipped: number;
-    txAdoptionCompleted: number;
-  };
+  // El bloque `onboarding` (skip / sin terminar / activación por camino) se retiró
+  // al eliminar el muro definitivamente: sin muro, entrar a la app ya marca el
+  // onboarding como completo, así que esas tasas medían otra cosa.
   referrals: { total: number; converted: number; conversionRate: number };
   registrationsByChannel: { country: string; count: number }[];
   period: { from: string; to: string };

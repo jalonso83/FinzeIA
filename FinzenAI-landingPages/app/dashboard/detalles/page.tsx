@@ -102,10 +102,12 @@ function buildFunnelData(users: any) {
   // madura es 0 (período entero dentro de la ventana), no es evaluable → "—".
   const pctOf = (v: number, denom: number) =>
     denom > 0 ? `${((v / denom) * 100).toFixed(2)}%` : '—';
+  // La etapa 'Onboarding' se retiró al eliminar el muro definitivamente (jul-2026):
+  // entrar a la app ya marca onboardingCompleted=true (config.ts markAppEntered), así
+  // que el escalón daba ~100% siempre y solo agregaba ruido al embudo.
   return [
     { etapa: 'Registro', valor: f.registered, porcentaje: '100%' },
     { etapa: 'Verificados', valor: f.verified, porcentaje: pct(f.verified) },
-    { etapa: 'Onboarding', valor: f.onboarded, porcentaje: pct(f.onboarded) },
     { etapa: 'Activación', valor: f.activated, porcentaje: pct(f.activated) },
     { etapa: 'Retención D1', valor: f.retainedD1, porcentaje: pctOf(f.retainedD1, f.cohortD1) },
     { etapa: 'Retención D7', valor: f.retainedD7, porcentaje: pctOf(f.retainedD7, f.cohortD7) },
@@ -402,8 +404,6 @@ function FeatureInventory() {
 function TabEngagement({ engagement }: { engagement: any }) {
   if (!engagement) return null;
 
-  const ob = engagement.onboarding ?? {};
-
   return (
     <div>
       {/* ── INVENTARIO DE FUNCIONALIDADES (estático, arriba de todo) ─ */}
@@ -421,22 +421,24 @@ function TabEngagement({ engagement }: { engagement: any }) {
         </div>
       </Section>
 
-      {/* ── GRUPO B — ONBOARDING & ACTIVACIÓN ────────────────────── */}
+      {/* ── GRUPO B — ACTIVACIÓN ─────────────────────────────────────
+          Se quitaron los KPIs de onboarding (tasa, skip, sin terminar, saltó-vs-chat)
+          al eliminar el muro definitivamente (rollout 100%, jul-2026): entrar a la app
+          marca `onboardingCompleted=true` (config.ts markAppEntered), así que esa tasa
+          medía "abrió la app"; y el botón de saltar vivía en la pantalla del muro, o sea
+          que ya nadie vuelve a ser 'skipped'. El resultado del experimento queda en
+          Experimentos → Entrada libre. */}
       <Section
-        title="Onboarding & Activación"
-        tooltip="Calidad del arranque: cuántos completan, saltan o abandonan el onboarding, qué tan rápido llegan a su primera transacción y si saltar ayuda o estorba a activarse."
+        title="Activación"
+        tooltip="Qué tan rápido el usuario llega a su primera transacción. La activación en sí (% que registra algo) está arriba, en Base Activa: 'Adopción TX'."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Tasa Onboarding" value={`${engagement.onboardingRate}%`} tooltip="% de usuarios registrados en el período que completaron el onboarding (por chat con Zenio o por skip — ambos marcan onboardingCompleted=true)." />
-          <StatBox label="Tasa Skip" value={`${ob.skipRate ?? 0}% (${ob.skippedCount ?? 0})`} tooltip="% del cohort que SALTÓ el onboarding (onboardingMethod='skipped'). NOTA: el skip está tras feature flag por usuario, así que el % es sobre TODO el cohort, no solo sobre quienes tenían el botón disponible." />
-          <StatBox label="Sin terminar" value={`${ob.unfinishedRate ?? 0}% (${ob.unfinishedCount ?? 0})`} tooltip="% del cohort que ni completó ni saltó el onboarding (onboardingCompleted=false) — abandono puro en el arranque." />
           <StatBox
             label="Time-to-First-TX"
             value={engagement.timeToFirstTx?.medianHours !== null ? `${engagement.timeToFirstTx?.medianHours}h (${engagement.timeToFirstTx?.firstTxRate}%)` : '—'}
             tooltip="Mediana de horas entre registro y primera transacción del cohorte del período. Entre paréntesis: % del cohorte que llegó a hacer primera tx. Solo cohortes con ≥1h desde registro."
           />
-          <StatBox label="Activación: Saltó vs Chat" value={`${ob.txAdoptionSkipped ?? 0}% vs ${ob.txAdoptionCompleted ?? 0}%`} tooltip="Adopción TX (≥1 transacción) según el camino de onboarding: izquierda = los que SALTARON, derecha = los que lo COMPLETARON por chat. Responde si el onboarding conversacional ayuda o estorba para activarse. Ojo con denominadores chicos." />
-          <StatBox label="Tocó Zenio (incl. onboarding)" value={`${engagement.zenioAdoptionRate}%`} tooltip="% del cohort que generó CUALQUIER uso de Zenio en el período, incluido el onboarding conversacional. Está INFLADO (casi todos pasan por el onboarding). Se mantiene como referencia; la métrica honesta es 'Adopción Zenio real' en Base Activa." />
+          <StatBox label="Tocó Zenio (incl. onboarding)" value={`${engagement.zenioAdoptionRate}%`} tooltip="% del cohort que generó CUALQUIER uso de Zenio en el período, incluido el onboarding conversacional. Sin muro tiende a converger con 'Adopción Zenio real' (ya nadie pasa forzado por el chat); se mantiene durante la transición para poder comparar." />
         </div>
       </Section>
 
