@@ -675,6 +675,53 @@ export async function fetchH10Stats(from?: string, to?: string): Promise<H10Stat
   return json.data as H10Stats;
 }
 
+// H13 · Reto de la Primera Semana.
+// `matured` = participantes cuya ventana de 7 días ya cerró. La métrica primaria
+// se calcula SOLO sobre ellos: quien lleva 2 días dentro del reto todavía puede
+// llegar a los 3 días, y contarlo como fracaso hunde la tasa artificialmente.
+export interface H13Arm {
+  n: number;
+  matured: number;
+  inProgress: number;
+  reachedTarget: number;
+  targetRate: number;
+  offered: number;
+  accepted: number;
+  declined: number;
+  completed: number;
+  acceptRate: number;
+}
+
+export interface H13Stats {
+  enabled: boolean;
+  from: string | null;
+  to: string;
+  experimentStart: string | null;
+  windowDays: number;
+  targetDays: number;
+  minSamplePerArm: number;
+  sufficientSample: boolean;
+  reto: H13Arm;
+  control: H13Arm;
+  targetLiftPts: number;
+  /** Razón reto/control. El umbral pre-comprometido es "≥2×". Null si control = 0. */
+  targetLiftRatio: number | null;
+}
+
+export async function fetchH13Stats(from?: string, to?: string): Promise<H13Stats> {
+  const params = new URLSearchParams();
+  if (from) params.set('from', from);
+  if (to) params.set('to', to);
+  const res = await fetch(`/api/admin/experiments/h13/stats?${params.toString()}`);
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return json.data as H13Stats;
+}
+
 export async function sendBroadcastById(id: string): Promise<BroadcastSendResult> {
   const res = await fetch(`/api/admin/broadcasts/${encodeURIComponent(id)}/send`, {
     method: 'POST',

@@ -12,7 +12,7 @@ import FunnelChart from '@/components/dashboard/FunnelChart';
 import CohortHeatmap from '@/components/dashboard/CohortHeatmap';
 import OpenAICostsCard from '@/components/dashboard/OpenAICostsCard';
 import { useDashboardData } from '@/hooks/useDashboardData';
-import { computeRollingParams, fetchH10Stats, type AcquisitionData, type H10Stats } from '@/lib/dashboard-api';
+import { computeRollingParams, fetchH10Stats, fetchH13Stats, type AcquisitionData, type H10Stats, type H13Stats } from '@/lib/dashboard-api';
 import { canSeeDetallesTab, canSeeFinancials, getClientRole, type Role } from '@/lib/roles';
 import { PdfCoverPage } from './PdfCoverPage';
 import { PdfGlossary } from './PdfGlossary';
@@ -986,6 +986,7 @@ function ArmCard({ title, arm, accent }: { title: string; arm: H10Stats['variant
 
 function TabExperimentos({ from, to }: { from?: string; to?: string }) {
   const [stats, setStats] = useState<H10Stats | null>(null);
+  const [h13, setH13] = useState<H13Stats | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -993,16 +994,25 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    fetchH10Stats(from, to)
-      .then((s) => { if (!cancelled) setStats(s); })
-      .catch((e) => { if (!cancelled) setError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.')); })
+    // Los dos experimentos se piden en paralelo y fallan por separado: si uno se
+    // cae, el otro se sigue viendo (antes un error dejaba el tab entero vacío).
+    Promise.allSettled([fetchH10Stats(from, to), fetchH13Stats(from, to)])
+      .then(([r10, r13]) => {
+        if (cancelled) return;
+        setStats(r10.status === 'fulfilled' ? r10.value : null);
+        setH13(r13.status === 'fulfilled' ? r13.value : null);
+        if (r10.status === 'rejected' && r13.status === 'rejected') {
+          const e: any = r10.reason;
+          setError(e?.message === 'UNAUTHORIZED' ? 'Sesión expirada.' : (e?.message || 'Error al cargar.'));
+        }
+      })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [from, to]);
 
   if (loading) return <div className="flex items-center justify-center py-16"><Loader2 className="animate-spin text-finzen-blue" size={28} /></div>;
   if (error) return <div className="p-6 text-center text-red-600 text-sm">{error}</div>;
-  if (!stats) return null;
+  if (!stats) return h13 ? <div className="space-y-6"><H13Card stats={h13} /></div> : null;
 
   const { variant, control, activationLiftPts, entryLiftPts, rollbackTriggered, rollbackThresholdPts, pct, enabled, activationWindowDays, experimentStart, sufficientSample, minSamplePerArm } = stats;
 
@@ -1061,6 +1071,102 @@ function TabExperimentos({ from, to }: { from?: string; to?: string }) {
           </p>
         )}
       </div>
+
+      {h13 && <H13Card stats={h13} />}
+    </div>
+  );
+}
+
+// ─── H13 · Reto de la Primera Semana ─────────────────────────────
+// La primaria se calcula sobre participantes MADUROS (ventana de 7 días ya
+// cerrada). Por eso cada brazo muestra "n" y, aparte, cuántos siguen en curso:
+// sin esa distinción, un reto recién asignado parecería un fracaso.
+function H13ArmCard({ title, arm, accent, targetDays, showFunnel }: {
+  title: string;
+  arm: H13Stats['reto'];
+  accent: string;
+  targetDays: number;
+  showFunnel: boolean;
+}) {
+  return (
+    <div className="rounded-lg border border-finzen-gray/20 p-4">
+      <p className="text-sm font-semibold mb-3" style={{ color: accent }}>{title}</p>
+      <div className="space-y-2">
+        <ExpRow label="Asignados (n)" value={arm.n.toLocaleString('es')} sub={arm.inProgress > 0 ? `${arm.inProgress} aún en ventana` : undefined} />
+        <ExpRow label="Ventana cerrada" value={arm.matured.toLocaleString('es')} />
+        <ExpRow label={`≥${targetDays} días con registro`} value={`${arm.targetRate}%`} sub={`${arm.reachedTarget}/${arm.matured}`} strong />
+        {showFunnel && (
+          <>
+            <ExpRow label="Aceptaron el reto" value={`${arm.acceptRate}%`} sub={`${arm.accepted}/${arm.offered} ofrecidos`} />
+            <ExpRow label="Rechazaron" value={arm.declined.toLocaleString('es')} />
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function H13Card({ stats }: { stats: H13Stats }) {
+  const { reto, control, targetLiftPts, targetLiftRatio, enabled, targetDays, windowDays, experimentStart, sufficientSample, minSamplePerArm } = stats;
+  // Umbral pre-comprometido (provisional hasta que se firme con el baseline): reto ≥2× control.
+  const meetsThreshold = targetLiftRatio !== null && targetLiftRatio >= 2;
+
+  return (
+    <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-1">
+        <div className="flex items-center gap-2">
+          <FlaskConical size={18} className="text-finzen-blue" />
+          <h3 className="text-lg font-bold text-finzen-black">Reto de la Primera Semana</h3>
+          <span className="text-[11px] text-finzen-gray bg-finzen-white px-2 py-0.5 rounded-full">H13 · 50/50</span>
+        </div>
+        <span className={`px-2 py-0.5 rounded-full text-[11px] font-semibold ${enabled ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-600'}`}>
+          {enabled ? 'Corriendo' : 'Apagado'}
+        </span>
+      </div>
+      <p className="text-sm text-finzen-gray mb-4">
+        Al registrar su primera transacción, la mitad recibe el reto: registrar en {targetDays} días dentro de los próximos {windowDays}, con recordatorio a la hora que elija. La otra mitad no ve nada. La métrica que decide es el <strong>% que llega a {targetDays} días con registro</strong>.
+      </p>
+
+      {!enabled && (
+        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          ⚠️ El experimento está <strong>apagado</strong> (H13_ENABLED en false). Nadie se está asignando salvo la whitelist de QA, que se excluye de estos números.
+        </div>
+      )}
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <H13ArmCard title="Reto" arm={reto} accent="#2563EB" targetDays={targetDays} showFunnel />
+        <H13ArmCard title="Control (sin reto)" arm={control} accent="#64748b" targetDays={targetDays} showFunnel={false} />
+      </div>
+
+      <div className={`mt-4 rounded-lg border px-4 py-3 ${!sufficientSample ? 'border-gray-200 bg-gray-50' : meetsThreshold ? 'border-emerald-200 bg-emerald-50' : 'border-amber-200 bg-amber-50'}`}>
+        <p className="text-sm text-finzen-black">
+          <span className="font-semibold">Diferencia:</span>{' '}
+          <span className={`font-bold ${!sufficientSample ? 'text-finzen-gray' : targetLiftPts < 0 ? 'text-red-600' : 'text-emerald-700'}`}>
+            {targetLiftPts >= 0 ? '+' : ''}{targetLiftPts} pts
+          </span>{' '}
+          <span className="text-finzen-gray">
+            (reto {reto.targetRate}% vs control {control.targetRate}%
+            {targetLiftRatio !== null ? ` · ${targetLiftRatio}×` : ''})
+          </span>
+        </p>
+        <p className="text-xs text-finzen-gray mt-1">
+          {!sufficientSample
+            ? `⏳ Acumulando muestra (${reto.matured} reto / ${control.matured} control con ventana cerrada; se necesitan ≥${minSamplePerArm} por brazo). Todavía NO es concluyente.`
+            : meetsThreshold
+            ? `🟢 El reto supera el umbral pre-comprometido (≥2× el control).`
+            : `🟡 Por debajo del umbral pre-comprometido (≥2× el control).`}
+        </p>
+      </div>
+
+      {experimentStart ? (
+        <p className="text-[11px] text-finzen-gray mt-4">
+          Inicio del experimento: {new Date(experimentStart).toLocaleDateString('es-ES')}. La cohorte son los asignados desde esa fecha, excluyendo la whitelist de QA. El % se calcula solo sobre quienes ya cerraron su ventana de {windowDays} días, con la misma definición de día local y transacción válida que usa la app.
+        </p>
+      ) : (
+        <p className="text-[11px] text-amber-600 mt-4">
+          ⚠️ El experimento todavía no ha arrancado: la fecha de inicio se estampa sola la primera vez que el flag global se ve activo. Hasta entonces no se mide nada, para no mezclar usuarios pre-experimento.
+        </p>
+      )}
     </div>
   );
 }
