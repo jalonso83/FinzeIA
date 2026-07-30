@@ -358,6 +358,11 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
   // Una evergreen se describe por su disparador, no por filtros de audiencia.
   const isEvergreen = broadcast.mode === 'EVERGREEN';
 
+  // Campaña dirigida a activar la prueba: el objetivo NO es transaccionar, así que
+  // la métrica principal cambia. Se detecta por el segmento, que es lo que declara
+  // la intención de la campaña.
+  const isTrialCampaign = (broadcast.audience?.segments ?? []).includes('trial_available');
+
   // Ventana post-envío (7d) aún abierta: los números "después" siguen creciendo.
   const daysSinceSend = broadcast.sentAt
     ? Math.floor((Date.now() - new Date(broadcast.sentAt).getTime()) / (24 * 60 * 60 * 1000))
@@ -473,8 +478,54 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
               )}
             </div>
 
+            {/* Campañas de trial: el resultado que importa es ACTIVAR LA PRUEBA, no
+                transaccionar. Se muestra primero y como métrica principal; el bloque
+                de transacciones queda abajo como secundario. */}
+            {isTrialCampaign && (
+              <div>
+                <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
+                  Efecto en activación de la prueba (7d) · métrica objetivo
+                </p>
+                <div className="rounded-lg border-2 border-finzen-blue/30 p-4">
+                  {stats.holdout === 0 ? (
+                    <div>
+                      <p className="text-xs text-finzen-gray">Activaron su prueba</p>
+                      <p className="text-2xl font-bold text-finzen-blue">{stats.exposedTrialRate ?? 0}%</p>
+                      <p className="text-[11px] text-finzen-gray">{stats.exposedTrial ?? 0}/{stats.exposed} expuestos</p>
+                    </div>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-4 mb-3">
+                        <div>
+                          <p className="text-xs text-finzen-gray">Expuestos</p>
+                          <p className="text-xl font-bold text-finzen-blue">{stats.exposedTrialRate ?? 0}%</p>
+                          <p className="text-[11px] text-finzen-gray">{stats.exposedTrial ?? 0}/{stats.exposed}</p>
+                        </div>
+                        <div>
+                          <p className="text-xs text-finzen-gray">Control (holdout)</p>
+                          <p className="text-xl font-bold text-finzen-gray">{stats.holdoutTrialRate ?? 0}%</p>
+                          <p className="text-[11px] text-finzen-gray">{stats.holdoutTrial ?? 0}/{stats.holdout}</p>
+                        </div>
+                      </div>
+                      <div className={`rounded-md px-3 py-2 text-sm ${(stats.trialLiftPts ?? 0) > 0 ? 'bg-emerald-50 text-emerald-700' : (stats.trialLiftPts ?? 0) < 0 ? 'bg-red-50 text-red-700' : 'bg-finzen-white text-finzen-gray'}`}>
+                        <span className="font-semibold">Lift:</span> {(stats.trialLiftPts ?? 0) >= 0 ? '+' : ''}{stats.trialLiftPts ?? 0} pts{' '}
+                        {(stats.trialLiftPts ?? 0) > 0 ? '(el mensaje sumó activaciones de prueba)' : (stats.trialLiftPts ?? 0) < 0 ? '(el mensaje restó — revisar)' : '(sin efecto medible)'}
+                      </div>
+                    </>
+                  )}
+                  <p className="text-[11px] text-finzen-gray mt-2">
+                    Activación de prueba = tocó &ldquo;Iniciar&rdquo; y el backend le concedió los 7 días, dentro de la ventana. Se registra al activar, así que no se pierde cuando el trial vence.
+                  </p>
+                </div>
+              </div>
+            )}
+
             <div>
-              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Efecto en activación (tx en 7d)</p>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
+                {isTrialCampaign
+                  ? 'Efecto en transacciones (7d) · secundario'
+                  : 'Efecto en activación (tx en 7d)'}
+              </p>
               {stats.mode === 'EVERGREEN' ? (
                 // Evergreen sin holdout: la ven todos los nuevos. Métrica descriptiva
                 // = % de los expuestos que hizo su 1ª transacción en 7d desde que se
@@ -541,7 +592,9 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
             </div>
 
             <p className="text-[11px] text-finzen-gray">
-              Activación = ≥1 transacción válida en los 7 días posteriores al envío. Expuestos vs holdout reconstruido por el bucket de la campaña.
+              {isTrialCampaign
+                ? 'Transacciones = ≥1 transacción válida en los 7 días posteriores al envío. Para esta campaña es un efecto colateral, no el objetivo: alguien puede activar su prueba sin registrar nada esa semana. Expuestos vs holdout reconstruido por el bucket de la campaña.'
+                : 'Activación = ≥1 transacción válida en los 7 días posteriores al envío. Expuestos vs holdout reconstruido por el bucket de la campaña.'}
             </p>
           </div>
         ) : null}

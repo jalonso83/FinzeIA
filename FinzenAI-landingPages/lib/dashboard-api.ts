@@ -610,6 +610,14 @@ export interface BroadcastStats {
   exposedTxBefore?: number;
   exposedTxBeforeRate?: number;
   prePostPts?: number;
+  // Activación de la PRUEBA de 7 días en la ventana. Es el resultado correcto
+  // para campañas cuyo objetivo es que el usuario active su trial: "≥1
+  // transacción" mide otra cosa (puede activar y no registrar nada esa semana).
+  exposedTrial?: number;
+  holdoutTrial?: number;
+  exposedTrialRate?: number;
+  holdoutTrialRate?: number;
+  trialLiftPts?: number;
   // Evergreen: modo de la campaña + alcance vivo (inscritos = expuestos + holdout).
   mode?: string;
   enrolled?: number;
