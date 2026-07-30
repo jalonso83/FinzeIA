@@ -484,7 +484,7 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
             {isTrialCampaign && (
               <div>
                 <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
-                  Efecto en activación de la prueba (7d) · métrica objetivo
+                  Efecto en activación de la prueba (7d)
                 </p>
                 <div className="rounded-lg border-2 border-finzen-blue/30 p-4">
                   {stats.holdout === 0 ? (
@@ -520,12 +520,12 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
               </div>
             )}
 
+            {/* En campañas de trial no se muestra el bloque de transacciones: no es lo
+                que la campaña busca mover, y ponerlo al lado del objetivo confunde la
+                lectura (un lift negativo de tx no dice nada del éxito de la campaña). */}
+            {!isTrialCampaign && (
             <div>
-              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">
-                {isTrialCampaign
-                  ? 'Efecto en transacciones (7d) · secundario'
-                  : 'Efecto en activación (tx en 7d)'}
-              </p>
+              <p className="text-xs font-semibold text-finzen-gray uppercase tracking-wider mb-2">Efecto en activación (tx en 7d)</p>
               {stats.mode === 'EVERGREEN' ? (
                 // Evergreen sin holdout: la ven todos los nuevos. Métrica descriptiva
                 // = % de los expuestos que hizo su 1ª transacción en 7d desde que se
@@ -590,12 +590,13 @@ function CampaignStatsModal({ broadcast, onClose }: { broadcast: BroadcastItem; 
                 </div>
               )}
             </div>
+            )}
 
-            <p className="text-[11px] text-finzen-gray">
-              {isTrialCampaign
-                ? 'Transacciones = ≥1 transacción válida en los 7 días posteriores al envío. Para esta campaña es un efecto colateral, no el objetivo: alguien puede activar su prueba sin registrar nada esa semana. Expuestos vs holdout reconstruido por el bucket de la campaña.'
-                : 'Activación = ≥1 transacción válida en los 7 días posteriores al envío. Expuestos vs holdout reconstruido por el bucket de la campaña.'}
-            </p>
+            {!isTrialCampaign && (
+              <p className="text-[11px] text-finzen-gray">
+                Activación = ≥1 transacción válida en los 7 días posteriores al envío. Expuestos vs holdout reconstruido por el bucket de la campaña.
+              </p>
+            )}
           </div>
         ) : null}
       </div>
