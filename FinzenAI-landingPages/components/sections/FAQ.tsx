@@ -21,7 +21,7 @@ const faqs = [
     id: 'faq-3',
     question: '¿Puedo usar FinZen AI gratis?',
     answer:
-      'Sí. El plan gratuito incluye transacciones ilimitadas, dashboard completo, 2 presupuestos, 1 meta de ahorro y 15 consultas a Zenio por mes. Sin límite de tiempo.',
+      'Sí. El plan gratuito incluye transacciones ilimitadas, dashboard completo, 4 presupuestos, 2 metas de ahorro y 15 consultas a Zenio por mes. Sin límite de tiempo.',
   },
   {
     id: 'faq-4',

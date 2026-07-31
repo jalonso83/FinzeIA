@@ -43,8 +43,8 @@ const plans: PricingPlan[] = [
     annualNote: '',
     features: [
       { text: 'Transacciones ilimitadas' },
-      { text: '2 presupuestos activos' },
-      { text: '1 meta de ahorro' },
+      { text: '4 presupuestos activos' },
+      { text: '2 metas de ahorro' },
       { text: '15 consultas a Zenio/mes' },
       { text: 'Dashboard completo' },
       { text: 'Gamificación básica' },
