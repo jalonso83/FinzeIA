@@ -66,7 +66,7 @@ export default function DashboardScreen() {
   const [showSubscriptions, setShowSubscriptions] = useState(false);
 
   // Suscribirse a cambios del dashboard
-  const { refreshTrigger } = useDashboardStore();
+  const { refreshTrigger, refreshDashboard } = useDashboardStore();
 
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
@@ -441,46 +441,40 @@ export default function DashboardScreen() {
     }
   }, [refreshTrigger, loadDashboardData]);
 
-  // Recargar dashboard automáticamente al cambiar de día/mes
+  // Recargar dashboard automáticamente al cambiar de día/mes.
+  // Usa refreshDashboard() (incrementa refreshTrigger) en vez de loadDashboardData()
+  // directo: así una sola señal refresca TODO lo que escucha refreshTrigger —el balance
+  // vía el efecto de arriba y también PatternsAndTrends, que antes se quedaba en el mes
+  // anterior porque no observaba este detector de fecha.
   useEffect(() => {
-    const handleAppStateChange = (nextAppState: string) => {
-      if (nextAppState === 'active') {
-        const currentDate = new Date().toDateString();
-
-        // Verificar si cambió el día/mes desde la última vez
-        if (lastDateRef.current !== currentDate) {
-          logger.log('Dashboard: Fecha cambió mientras la app estaba en background, recargando datos...', {
-            from: lastDateRef.current,
-            to: currentDate
-          });
-          lastDateRef.current = currentDate;
-          loadDashboardData();
-        }
+    const reloadIfDateChanged = () => {
+      const currentDate = new Date().toDateString();
+      if (lastDateRef.current !== currentDate) {
+        logger.log('Dashboard: Fecha cambió, refrescando dashboard y tendencias...', {
+          from: lastDateRef.current,
+          to: currentDate
+        });
+        lastDateRef.current = currentDate;
+        refreshDashboard();
       }
+    };
+
+    const handleAppStateChange = (nextAppState: string) => {
+      if (nextAppState === 'active') reloadIfDateChanged();
     };
 
     const subscription = AppState.addEventListener('change', handleAppStateChange);
 
     // También verificar cada 4 horas si la app está activa
     const interval = setInterval(() => {
-      if (AppState.currentState === 'active') {
-        const currentDate = new Date().toDateString();
-        if (lastDateRef.current !== currentDate) {
-          logger.log('Dashboard: Fecha cambió, recargando datos por intervalo...', {
-            from: lastDateRef.current,
-            to: currentDate
-          });
-          lastDateRef.current = currentDate;
-          loadDashboardData();
-        }
-      }
+      if (AppState.currentState === 'active') reloadIfDateChanged();
     }, 4 * 60 * 60 * 1000); // 4 horas
 
     return () => {
       subscription?.remove();
       clearInterval(interval);
     };
-  }, [loadDashboardData]);
+  }, [refreshDashboard]);
 
   if (loading) {
     return (
@@ -504,21 +498,12 @@ export default function DashboardScreen() {
     );
   }
 
-  // Mensajes del slot dinámico. Fase 1: regla local en cliente (CTA de primera
-  // transacción). Cuando el backend soporte surface:'slot', estos se mezclarán
-  // con los mensajes que venga del servidor (broadcast).
+  // El slot del dashboard es 100% servido por el backend (campañas broadcast con
+  // surface:'slot', incluida la evergreen de bienvenida a usuarios nuevos que empuja
+  // a la primera transacción). Ya NO hay mensajes locales hardcodeados: el de "primera
+  // transacción" se movió a una campaña editable y medible desde el panel de admin,
+  // lo que además evita el bug de mostrarlo ante errores de red (transacciones vacías).
   const slotMessages: SlotMessage[] = [];
-  if ((dashboardData.transactions?.length ?? 0) === 0) {
-    slotMessages.push({
-      id: 'local-first-transaction',
-      variant: 'info',
-      icon: '🚀',
-      title: 'Registra tu primera transacción',
-      body: 'Empieza a controlar tus finanzas hoy mismo.',
-      cta: { label: 'Registrar ahora', action: 'Transactions' },
-      dismissible: false,
-    });
-  }
 
   return (
     <SafeAreaView style={styles.container}>

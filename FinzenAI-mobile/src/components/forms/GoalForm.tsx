@@ -21,6 +21,7 @@ import { useDashboardStore } from '../../stores/dashboard';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
+import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 
 import { logger } from '../../utils/logger';
 interface Goal {
@@ -75,6 +76,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [goalType, setGoalType] = useState<'percentage' | 'amount'>('percentage');
   const [warnings, setWarnings] = useState<string[]>([]);
   const [showErrorModal, setShowErrorModal] = useState(false);
@@ -436,42 +438,16 @@ const GoalForm: React.FC<GoalFormProps> = ({
               </View>
             </View>
 
-            {/* Categoría */}
+            {/* Categoría — combobox: el botón abre una hoja de selección (overlay
+                a pantalla completa que se renderiza en la raíz del modal, abajo). */}
             <View style={styles.section}>
               <Text style={styles.label}>Categoría *</Text>
-              {loadingCategories ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="small" color="#2563EB" />
-                  <Text style={styles.loadingText}>Cargando categorías...</Text>
-                </View>
-              ) : (
-                <ScrollView
-                  ref={categoriesScrollRef}
-                  horizontal
-                  showsHorizontalScrollIndicator={false}
-                >
-                  <View style={styles.categoriesContainer}>
-                    {categories.map((category) => (
-                      <TouchableOpacity
-                        key={category.id}
-                        style={[
-                          styles.categoryButton,
-                          formData.categoryId === category.id && styles.categoryButtonActive,
-                        ]}
-                        onPress={() => handleInputChange('categoryId', category.id)}
-                      >
-                        <Text style={styles.categoryIcon}>{category.icon}</Text>
-                        <Text style={[
-                          styles.categoryText,
-                          formData.categoryId === category.id && styles.categoryTextActive,
-                        ]}>
-                          {category.name}
-                        </Text>
-                      </TouchableOpacity>
-                    ))}
-                  </View>
-                </ScrollView>
-              )}
+              <CategoryPicker
+                categories={categories}
+                value={formData.categoryId}
+                onPress={() => setShowCategorySheet(true)}
+                loading={loadingCategories}
+              />
             </View>
 
             {/* Objetivo mensual */}
@@ -654,7 +630,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
                   <>
                     <Ionicons name="checkmark" size={20} color="white" />
                     <Text style={styles.saveButtonText}>
-                      {editGoal ? 'Actualizar Meta' : 'Crear Meta'}
+                      {editGoal ? 'Actualizar' : 'Crear'}
                     </Text>
                   </>
                 )}
@@ -670,6 +646,16 @@ const GoalForm: React.FC<GoalFormProps> = ({
             message={errorMessage}
             buttonText="Entendido"
             onClose={() => setShowErrorModal(false)}
+          />
+
+          {/* Hoja de selección de categoría (overlay a pantalla completa, en la raíz
+              del modal para que no se recorte; es un View, no un Modal → iOS-safe). */}
+          <CategorySelectSheet
+            visible={showCategorySheet}
+            categories={categories}
+            value={formData.categoryId}
+            onSelect={(categoryId) => { handleInputChange('categoryId', categoryId); setShowCategorySheet(false); }}
+            onClose={() => setShowCategorySheet(false)}
           />
         </SafeAreaView>
       </Modal>

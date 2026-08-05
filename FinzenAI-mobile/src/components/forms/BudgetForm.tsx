@@ -19,6 +19,7 @@ import { categoriesAPI, budgetsAPI, Category, Budget } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
+import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 
 import { logger } from '../../utils/logger';
 interface BudgetFormProps {
@@ -43,6 +44,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateInfo, setDuplicateInfo] = useState<any>(null);
 
@@ -304,42 +306,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
             contentContainerStyle={{ paddingBottom: 200 }}
             keyboardShouldPersistTaps="handled"
           >
-          {/* Categoría */}
+          {/* Categoría — combobox: el botón abre una hoja de selección (overlay
+              a pantalla completa que se renderiza en la raíz del modal, abajo). */}
           <View style={styles.section}>
             <Text style={styles.label}>Categoría</Text>
-            {loadingCategories ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#2563EB" />
-                <Text style={styles.loadingText}>Cargando categorías...</Text>
-              </View>
-            ) : (
-              <ScrollView 
-                ref={categoriesScrollRef}
-                horizontal 
-                showsHorizontalScrollIndicator={false}
-              >
-                <View style={styles.categoriesContainer}>
-                  {categories.map((category) => (
-                    <TouchableOpacity
-                      key={category.id}
-                      style={[
-                        styles.categoryButton,
-                        formData.categoryId === category.id && styles.categoryButtonActive,
-                      ]}
-                      onPress={() => setFormData({ ...formData, categoryId: category.id })}
-                    >
-                      <Text style={styles.categoryIcon}>{category.icon}</Text>
-                      <Text style={[
-                        styles.categoryText,
-                        formData.categoryId === category.id && styles.categoryTextActive,
-                      ]}>
-                        {category.name}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </View>
-              </ScrollView>
-            )}
+            <CategoryPicker
+              categories={categories}
+              value={formData.categoryId}
+              onPress={() => setShowCategorySheet(true)}
+              loading={loadingCategories}
+            />
           </View>
 
           {/* Monto */}
@@ -425,7 +401,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
                 <>
                   <Ionicons name="checkmark" size={20} color="white" />
                   <Text style={styles.saveButtonText}>
-                    {editBudget ? 'Actualizar' : 'Crear Presupuesto'}
+                    {editBudget ? 'Actualizar' : 'Crear'}
                   </Text>
                 </>
               )}
@@ -451,6 +427,15 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           />
         )}
 
+        {/* Hoja de selección de categoría (overlay a pantalla completa, en la raíz
+            del modal para que no se recorte; es un View, no un Modal → iOS-safe). */}
+        <CategorySelectSheet
+          visible={showCategorySheet}
+          categories={categories}
+          value={formData.categoryId}
+          onSelect={(categoryId) => { setFormData({ ...formData, categoryId }); setShowCategorySheet(false); }}
+          onClose={() => setShowCategorySheet(false)}
+        />
       </SafeAreaView>
       </Modal>
     </>
