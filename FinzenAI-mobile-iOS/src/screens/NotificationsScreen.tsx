@@ -72,6 +72,7 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
     loading,
     fetchNotifications,
     markAsRead,
+    markAsUnread,
     markAllAsRead,
     deleteNotification,
     deleteAllNotifications,
@@ -106,6 +107,19 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
       swipeable.close();
     }
     await deleteNotification(id);
+  };
+
+  const handleToggleRead = async (notification: NotificationItem) => {
+    // Cerrar el swipeable
+    const swipeable = swipeableRefs.current.get(notification.id);
+    if (swipeable) {
+      swipeable.close();
+    }
+    if (notification.status === 'READ') {
+      await markAsUnread(notification.id);
+    } else {
+      await markAsRead(notification.id);
+    }
   };
 
   const handleDeleteAll = () => {
@@ -159,6 +173,46 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
     );
   };
 
+  const renderLeftActions = (
+    progress: Animated.AnimatedInterpolation<number>,
+    dragX: Animated.AnimatedInterpolation<number>,
+    item: NotificationItem
+  ) => {
+    const scale = dragX.interpolate({
+      inputRange: [0, 100],
+      outputRange: [0.5, 1],
+      extrapolate: 'clamp',
+    });
+
+    const opacity = dragX.interpolate({
+      inputRange: [0, 50, 100],
+      outputRange: [0, 0.8, 1],
+      extrapolate: 'clamp',
+    });
+
+    const isRead = item.status === 'READ';
+
+    return (
+      <Animated.View style={[styles.toggleReadAction, { opacity }]}>
+        <TouchableOpacity
+          style={styles.toggleReadButton}
+          onPress={() => handleToggleRead(item)}
+        >
+          <Animated.View style={{ transform: [{ scale }] }}>
+            <Ionicons
+              name={isRead ? 'mail-unread-outline' : 'mail-open-outline'}
+              size={24}
+              color="#FFFFFF"
+            />
+          </Animated.View>
+          <Text style={styles.toggleReadText}>
+            {isRead ? 'No leída' : 'Leída'}
+          </Text>
+        </TouchableOpacity>
+      </Animated.View>
+    );
+  };
+
   const renderNotification = ({ item }: { item: NotificationItem }) => {
     const icon = getNotificationIcon(item.type);
     const isUnread = item.status !== 'READ';
@@ -175,8 +229,13 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
         renderRightActions={(progress, dragX) =>
           renderRightActions(progress, dragX, item.id)
         }
+        renderLeftActions={(progress, dragX) =>
+          renderLeftActions(progress, dragX, item)
+        }
         rightThreshold={40}
+        leftThreshold={40}
         overshootRight={false}
+        overshootLeft={false}
         friction={2}
       >
         <TouchableOpacity
@@ -250,8 +309,8 @@ export default function NotificationsScreen({ onClose, onOpenSettings }: Notific
         {/* Hint for swipe */}
         {notifications.length > 0 && (
           <View style={styles.hintContainer}>
-            <Ionicons name="arrow-back" size={14} color="#94a3b8" />
-            <Text style={styles.hintText}>Desliza para eliminar</Text>
+            <Ionicons name="swap-horizontal" size={14} color="#94a3b8" />
+            <Text style={styles.hintText}>Desliza para marcar leída/no leída o eliminar</Text>
           </View>
         )}
 
@@ -447,6 +506,25 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   deleteText: {
+    color: '#FFFFFF',
+    fontSize: 12,
+    fontWeight: '500',
+    marginTop: 4,
+  },
+  toggleReadAction: {
+    backgroundColor: '#2563EB',
+    justifyContent: 'center',
+    alignItems: 'flex-start',
+    width: 100,
+  },
+  toggleReadButton: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    width: 100,
+    paddingHorizontal: 16,
+  },
+  toggleReadText: {
     color: '#FFFFFF',
     fontSize: 12,
     fontWeight: '500',

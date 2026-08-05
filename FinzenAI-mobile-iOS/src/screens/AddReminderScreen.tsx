@@ -443,7 +443,7 @@ export default function AddReminderScreen() {
               <>
                 <Ionicons name="checkmark-circle" size={20} color="white" />
                 <Text style={styles.submitButtonText}>
-                  {editingReminder ? 'Guardar Cambios' : 'Crear Recordatorio'}
+                  {editingReminder ? 'Guardar Cambios' : 'Crear'}
                 </Text>
               </>
             )}

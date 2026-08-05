@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { useFocusEffect } from '@react-navigation/native';
 import {
   View,
   Text,
@@ -15,9 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { transactionsAPI, Transaction } from '../utils/api';
 import TransactionForm from '../components/forms/TransactionForm';
+import RecurringPaymentsSheet from '../components/RecurringPaymentsSheet';
+import CategoryPicker, { CategorySelectSheet } from '../components/forms/CategoryPicker';
 import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
 import { useDashboardStore } from '../stores/dashboard';
+import { useCategoriesStore } from '../stores/categories';
 import CustomModal from '../components/modals/CustomModal';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
@@ -42,9 +46,18 @@ export default function TransactionsScreen() {
 
   // Estados para filtros
   const [showFilters, setShowFilters] = useState(false);
+  const [showRecurring, setShowRecurring] = useState(false);
   const [filterType, setFilterType] = useState<FilterType>('all');
   const [startDate, setStartDate] = useState('');
   const [endDate, setEndDate] = useState('');
+  const [selectedCategoryId, setSelectedCategoryId] = useState('');
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
+
+  // Categorías para el filtro (store con caché). Se muestran según el tipo elegido.
+  const { categories, fetchCategories } = useCategoriesStore();
+  const filterCategories = filterType === 'all'
+    ? categories
+    : categories.filter((c) => c.type === filterType);
 
   // Hook para moneda del usuario
   const { formatCurrency, userCountry } = useCurrency();
@@ -151,6 +164,30 @@ export default function TransactionsScreen() {
     loadTransactions();
   }, [loadTransactions]);
 
+  // Recargar al volver a la pantalla. Sin esto, las transacciones que crea el
+  // SERVIDOR (pagos automáticos del cron, importación de correos, Zenio desde
+  // otro dispositivo) no aparecían hasta reiniciar la app: `transactionChangeTrigger`
+  // solo se dispara cuando el cambio lo hace esta app, y el `useEffect` de arriba
+  // solo corre al montar. El usuario veía su gasto recurrente "perdido".
+  useFocusEffect(
+    useCallback(() => {
+      loadTransactions();
+    }, [loadTransactions])
+  );
+
+  // Cargar categorías (para el filtro por categoría). El store cachea 5 min.
+  useEffect(() => {
+    fetchCategories();
+  }, [fetchCategories]);
+
+  // Si cambia el tipo y la categoría elegida ya no aplica a ese tipo, se limpia
+  // (misma lógica que el formulario de transacciones).
+  useEffect(() => {
+    if (filterType === 'all' || !selectedCategoryId) return;
+    const cat = categories.find((c) => c.id === selectedCategoryId);
+    if (cat && cat.type !== filterType) setSelectedCategoryId('');
+  }, [filterType, selectedCategoryId, categories]);
+
   // Refresh cuando Zenio crea/modifica transacciones
   useEffect(() => {
     if (transactionChangeTrigger > 0) {
@@ -162,7 +199,7 @@ export default function TransactionsScreen() {
   // Filtrar transacciones cuando cambien los filtros
   useEffect(() => {
     applyFilters();
-  }, [transactions, filterType, startDate, endDate]);
+  }, [transactions, filterType, startDate, endDate, selectedCategoryId]);
 
   const applyFilters = () => {
     let filtered = [...transactions];
@@ -170,6 +207,13 @@ export default function TransactionsScreen() {
     // Filtrar por tipo
     if (filterType !== 'all') {
       filtered = filtered.filter(transaction => transaction.type === filterType);
+    }
+
+    // Filtrar por categoría (usa category_id, presente en ambas apps)
+    if (selectedCategoryId) {
+      filtered = filtered.filter(
+        transaction => (transaction.category_id || transaction.category?.id) === selectedCategoryId
+      );
     }
 
     // Filtrar por rango de fechas
@@ -195,6 +239,7 @@ export default function TransactionsScreen() {
     setFilterType('all');
     setStartDate('');
     setEndDate('');
+    setSelectedCategoryId('');
   }, []);
 
   const formatDateForSummary = (dateString: string) => {
@@ -214,6 +259,10 @@ export default function TransactionsScreen() {
     const activeFilters = [];
     if (filterType !== 'all') {
       activeFilters.push(filterType === 'INCOME' ? 'Ingresos' : 'Gastos');
+    }
+    if (selectedCategoryId) {
+      const cat = categories.find((c) => c.id === selectedCategoryId);
+      if (cat) activeFilters.push(cat.name);
     }
     if (startDate || endDate) {
       if (startDate && endDate) {
@@ -522,11 +571,18 @@ export default function TransactionsScreen() {
               </>
             )}
           </TouchableOpacity>
+          {/* Pagos automáticos: todas las reglas de recurrencia en un lugar */}
           <TouchableOpacity
-            style={[styles.filterButton, (filterType !== 'all' || startDate || endDate) && styles.filterButtonActive]}
+            style={styles.recurringHeaderButton}
+            onPress={() => setShowRecurring(true)}
+          >
+            <Ionicons name="repeat" size={20} color="#2563EB" />
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.filterButton, (filterType !== 'all' || startDate || endDate || selectedCategoryId) && styles.filterButtonActive]}
             onPress={() => setShowFilters(true)}
           >
-            <Ionicons name="filter" size={20} color={(filterType !== 'all' || startDate || endDate) ? "white" : "#64748b"} />
+            <Ionicons name="filter" size={20} color={(filterType !== 'all' || startDate || endDate || selectedCategoryId) ? "white" : "#64748b"} />
           </TouchableOpacity>
           <TouchableOpacity
             style={styles.addButton}
@@ -538,7 +594,7 @@ export default function TransactionsScreen() {
       </View>
 
       {/* Resumen de filtros */}
-      {(filterType !== 'all' || startDate || endDate) && (
+      {(filterType !== 'all' || startDate || endDate || selectedCategoryId) && (
         <View style={styles.filterSummary}>
           <View style={styles.filterSummaryContent}>
             <Ionicons name="funnel" size={16} color="#2563EB" />
@@ -580,9 +636,15 @@ export default function TransactionsScreen() {
                   >
                     <View style={styles.transactionHeader}>
                       <View style={styles.transactionInfo}>
-                        <Text style={styles.transactionDescription}>
-                          {transaction.description}
-                        </Text>
+                        <View style={styles.transactionTitleRow}>
+                          {/* Badge de las que generó una regla de recurrencia */}
+                          {transaction.recurringId && (
+                            <Ionicons name="repeat" size={14} color="#2563EB" />
+                          )}
+                          <Text style={styles.transactionDescription} numberOfLines={1}>
+                            {transaction.description}
+                          </Text>
+                        </View>
                         {transaction.category && (
                           <Text style={styles.transactionCategory}>
                             {transaction.category.name}
@@ -668,6 +730,18 @@ export default function TransactionsScreen() {
                   </Text>
                 </TouchableOpacity>
               </View>
+            </View>
+
+            {/* Filtro por categoría (combobox reutilizable). La lista se ajusta al
+                tipo elegido: 'all' = todas; INCOME/EXPENSE = solo ese tipo. */}
+            <View style={styles.filterSection}>
+              <Text style={styles.filterSectionTitle}>Categoría</Text>
+              <CategoryPicker
+                categories={filterCategories}
+                value={selectedCategoryId}
+                onPress={() => setShowCategorySheet(true)}
+                placeholder="Todas las categorías"
+              />
             </View>
 
             {/* Filtro por fechas */}
@@ -796,6 +870,17 @@ export default function TransactionsScreen() {
               <Text style={styles.applyFiltersButtonText}>Aplicar Filtros</Text>
             </TouchableOpacity>
           </View>
+
+          {/* Hoja de selección de categoría (overlay a pantalla completa, en la raíz
+              del modal de filtros; es un View, no un Modal → iOS-safe). */}
+          <CategorySelectSheet
+            visible={showCategorySheet}
+            categories={filterCategories}
+            value={selectedCategoryId}
+            clearLabel="Todas las categorías"
+            onSelect={(categoryId) => { setSelectedCategoryId(categoryId); setShowCategorySheet(false); }}
+            onClose={() => setShowCategorySheet(false)}
+          />
         </SafeAreaView>
       </Modal>
 
@@ -819,6 +904,14 @@ export default function TransactionsScreen() {
           setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
+      />
+
+      {/* Pagos automáticos. View absoluto, NO <Modal>: iOS no soporta modales
+          anidados y esta vista puede montarse sobre otros. */}
+      <RecurringPaymentsSheet
+        visible={showRecurring}
+        onClose={() => setShowRecurring(false)}
+        onChanged={loadTransactions}
       />
 
       {/* Modal de confirmación de eliminación */}
@@ -1281,6 +1374,21 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   // Estilos de exportación
+  recurringHeaderButton: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#eff6ff',
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+  },
+  transactionTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 5,
+  },
   exportHeaderButton: {
     width: 44,
     height: 44,

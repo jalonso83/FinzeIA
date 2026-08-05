@@ -28,6 +28,7 @@ interface NotificationState {
   fetchNotifications: (limit?: number) => Promise<void>;
   fetchUnreadCount: () => Promise<void>;
   markAsRead: (id: string) => Promise<void>;
+  markAsUnread: (id: string) => Promise<void>;
   markAllAsRead: () => Promise<void>;
   addNotification: (notification: NotificationItem) => void;
   deleteNotification: (id: string) => Promise<boolean>;
@@ -99,6 +100,27 @@ export const useNotificationStore = create<NotificationState>((set, get) => ({
       }));
     } catch (error: any) {
       logger.error('[NotificationStore] Error marking as read:', error);
+    }
+  },
+
+  // Marcar como no leída (revertir)
+  markAsUnread: async (id: string) => {
+    try {
+      await notificationsAPI.markAsRead(id, false);
+
+      set((state) => {
+        const notification = state.notifications.find((n) => n.id === id);
+        const wasRead = notification && notification.status === 'READ';
+
+        return {
+          notifications: state.notifications.map((n) =>
+            n.id === id ? { ...n, status: 'SENT' as const, readAt: null } : n
+          ),
+          unreadCount: wasRead ? state.unreadCount + 1 : state.unreadCount,
+        };
+      });
+    } catch (error: any) {
+      logger.error('[NotificationStore] Error marking as unread:', error);
     }
   },
 

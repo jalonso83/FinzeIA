@@ -125,6 +125,29 @@ export interface Transaction {
   category_id: string;
   category?: Category;
   userId: string;
+  // Si viene con valor, esta transacción la generó automáticamente una regla
+  // de recurrencia (se le muestra el badge 🔄). null = la creó el usuario.
+  recurringId?: string | null;
+}
+
+// Gastos / ingresos recurrentes
+export type RecurrenceFrequency = 'WEEKLY' | 'BIWEEKLY' | 'MONTHLY';
+
+export interface RecurringTransaction {
+  id: string;
+  userId: string;
+  amount: number;
+  type: 'INCOME' | 'EXPENSE';
+  description: string | null;
+  category_id: string;
+  category?: Category;
+  frequency: RecurrenceFrequency;
+  startDate: string;
+  nextRunDate: string;
+  lastRunAt: string | null;
+  isActive: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Category {
@@ -152,14 +175,33 @@ export const transactionsAPI = {
   getAll: (params?: { limit?: number }) => 
     api.get<{ transactions: Transaction[] }>('/transactions', { params }),
   
-  create: (data: Omit<Transaction, 'id' | 'userId'>) => 
+  // `recurrence` es opcional: si viene, el backend además de la transacción de
+  // hoy crea la regla que la repetirá. La primera generada es la SIGUIENTE.
+  create: (data: Omit<Transaction, 'id' | 'userId'> & { recurrence?: { frequency: RecurrenceFrequency } }) =>
     api.post<Transaction>('/transactions', data),
-  
-  update: (id: string, data: Partial<Transaction>) => 
+
+  update: (id: string, data: Partial<Transaction>) =>
     api.put<Transaction>(`/transactions/${id}`, data),
-  
-  delete: (id: string) => 
+
+  delete: (id: string) =>
     api.delete(`/transactions/${id}`),
+};
+
+// APIs para gastos/ingresos recurrentes.
+// Las reglas se CREAN desde transactionsAPI.create (campo `recurrence`); aquí
+// solo se listan, se apagan/prenden y se borran.
+export const recurringAPI = {
+  getAll: () =>
+    api.get<{ recurringTransactions: RecurringTransaction[] }>('/recurring-transactions'),
+
+  toggle: (id: string, isActive: boolean) =>
+    api.patch<{ message: string; recurringTransaction: RecurringTransaction }>(
+      `/recurring-transactions/${id}/toggle`,
+      { isActive }
+    ),
+
+  delete: (id: string) =>
+    api.delete(`/recurring-transactions/${id}`),
 };
 
 // APIs para categorías
@@ -296,6 +338,28 @@ export const configAPI = {
   // Señal de entrada a la app (H10). Idempotente en el backend: marca firstAppEntryAt
   // para todos y, en la variante no-bloqueante, flipea onboardingCompleted='nonblocking'.
   markAppEntered: () => api.post<{ ok: boolean }>('/config/app-entered'),
+};
+
+// API de anuncios in-app (slot del dashboard). Mensajes empujados desde el panel
+// admin (broadcast con surface slot/both). Los eventos alimentan el funnel de medición.
+export const announcementsAPI = {
+  list: () => api.get<{ messages: any[] }>('/announcements'),
+  trackEvent: (id: string, event: 'impression' | 'click' | 'dismiss') =>
+    api.post(`/announcements/${id}/event`, { event }),
+};
+
+// H13 · Reto de la Primera Semana. El slot consulta getState al abrir el dashboard
+// y llama a offer/hour/optout cuando el usuario toca un botón del reto.
+export interface H13View {
+  view: 'offer' | 'hour_picker' | 'none';
+  message?: string;
+  buttons?: { label: string; action: string; value: string }[];
+}
+export const h13API = {
+  getState: () => api.get<H13View>('/h13/state'),
+  offer: (decision: 'accept' | 'decline') => api.post<H13View>('/h13/offer', { decision }),
+  hour: (hour: number) => api.post<{ ok: boolean }>('/h13/hour', { hour }),
+  optout: () => api.post<{ ok: boolean }>('/h13/optout'),
 };
 
 // API de gamificación
@@ -440,9 +504,9 @@ export const notificationsAPI = {
   getHistory: (limit: number = 50) =>
     api.get(`/notifications/history?limit=${limit}`),
 
-  // Marcar como leída
-  markAsRead: (notificationId: string) =>
-    api.put(`/notifications/${notificationId}/read`),
+  // Marcar como leída (read=true) o no leída (read=false)
+  markAsRead: (notificationId: string, read: boolean = true) =>
+    api.put(`/notifications/${notificationId}/read`, { read }),
 
   // Eliminar una notificación
   delete: (notificationId: string) =>

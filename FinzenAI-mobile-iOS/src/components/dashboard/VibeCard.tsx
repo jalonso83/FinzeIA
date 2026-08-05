@@ -11,6 +11,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
+import { useDashboardStore } from '../../stores/dashboard';
 
 import { logger } from '../../utils/logger';
 interface VibeData {
@@ -40,9 +41,14 @@ const VibeCard: React.FC = () => {
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
+  // Escuchar cambios del dashboard para refrescar (incluye el cambio de mes, que
+  // dispara refreshDashboard() en el DashboardScreen). Sin esto, la tarjeta se
+  // quedaba con los datos del mes anterior porque calcula su rango con new Date().
+  const { refreshTrigger } = useDashboardStore();
+
   useEffect(() => {
     loadVibeData();
-  }, []);
+  }, [refreshTrigger]);
 
 
   const calculateVibeData = (volatility: number, burnRate: number, runway: number | null): VibeData => {

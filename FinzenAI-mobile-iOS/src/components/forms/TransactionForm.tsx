@@ -18,10 +18,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { categoriesAPI, transactionsAPI, exchangeRatesAPI, Category, Transaction } from '../../utils/api';
+import { categoriesAPI, transactionsAPI, exchangeRatesAPI, recurringAPI, Category, Transaction, RecurrenceFrequency } from '../../utils/api';
+import RecurrenceSelector from './RecurrenceSelector';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
+import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 
 import { logger } from '../../utils/logger';
 interface TransactionFormProps {
@@ -54,8 +56,14 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [categories, setCategories] = useState<Category[]>([]);
   const [loading, setLoading] = useState(false);
   const [loadingCategories, setLoadingCategories] = useState(false);
+  const [showCategorySheet, setShowCategorySheet] = useState(false);
   const [showErrorModal, setShowErrorModal] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Recurrencia (solo al crear)
+  const [isRecurring, setIsRecurring] = useState(false);
+  const [frequency, setFrequency] = useState<RecurrenceFrequency>('MONTHLY');
+  const [stoppingRecurring, setStoppingRecurring] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
   const [originalFormData, setOriginalFormData] = useState({
     description: '',
@@ -421,6 +429,35 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       categoryId: '',
       date: `${dd}-${mm}-${yyyy}`, // Formato DD-MM-YYYY visual
     });
+
+    // Sin esto, el próximo formulario abre con el switch de repetir prendido.
+    setIsRecurring(false);
+    setFrequency('MONTHLY');
+  };
+
+  /**
+   * Corta la repetición desde la transacción que la regla generó.
+   * Pausa (isActive: false), no borra: sigue visible en Transacciones → Pagos
+   * automáticos por si la quiere volver a prender.
+   */
+  const handleStopRecurring = async () => {
+    if (!editTransaction?.recurringId) return;
+
+    try {
+      setStoppingRecurring(true);
+      await recurringAPI.toggle(editTransaction.recurringId, false);
+      onTransactionChange();
+      resetForm();
+      onSuccess('Se dejó de repetir este movimiento');
+    } catch (error: any) {
+      logger.error('Error stopping recurrence:', error);
+      setErrorMessage(
+        error.response?.data?.message || 'No se pudo detener la repetición'
+      );
+      setShowErrorModal(true);
+    } finally {
+      setStoppingRecurring(false);
+    }
   };
 
   // Verificar si hay cambios (solo para edición)
@@ -474,8 +511,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         await transactionsAPI.update(editTransaction.id, transactionData);
         message = 'Transacción actualizada correctamente';
       } else {
-        await transactionsAPI.create(transactionData);
-        message = 'Transacción creada correctamente';
+        // Si marcó "repetir", el backend crea la transacción de hoy Y la regla.
+        // La primera repetición generada será la SIGUIENTE, no otra hoy.
+        await transactionsAPI.create({
+          ...transactionData,
+          ...(isRecurring ? { recurrence: { frequency } } : {}),
+        });
+        message = isRecurring
+          ? 'Transacción creada. Se repetirá automáticamente.'
+          : 'Transacción creada correctamente';
       }
 
       // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)
@@ -661,36 +705,70 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           </View>
 
           {/* Categoría */}
+          {/* Categoría — combobox: el botón abre una hoja de selección (overlay
+              a pantalla completa que se renderiza en la raíz del modal, abajo). */}
           <View style={styles.section}>
             <Text style={styles.label}>Categoría</Text>
-            {loadingCategories ? (
-              <View style={styles.loadingContainer}>
-                <ActivityIndicator size="small" color="#2563EB" />
-                <Text style={styles.loadingText}>Cargando categorías...</Text>
-              </View>
-            ) : (
-              <View style={styles.categoriesGrid}>
-                {filteredCategories.map((category) => (
-                  <TouchableOpacity
-                    key={category.id}
-                    style={[
-                      styles.categoryButton,
-                      formData.categoryId === category.id && styles.categoryButtonActive,
-                    ]}
-                    onPress={() => setFormData({ ...formData, categoryId: category.id })}
-                  >
-                    <Text style={styles.categoryIcon}>{category.icon}</Text>
-                    <Text style={[
-                      styles.categoryText,
-                      formData.categoryId === category.id && styles.categoryTextActive,
-                    ]}>
-                      {category.name}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </View>
-            )}
+            <CategoryPicker
+              categories={filteredCategories}
+              value={formData.categoryId}
+              onPress={() => setShowCategorySheet(true)}
+              loading={loadingCategories}
+            />
           </View>
+
+          {/* Recurrencia. Solo al CREAR: al editar, la regla se gestiona aparte
+              (abajo) porque cambiarle el monto/categoría a una regla existente
+              es otra operación, no un campo más del formulario.
+              Chips en línea, NO un <Modal>: este formulario ya es un Modal y en
+              iOS no se pueden anidar. */}
+          {!editTransaction && (
+            <View style={styles.section}>
+              <RecurrenceSelector
+                enabled={isRecurring}
+                onToggle={setIsRecurring}
+                frequency={frequency}
+                onSelectFrequency={setFrequency}
+                displayDate={formData.date}
+                type={formData.type}
+                disabled={loading}
+              />
+            </View>
+          )}
+
+          {/* Editando una transacción que generó una regla: se puede cortar la
+              repetición desde aquí (el otro camino es Transacciones → Pagos
+              automáticos). Pausar, no borrar: es reversible desde esa vista. */}
+          {editTransaction?.recurringId && (
+            <View style={styles.section}>
+              <View style={styles.recurringNotice}>
+                <View style={styles.recurringNoticeHeader}>
+                  <Ionicons name="repeat" size={18} color="#2563EB" />
+                  <Text style={styles.recurringNoticeTitle}>Movimiento automático</Text>
+                </View>
+                <Text style={styles.recurringNoticeText}>
+                  Esta transacción se generó sola a partir de una repetición que
+                  configuraste. Los cambios que hagas aquí aplican solo a este
+                  movimiento.
+                </Text>
+                <TouchableOpacity
+                  style={styles.stopRecurringButton}
+                  onPress={handleStopRecurring}
+                  disabled={stoppingRecurring}
+                  activeOpacity={0.7}
+                >
+                  {stoppingRecurring ? (
+                    <ActivityIndicator color="#dc2626" size="small" />
+                  ) : (
+                    <>
+                      <Ionicons name="pause-circle-outline" size={18} color="#dc2626" />
+                      <Text style={styles.stopRecurringText}>Dejar de repetir</Text>
+                    </>
+                  )}
+                </TouchableOpacity>
+              </View>
+            </View>
+          )}
           </ScrollView>
           </KeyboardAvoidingView>
 
@@ -939,6 +1017,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
             </SafeAreaView>
           </View>
         )}
+
+        {/* Hoja de selección de categoría (overlay a pantalla completa, en la raíz
+            del modal para que no se recorte; es un View, no un Modal → iOS-safe). */}
+        <CategorySelectSheet
+          visible={showCategorySheet}
+          categories={filteredCategories}
+          value={formData.categoryId}
+          onSelect={(categoryId) => { setFormData({ ...formData, categoryId }); setShowCategorySheet(false); }}
+          onClose={() => setShowCategorySheet(false)}
+        />
       </SafeAreaView>
       </Modal>
     </>
@@ -980,6 +1068,47 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 20,
+  },
+  // Aviso al editar una transacción generada por una regla de recurrencia
+  recurringNotice: {
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    padding: 14,
+  },
+  recurringNoticeHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  recurringNoticeTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  recurringNoticeText: {
+    fontSize: 12,
+    color: '#475569',
+    lineHeight: 17,
+    marginTop: 6,
+  },
+  stopRecurringButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 10,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#fecaca',
+    backgroundColor: '#fef2f2',
+  },
+  stopRecurringText: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#dc2626',
   },
   sectionTitle: {
     fontSize: 16,
@@ -1084,6 +1213,11 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: 14,
     color: '#64748b',
+  },
+  // La sección de categoría necesita zIndex alto para que la lista flotante del
+  // combobox no quede tapada por otras secciones/elementos del formulario.
+  categorySection: {
+    zIndex: 1000,
   },
   categoriesGrid: {
     flexDirection: 'row',
