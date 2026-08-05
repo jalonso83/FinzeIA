@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import { Rubik, Playfair_Display } from 'next/font/google';
+import { Analytics } from '@vercel/analytics/next';
 import './globals.css';
 import AttributionInitializer from '@/components/AttributionInitializer';
 
@@ -127,6 +128,10 @@ export default function RootLayout({
       <body className="font-rubik bg-finzen-white text-finzen-black antialiased">
         <AttributionInitializer />
         {children}
+        {/* Vercel Web Analytics: visitas y páginas vistas, sin cookies.
+            Complementa —no reemplaza— el tracking propio de AttributionInitializer,
+            que es el que alimenta la tabla de adquisición del dashboard. */}
+        <Analytics />
       </body>
     </html>
   );
