@@ -58,8 +58,15 @@ export default function BudgetsScreen() {
     const now = new Date();
     const monthStart = new Date(now.getFullYear(), now.getMonth(), 1);
     const monthEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+    // SOLO presupuestos de GASTO. Todo lo que se calcula debajo tiene forma de
+    // gasto: "gastado del mes", "bajo control", "en riesgo de excederse". Meter
+    // un presupuesto de ingreso ahí sumaría lo que el usuario COBRÓ dentro de lo
+    // que gastó, y lo alertaría por estar a punto de "excederse" cuando en
+    // realidad está por cumplir su meta de facturación.
+    // Los de ingreso tendrán su propio resumen en la Fase 2.
     const monthlyBudgets = budgets.filter(b =>
       b.is_active &&
+      (b.type ?? 'EXPENSE') === 'EXPENSE' &&
       b.period === 'monthly' &&
       new Date(b.start_date) <= monthEnd &&
       new Date(b.end_date) >= monthStart
@@ -238,7 +245,17 @@ export default function BudgetsScreen() {
     return amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
   };
 
-  const getProgressColor = (progress: number) => {
+  // La escala de color se INVIERTE según el tipo de presupuesto:
+  //   GASTO   → es un techo: verde al principio, rojo al acercarse al límite.
+  //   INGRESO → es un piso: rojo mientras va corto, verde al alcanzar la meta.
+  // Sin esto, a alguien que ya facturó lo que esperaba se le pintaría la barra
+  // en rojo como si fuera un problema.
+  const getProgressColor = (progress: number, type?: 'EXPENSE' | 'INCOME') => {
+    if (type === 'INCOME') {
+      if (progress >= 100) return '#4CAF50';
+      if (progress >= 70) return '#FFC107';
+      return '#F44336';
+    }
     if (progress < 70) return '#4CAF50';
     if (progress < 80) return '#FFC107';
     return '#F44336';
@@ -495,7 +512,8 @@ export default function BudgetsScreen() {
             .filter(budget => budget.is_active)
             .map((budget) => {
             const progress = calculateProgress(budget.spent, budget.amount);
-            const progressColor = getProgressColor(progress);
+            const progressColor = getProgressColor(progress, budget.type);
+            const esIngreso = budget.type === 'INCOME';
             const remaining = budget.amount - budget.spent;
 
             return (
@@ -514,7 +532,7 @@ export default function BudgetsScreen() {
                       {budget.category?.icon || '💰'} {budget.name}
                     </Text>
                     <Text style={styles.budgetPeriod}>
-                      Límite {formatPeriod(budget.period)}
+                      {esIngreso ? 'Meta' : 'Límite'} {formatPeriod(budget.period)}
                     </Text>
                     {budget.category && (
                       <Text style={styles.budgetCategory}>
@@ -559,25 +577,31 @@ export default function BudgetsScreen() {
 
                 <View style={styles.amountContainer}>
                   <View style={styles.amountRow}>
-                    <Text style={styles.amountLabel}>Gastado:</Text>
+                    <Text style={styles.amountLabel}>{esIngreso ? 'Recibido:' : 'Gastado:'}</Text>
                     <Text style={[styles.amountValue, { color: progressColor }]}>
                       {formatAmount(budget.spent)}
                     </Text>
                   </View>
                   <View style={styles.amountRow}>
-                    <Text style={styles.amountLabel}>Presupuesto:</Text>
+                    <Text style={styles.amountLabel}>{esIngreso ? 'Meta:' : 'Presupuesto:'}</Text>
                     <Text style={styles.amountValue}>
                       {formatAmount(budget.amount)}
                     </Text>
                   </View>
                   <View style={styles.amountRow}>
                     <Text style={styles.amountLabel}>
-                      {remaining >= 0 ? 'Disponible:' : 'Excedido:'}
+                      {esIngreso
+                        ? (remaining > 0 ? 'Te falta:' : 'De más:')
+                        : (remaining >= 0 ? 'Disponible:' : 'Excedido:')}
                     </Text>
                     <Text
                       style={[
                         styles.amountValue,
-                        { color: remaining >= 0 ? '#059669' : '#dc2626' },
+                        // En ingresos el signo se lee al revés: quedar corto es lo
+                        // malo (rojo) y pasarse es lo bueno (verde).
+                        { color: esIngreso
+                            ? (remaining > 0 ? '#dc2626' : '#059669')
+                            : (remaining >= 0 ? '#059669' : '#dc2626') },
                       ]}
                     >
                       {formatAmount(Math.abs(remaining))}

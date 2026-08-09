@@ -161,7 +161,13 @@ export interface Budget {
   id: string;
   name: string;
   amount: number;
+  // Acumulado del período. En un presupuesto de INGRESO significa "llevas
+  // cobrado", no "llevas gastado" — el nombre viene de cuando solo había
+  // presupuestos de gasto.
   spent: number;
+  // EXPENSE = techo de gasto. INCOME = lo que esperas facturar en el período.
+  // Opcional: un backend viejo no lo manda y se asume EXPENSE.
+  type?: 'EXPENSE' | 'INCOME';
   category_id: string;
   category?: Category;
   period: string;
@@ -352,6 +358,9 @@ export const announcementsAPI = {
 // y llama a offer/hour/optout cuando el usuario toca un botón del reto.
 export interface H13View {
   view: 'offer' | 'hour_picker' | 'none';
+  // Lo manda el servidor. Antes el título estaba escrito a mano en las dos apps,
+  // así que renombrar el reto exigía un build de iOS y otro de Android.
+  title?: string;
   message?: string;
   buttons?: { label: string; action: string; value: string }[];
 }

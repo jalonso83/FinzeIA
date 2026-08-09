@@ -513,13 +513,20 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       } else {
         // Si marcó "repetir", el backend crea la transacción de hoy Y la regla.
         // La primera repetición generada será la SIGUIENTE, no otra hoy.
-        await transactionsAPI.create({
+        const res = await transactionsAPI.create({
           ...transactionData,
           ...(isRecurring ? { recurrence: { frequency } } : {}),
         });
         message = isRecurring
           ? 'Transacción creada. Se repetirá automáticamente.'
           : 'Transacción creada correctamente';
+
+        // Micro-insight del Reto de la Primera Semana (H13). El backend lo
+        // devuelve en `h13Insight` solo si el usuario está en el brazo del reto
+        // y su ventana sigue abierta; para todos los demás viene vacío. Es el
+        // refuerzo más frecuente del reto: sale con CADA registro.
+        const insight = (res?.data as any)?.h13Insight;
+        if (insight) message = `${message}\n\n${insight}`;
       }
 
       // Llamar callback con mensaje (Screen cerrará formulario y mostrará modal)

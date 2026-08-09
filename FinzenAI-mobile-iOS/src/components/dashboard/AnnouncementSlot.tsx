@@ -119,7 +119,9 @@ export default function AnnouncementSlot({ messages = [] }: Props) {
           id: H13_MSG_ID,
           variant: 'promo',
           icon: v.view === 'offer' ? '🔥' : '⏰',
-          title: v.view === 'offer' ? 'Reto de la Primera Semana' : '¿A qué hora te recuerdo?',
+          // El título viene del servidor para poder renombrar el reto sin build.
+          // El respaldo cubre un backend viejo que todavía no mande el campo.
+          title: v.title ?? (v.view === 'offer' ? 'Reto de Arranque' : '¿A qué hora te recuerdo?'),
           body: v.message,
           buttons: v.buttons,
           dismissible: false,

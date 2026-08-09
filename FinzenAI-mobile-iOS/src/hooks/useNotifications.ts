@@ -1,3 +1,42 @@
+// ─────────────────────────────────────────────────────────────────────────────
+// CÓDIGO MUERTO — NO USAR. Comentado el 2026-08-08.
+//
+// Este hook NO lo usa ningún componente. Verificado en las DOS apps (Android e
+// iOS): la única mención de `useNotifications` está dentro de este archivo, y
+// `hooks/` no tiene barrel file que lo re-exporte.
+//
+// ¿Por qué los push SÍ funcionan entonces?
+// Porque `AppNavigator` hace por su cuenta lo único imprescindible:
+// `notificationService.initialize()` + `registerDevice()` (iOS ~línea 450,
+// Android ~1034). El registro del dispositivo no depende de este hook.
+//
+// ¿Qué es lo que NO pasa?
+// Este hook era el único llamador de `notificationService.setupListeners()`, o
+// sea que los listeners NUNCA se registran. Consecuencia: tocar una
+// notificación no navega a ningún lado, y el campo `data.screen` que manda el
+// backend en cada push es INERTE en todas ellas.
+//
+// NO LO ENGANCHES PARA "ARREGLAR" LA NAVEGACIÓN DESDE EL PUSH.
+// Es una decisión de diseño, no un olvido: la navegación es trabajo del SLOT
+// del dashboard, no del push. `components/dashboard/AnnouncementSlot.tsx` tiene
+// su Action Registry (`runAction`), que además sabe abrir MODALES — por ejemplo
+// `Subscriptions` llama a `openPlansModal()`, cosa que desde un handler de push
+// no se puede hacer sin duplicar ese registry en un lugar peor.
+//
+// El reparto es: el PUSH trae al usuario a la app; el SLOT tiene el botón que
+// lo lleva a donde toca. El H13 ya funciona así (sus push mandan
+// `screen: 'Dashboard'` y el reto con sus botones vive en el slot).
+//
+// Si en el futuro hace falta acción desde una notificación transaccional
+// (presupuesto, cobro rechazado, reconectar correo), el camino correcto es
+// darle un mensaje de slot, NO deep-linkear el push.
+//
+// Cabo suelto relacionado: `AppNavigator.tsx` de iOS (~línea 474) llama a
+// `notificationService.removeListeners()` en su cleanup, para listeners que
+// nunca se registraron. Hoy es un no-op inofensivo. Android ni eso tiene.
+// ─────────────────────────────────────────────────────────────────────────────
+
+/*
 import { useEffect, useState, useCallback, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import * as Notifications from 'expo-notifications';
@@ -219,3 +258,6 @@ export function useNotifications(options: UseNotificationsOptions = {}): UseNoti
 }
 
 export default useNotifications;
+*/
+
+export {};

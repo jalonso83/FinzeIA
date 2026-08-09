@@ -38,6 +38,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     amount: '',
     categoryId: '',
     period: 'monthly',
+    type: 'EXPENSE' as 'EXPENSE' | 'INCOME',
   });
   
   const [categories, setCategories] = useState<Category[]>([]);
@@ -52,6 +53,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     amount: '',
     categoryId: '',
     period: 'monthly',
+    type: 'EXPENSE' as 'EXPENSE' | 'INCOME',
   });
 
   // Ref para el ScrollView de categorías
@@ -77,6 +79,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           amount: editBudget.amount.toString(),
           categoryId: editBudget.category?.id || editBudget.category_id || '',
           period: editBudget.period,
+          type: (editBudget.type ?? 'EXPENSE') as 'EXPENSE' | 'INCOME',
         };
         setFormData(initialData);
         setOriginalFormData(initialData); // Guardar valores originales
@@ -86,20 +89,28 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           amount: '',
           categoryId: '',
           period: 'monthly',
+          type: 'EXPENSE',
         });
       }
     }
   }, [visible, editBudget]);
 
+  // Al cambiar de tipo hay que traer el otro conjunto de categorías.
+  useEffect(() => {
+    if (visible) loadCategories();
+  }, [formData.type]);
+
   const loadCategories = async () => {
     try {
       setLoadingCategories(true);
       const response = await categoriesAPI.getAll();
-      // Filtrar solo categorías de gastos para presupuestos (replicando la web)
-      const expenseCategories = response.data.filter(
-        (cat: Category) => cat.type === 'EXPENSE'
+      // Las categorías ofrecidas dependen del TIPO de presupuesto. Antes esto
+      // filtraba siempre a 'EXPENSE', y ese filtro era la única razón por la que
+      // no existían presupuestos de ingreso: el backend ni siquiera lo validaba.
+      const delTipo = response.data.filter(
+        (cat: Category) => cat.type === formData.type
       );
-      setCategories(expenseCategories);
+      setCategories(delTipo);
     } catch (error) {
       logger.error('Error loading categories:', error);
       setErrorMessage('No se pudieron cargar las categorías');
@@ -112,6 +123,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const resetForm = () => {
     setFormData({
       amount: '',
+      type: 'EXPENSE',
       categoryId: '',
       period: 'monthly',
     });
@@ -156,6 +168,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         category_id: formData.categoryId,
         amount: Number(formData.amount),
         period: formData.period,
+        type: formData.type,
         start_date: start,
         end_date: end,
         is_active: true,
@@ -320,6 +333,47 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
             contentContainerStyle={{ paddingBottom: 200 }}
             keyboardShouldPersistTaps="handled"
           >
+          {/* Tipo de presupuesto. Va ARRIBA de la categoría a propósito: decide
+              qué categorías se ofrecen, así que elegirlo después obligaría a
+              descartar la categoría ya seleccionada. */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Tipo</Text>
+            <View style={styles.periodsContainer}>
+              {([
+                { value: 'EXPENSE', label: 'Gasto' },
+                { value: 'INCOME', label: 'Ingreso' },
+              ] as const).map((t) => (
+                <TouchableOpacity
+                  key={t.value}
+                  style={[
+                    styles.periodButton,
+                    formData.type === t.value && styles.periodButtonActive,
+                  ]}
+                  disabled={!!editBudget}
+                  onPress={() => {
+                    if (formData.type === t.value) return;
+                    // Cambiar de tipo invalida la categoría elegida: pertenece al
+                    // otro conjunto. Se limpia para no mandar una combinación que
+                    // el backend rechazaría.
+                    setFormData({ ...formData, type: t.value, categoryId: '' });
+                  }}
+                >
+                  <Text style={[
+                    styles.periodButtonText,
+                    formData.type === t.value && styles.periodButtonTextActive,
+                  ]}>
+                    {t.label}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+            {!!editBudget && (
+              <Text style={styles.typeLockedHint}>
+                El tipo no se puede cambiar en un presupuesto ya creado.
+              </Text>
+            )}
+          </View>
+
           {/* Categoría — combobox: el botón abre una hoja de selección (overlay
               a pantalla completa que se renderiza en la raíz del modal, abajo). */}
           <View style={styles.section}>
@@ -379,9 +433,13 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               <View style={styles.infoCard}>
                 <Ionicons name="information-circle" size={20} color="#2563EB" />
                 <View style={styles.infoContent}>
-                  <Text style={styles.infoTitle}>Presupuesto {periods.find(p => p.value === formData.period)?.label}</Text>
+                  <Text style={styles.infoTitle}>
+                    Presupuesto {formData.type === 'INCOME' ? 'de ingresos' : ''} {periods.find(p => p.value === formData.period)?.label}
+                  </Text>
                   <Text style={styles.infoDescription}>
-                    Podrás gastar hasta {formatCurrency(Number(formData.amount))} {periods.find(p => p.value === formData.period)?.label.toLowerCase()}
+                    {formData.type === 'INCOME'
+                      ? `Tu meta es recibir ${formatCurrency(Number(formData.amount))} ${periods.find(p => p.value === formData.period)?.label.toLowerCase()}`
+                      : `Podrás gastar hasta ${formatCurrency(Number(formData.amount))} ${periods.find(p => p.value === formData.period)?.label.toLowerCase()}`}
                   </Text>
                 </View>
               </View>
@@ -502,6 +560,11 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 20,
+  },
+  typeLockedHint: {
+    fontSize: 12,
+    color: '#6b7280',
+    marginTop: 6,
   },
   label: {
     fontSize: 14,

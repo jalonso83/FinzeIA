@@ -425,6 +425,36 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
                     )}
                   </TouchableOpacity>
                 </View>
+                {/* Acceso revocado: el proveedor nos quitó el permiso y dejamos
+                    de importar. Sin este aviso el usuario no se entera — la
+                    tarjeta se ve igual de sana y solo puede sospechar por la
+                    fecha de "Última sync". Solo él puede arreglarlo. */}
+                {connection.lastSyncStatus === 'REVOKED' && (
+                  <View style={styles.revokedBanner}>
+                    <View style={styles.revokedHeader}>
+                      <Ionicons name="alert-circle" size={20} color="#b45309" />
+                      <Text style={styles.revokedTitle}>Se perdió el acceso a este correo</Text>
+                    </View>
+                    <Text style={styles.revokedText}>
+                      Dejamos de importar tus gastos. Vuelve a conectarlo para reanudarlo.
+                    </Text>
+                    <TouchableOpacity
+                      style={[styles.revokedButton, connecting !== null && styles.buttonDisabled]}
+                      onPress={() => handleConnectEmail(connection.provider === 'GMAIL' ? 'gmail' : 'outlook')}
+                      disabled={connecting !== null}
+                    >
+                      {connecting !== null ? (
+                        <ActivityIndicator size="small" color="white" />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh-outline" size={18} color="white" />
+                          <Text style={styles.revokedButtonText}>Reconectar</Text>
+                        </>
+                      )}
+                    </TouchableOpacity>
+                  </View>
+                )}
+
                 <View style={styles.connectionStats}>
                   <View style={styles.statBox}>
                     <Text style={styles.statNumber}>{connection.importedCount}</Text>
@@ -665,6 +695,45 @@ const styles = StyleSheet.create({
   },
   disconnectIconButton: {
     padding: 4,
+  },
+  revokedBanner: {
+    backgroundColor: '#fffbeb',
+    borderWidth: 1,
+    borderColor: '#fcd34d',
+    borderRadius: 8,
+    padding: 12,
+    marginBottom: 12,
+  },
+  revokedHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 4,
+  },
+  revokedTitle: {
+    flex: 1,
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#92400e',
+  },
+  revokedText: {
+    fontSize: 13,
+    color: '#92400e',
+    marginBottom: 10,
+  },
+  revokedButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    backgroundColor: '#d97706',
+    borderRadius: 8,
+    paddingVertical: 10,
+  },
+  revokedButtonText: {
+    color: 'white',
+    fontSize: 14,
+    fontWeight: '600',
   },
   connectionStats: {
     flexDirection: 'row',
