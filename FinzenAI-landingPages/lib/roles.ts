@@ -83,6 +83,7 @@ const MARKETING_BLOCKED_API = [
   'financial-health',  // burn, runway
   'openai-costs',      // costos internos de IA
   'dashboard/pdf',     // PDF con TODAS las finanzas + PII (se genera con todos los tabs)
+  'grants',            // concesiones de plan: devuelve correo y nombre de cada usuario
 ];
 
 /** Normaliza el path del proxy (quita slashes de borde). */
