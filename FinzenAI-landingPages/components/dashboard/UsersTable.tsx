@@ -1,7 +1,7 @@
 'use client';
 
-import { ChevronUp, ChevronDown } from 'lucide-react';
-import type { UserListItem, UserListPagination, UsersListParams } from '@/lib/dashboard-api';
+import { ChevronUp, ChevronDown, Gift } from 'lucide-react';
+import type { UserListItem, UserListPagination, UsersListParams, PlanGrant } from '@/lib/dashboard-api';
 
 interface UsersTableProps {
   users: UserListItem[];
@@ -9,6 +9,11 @@ interface UsersTableProps {
   params: UsersListParams;
   onSort: (sortBy: string) => void;
   onPageChange: (page: number) => void;
+  /** Concesiones vigentes por userId. La columna Plan muestra el plan REAL
+   *  (lo que paga); la concesión se pinta al lado para no confundir un regalo
+   *  con un ingreso. */
+  grants?: Map<string, PlanGrant>;
+  onGrantClick?: (user: UserListItem) => void;
 }
 
 // ─── Helpers ──────────────────────────────────────────────────
@@ -23,6 +28,12 @@ function formatDate(iso: string): string {
     month: 'short',
     year: 'numeric',
   });
+}
+
+// Días que le quedan a una concesión. Se redondea hacia arriba para que el
+// último día siga contando como 1 y no como 0.
+function diasRestantes(iso: string): number {
+  return Math.max(0, Math.ceil((new Date(iso).getTime() - Date.now()) / 86400000));
 }
 
 function timeAgo(iso: string | null): string {
@@ -137,7 +148,7 @@ function SortHeader({
 
 // ─── Component ────────────────────────────────────────────────
 
-export default function UsersTable({ users, pagination, params, onSort, onPageChange }: UsersTableProps) {
+export default function UsersTable({ users, pagination, params, onSort, onPageChange, grants, onGrantClick }: UsersTableProps) {
   const handleSort = (field: string) => {
     onSort(field);
   };
@@ -184,6 +195,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
               <th className="px-4 py-3 text-center" title="Metas declaradas y, entre paréntesis, total de contribuciones a esas metas">Metas</th>
               <th className="px-4 py-3 text-center" title="Mensajes reales enviados a Zenio (acumulado; excluye saludos automáticos y onboarding)">Zenio</th>
               <th className="px-4 py-3">Última act.</th>
+              <th className="px-4 py-3 text-center" title="Plan regalado con fecha de caducidad (win-back, disculpa, beta tester)">Gracia</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-finzen-gray/10">
@@ -278,6 +290,33 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                   </td>
                   {/* Última actividad */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{timeAgo(user.lastActivity)}</td>
+                  {/* Período de gracia */}
+                  <td className="px-4 py-3 text-center whitespace-nowrap">
+                    {(() => {
+                      const g = grants?.get(user.id);
+                      return (
+                        <div className="flex items-center justify-center gap-2">
+                          {g?.vigente && g.grantedUntil && (
+                            <span
+                              className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-violet-100 text-violet-700"
+                              title={`${g.grantedReason || 'Sin motivo'} — vence el ${formatDate(g.grantedUntil)}`}
+                            >
+                              {g.grantedPlan === 'PREMIUM' ? 'Plus' : 'Pro'} · {diasRestantes(g.grantedUntil)}d
+                            </span>
+                          )}
+                          {onGrantClick && (
+                            <button
+                              onClick={() => onGrantClick(user)}
+                              title={g?.vigente ? 'Cambiar o retirar el período de gracia' : 'Regalar un plan por un tiempo'}
+                              className="p-1 rounded text-finzen-gray hover:text-finzen-blue hover:bg-finzen-blue/10 transition-colors"
+                            >
+                              <Gift size={15} />
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
+                  </td>
                 </tr>
               );
             })}

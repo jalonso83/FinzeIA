@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react';
 import { RefreshCw, Search, Loader2 } from 'lucide-react';
 import { useUsersList } from '@/hooks/useUsersList';
 import UsersTable from '@/components/dashboard/UsersTable';
+import GrantPlanModal from '@/components/dashboard/GrantPlanModal';
+import { fetchGrants, type PlanGrant, type UserListItem } from '@/lib/dashboard-api';
 
 export default function UsuariosPage() {
   const {
@@ -21,6 +23,25 @@ export default function UsuariosPage() {
   // Debounced search
   const [searchInput, setSearchInput] = useState('');
   const debounceRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Concesiones de plan. Se piden aparte de la lista de usuarios a propósito:
+  // el endpoint de usuarios devuelve el plan REAL (lo que la persona paga), y
+  // mezclar ahí un plan regalado haría que un win-back se leyera como ingreso.
+  const [grants, setGrants] = useState<Map<string, PlanGrant>>(new Map());
+  const [grantUser, setGrantUser] = useState<UserListItem | null>(null);
+
+  const cargarGrants = async () => {
+    try {
+      const lista = await fetchGrants();
+      setGrants(new Map(lista.map((g) => [g.userId, g])));
+    } catch {
+      // Silencioso: sin concesiones la tabla funciona igual, solo sin el distintivo.
+    }
+  };
+
+  useEffect(() => {
+    cargarGrants();
+  }, []);
 
   useEffect(() => {
     if (debounceRef.current) clearTimeout(debounceRef.current);
@@ -153,8 +174,23 @@ export default function UsuariosPage() {
             params={params}
             onSort={handleSort}
             onPageChange={setPage}
+            grants={grants}
+            onGrantClick={setGrantUser}
           />
         </div>
+      )}
+
+      {grantUser && (
+        <GrantPlanModal
+          user={grantUser}
+          concesionActual={grants.get(grantUser.id)}
+          onClose={() => setGrantUser(null)}
+          onDone={() => {
+            setGrantUser(null);
+            cargarGrants();
+            refresh();
+          }}
+        />
       )}
     </div>
   );

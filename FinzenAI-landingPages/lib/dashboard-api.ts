@@ -394,6 +394,67 @@ export async function fetchUsersList(params: UsersListParams): Promise<UsersList
   return json.data as UsersListResponse;
 }
 
+// ─── Concesiones de plan (períodos de gracia) ───────────────────
+//
+// Un plan REGALADO por nosotros con fecha de caducidad: recuperar a alguien que
+// se fue, disculparse por un bug, dejar entrar a un beta tester. Vive en sus
+// propios campos del backend (`grantedPlan`/`grantedUntil`) y no en `plan`,
+// porque Stripe y RevenueCat sobrescriben `plan` en cada sincronización.
+//
+// Por eso la lista de usuarios sigue mostrando el plan REAL: la concesión se
+// pide aparte y se cruza por `userId` para pintar el distintivo.
+
+export interface PlanGrant {
+  userId: string;
+  plan: 'FREE' | 'PREMIUM' | 'PRO';        // el plan real, lo que de verdad paga
+  grantedPlan: 'PREMIUM' | 'PRO' | null;
+  grantedUntil: string | null;
+  grantedReason: string | null;
+  vigente: boolean;                         // false = caducada, se conserva como historial
+  user: { email: string; name: string; lastName: string };
+}
+
+export async function fetchGrants(): Promise<PlanGrant[]> {
+  const res = await fetch('/api/admin/grants');
+  if (!res.ok) {
+    if (res.status === 401) throw new Error('UNAUTHORIZED');
+    throw new Error(`API error: ${res.status}`);
+  }
+  const json = await res.json();
+  return (json.grants || []) as PlanGrant[];
+}
+
+export async function grantPlan(
+  userId: string,
+  data: {
+    plan: 'PREMIUM' | 'PRO';
+    days: number;
+    reason: string;
+    /** Mandarle un push avisándole. Apagado = se lo dices tú por otro canal. */
+    notify?: boolean;
+    /** Cuerpo del push. Vacío = texto por defecto con el plan y la fecha. */
+    message?: string;
+  },
+): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}/grant`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `No se pudo otorgar el plan (${res.status})`);
+  }
+}
+
+export async function revokeGrant(userId: string): Promise<void> {
+  const res = await fetch(`/api/admin/users/${userId}/grant`, { method: 'DELETE' });
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(json.message || `No se pudo retirar la concesión (${res.status})`);
+  }
+}
+
 export async function fetchDistinctCountries(): Promise<string[]> {
   const res = await fetch('/api/admin/users/countries');
   if (!res.ok) {
