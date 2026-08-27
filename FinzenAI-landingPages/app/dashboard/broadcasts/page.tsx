@@ -50,13 +50,19 @@ const SCREEN_OPTIONS = [
   { value: 'Transactions', label: 'Transacciones' },
   { value: 'Budgets', label: 'Presupuestos' },
   { value: 'Goals', label: 'Metas' },
+  { value: 'EmailSync', label: 'Gastos en automático' },
   { value: 'AntExpenseDetective', label: 'Detector de gastos hormiga' },
 ];
 
 // Destinos que el SLOT del dashboard sabe abrir (= Action Registry del móvil,
 // AnnouncementSlot.tsx KNOWN_ACTIONS). Push soporta más; el slot solo estos. Si el
 // admin elige otro destino para el slot, el botón no se mostrará ahí.
-const SLOT_ACTIONS = ['Transactions', 'Budgets', 'Goals', 'Subscriptions'];
+//
+// OJO: 'EmailSync' solo lo entienden las apps de la 2.0 en adelante. En una app
+// anterior el botón simplemente no se dibuja —el registro descarta lo que no
+// conoce— así que la campaña no rompe nada, pero tampoco lleva a ningún lado.
+// No usarlo hasta que la 2.0 esté publicada en las dos tiendas.
+const SLOT_ACTIONS = ['Transactions', 'Budgets', 'Goals', 'Subscriptions', 'EmailSync'];
 
 const COUNTRY_OPTIONS = ['Todos', 'República Dominicana', 'México', 'Colombia', 'Estados Unidos', 'España'];
 
