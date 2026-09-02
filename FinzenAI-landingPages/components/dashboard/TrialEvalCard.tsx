@@ -67,10 +67,16 @@ function Contraste({ titulo, c, umbralPuntos }: { titulo: string; c: ContrasteEm
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
-      <div className="flex items-baseline justify-between mb-3">
+      <div className="flex items-baseline justify-between mb-1">
         <p className="text-sm font-semibold text-slate-900">{titulo}</p>
         <span className="text-xs text-finzen-gray">umbral ≥{umbralPuntos} pts</span>
       </div>
+      {/* Definición ACUMULATIVA, distinta de la ventana que usa la curva de
+          abajo. Se dice porque los dos números conviven en la misma pantalla y
+          sin esto parecería que uno de los dos está mal. */}
+      <p className="text-xs text-finzen-gray mb-3">
+        Hizo algo el día {titulo.includes('D7') ? '7' : '30'} <strong>o después</strong>
+      </p>
 
       {!hayMuestra ? (
         <p className="text-sm text-finzen-gray">Sin muestra en alguno de los dos grupos todavía.</p>
@@ -113,7 +119,9 @@ function Contraste({ titulo, c, umbralPuntos }: { titulo: string; c: ContrasteEm
  * Sync y vuelve a anotar a mano. Con solo D7 y D30 ese escalón queda escondido
  * dentro de una media, por eso se pinta día a día.
  */
-function CurvaRetencion({ datos }: { datos: TrialEvalData['retencionPorDia'] }) {
+function CurvaRetencion({ datos, periodo }: { datos: TrialEvalData['retencionPorDia']; periodo: { from: string; to: string } }) {
+  const fecha = (s: string) =>
+    new Date(s).toLocaleDateString('es', { day: 'numeric', month: 'short', timeZone: 'UTC' });
   if (!datos.length) {
     return (
       <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
@@ -141,14 +149,38 @@ function CurvaRetencion({ datos }: { datos: TrialEvalData['retencionPorDia'] }) 
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5">
-      <div className="flex items-baseline justify-between mb-4">
-        <p className="text-sm font-semibold text-slate-900">Retención día a día</p>
-        <span className="text-xs text-finzen-gray">el trial vence el día 21</span>
+      <div className="mb-4">
+        <div className="flex items-baseline justify-between">
+          <p className="text-sm font-semibold text-slate-900">
+            Retención por día desde el registro
+          </p>
+          <span className="text-xs text-finzen-gray">el trial vence el día 21</span>
+        </div>
+        {/* El eje NO es calendario. Alguien que se registró el 1 de agosto y
+            alguien del 20 caen en la misma barra "día 7": lo que se mide es
+            cuánto llevaba CADA UNO desde su propio registro. */}
+        <p className="text-xs text-finzen-gray mt-1">
+          Cohorte: quienes se registraron entre el <strong>{fecha(periodo.from)}</strong> y el{' '}
+          <strong>{fecha(periodo.to)}</strong>. El eje horizontal son días desde el registro de
+          cada usuario, no fechas.
+        </p>
+        {/* Ventana de un día, NO acumulativo. Es lo contrario del contraste de
+            arriba, y hay que decirlo: si no, un D7 del 8% junto a una barra del
+            2% en el día 7 parece un error de cálculo cuando son dos preguntas
+            distintas. */}
+        <p className="text-xs text-slate-500 mt-1">
+          Cada barra es <strong>solo ese día</strong>, no acumulado — por eso los números son más
+          bajos que el D7 y D30 de arriba, que cuentan «ese día o después».
+        </p>
       </div>
 
-      <div className="flex items-end gap-[3px] h-32" role="img" aria-label="Retención por día del 1 al 30">
+      <div className="flex items-end gap-[3px] h-32" role="img" aria-label="Retención por día del 1 al 30 desde el registro">
         {datos.map((d) => (
-          <div key={d.dia} className="flex-1 flex flex-col justify-end h-full" title={`Día ${d.dia}: ${d.pct}% (${d.activos}/${d.cohorte})`}>
+          <div
+            key={d.dia}
+            className="flex-1 flex flex-col justify-end h-full"
+            title={`Día ${d.dia} desde el registro — ${d.pct}% activos (${d.activos} de ${d.cohorte} que ya cumplieron ese día)`}
+          >
             <div
               className={`w-full rounded-t ${d.dia === 21 ? 'bg-rose-500' : d.dia > 21 ? 'bg-slate-300' : 'bg-finzen-blue'}`}
               style={{ height: `${Math.max((d.pct / max) * 100, 2)}%` }}
@@ -159,6 +191,14 @@ function CurvaRetencion({ datos }: { datos: TrialEvalData['retencionPorDia'] }) 
       <div className="flex justify-between text-xs text-finzen-gray mt-1">
         <span>día 1</span><span>día 21</span><span>día 30</span>
       </div>
+
+      {/* Cada barra tiene un denominador distinto y conviene decirlo: si no,
+          parece que la caída de la derecha es peor de lo que es. */}
+      <p className="text-xs text-slate-500 mt-3">
+        Cada barra cuenta solo a quien ya lleva ese tiempo registrado, así que el denominador baja
+        hacia la derecha: día 1 son {datos[0]?.cohorte ?? 0} personas y día {datos[datos.length - 1]?.dia ?? 30} son{' '}
+        {datos[datos.length - 1]?.cohorte ?? 0}. Pasa el cursor por una barra para ver su dato exacto.
+      </p>
 
       {caida != null && (
         <div className={`mt-4 rounded-lg p-3 text-sm ${caida > 40 ? 'bg-rose-50 text-rose-800' : 'bg-slate-50 text-slate-700'}`}>
@@ -250,7 +290,7 @@ export default function TrialEvalCard({ data }: Props) {
       </div>
 
       {/* A4 — el guardrail que manda */}
-      <CurvaRetencion datos={retencionPorDia} />
+      <CurvaRetencion datos={retencionPorDia} periodo={data.period} />
 
       <p className="text-xs text-finzen-gray">
         Cohorte limpia desde el 1 de septiembre: el 31 de agosto las variables se encendieron a
