@@ -157,6 +157,45 @@ export interface OpenAICostsData {
   period: { from: string; to: string };
 }
 
+/**
+ * Eval del trial PRO de 21 días, firmada el 1 de septiembre de 2026.
+ *
+ * Los umbrales están en el documento y NO se tocan sin documentar el cambio:
+ * activación de Email Sync ≥30%, contraste D7 ≥8 puntos, D30 ≥5 puntos,
+ * cancelación temprana >20% = alarma.
+ */
+export interface TrialEvalData {
+  emailSync: {
+    activadores: number;
+    nuevosDelPeriodo: number;
+    pctActivacion: number;
+    primeraActivacion: string | null;
+  };
+  desenlaceTrial: {
+    total: number;
+    activos: number;
+    convirtio: number;
+    vencio: number;
+    cancelo: number;
+    pctConversion: number;
+    pctCancelacionTemprana: number;
+  };
+  retencionPorDia: { dia: number; cohorte: number; activos: number; pct: number }[];
+  contraste: {
+    d7: ContrasteEmailSync;
+    d30: ContrasteEmailSync;
+  };
+  cohorteLimpiaDesde: string;
+  period: { from: string; to: string };
+}
+
+export interface ContrasteEmailSync {
+  conEmailSync: { cohorte: number; retenidos: number; pct: number };
+  sinEmailSync: { cohorte: number; retenidos: number; pct: number };
+  /** Ya viene restado: es lo que la eval compara contra su umbral. */
+  diferenciaPuntos: number;
+}
+
 export interface AcquisitionData {
   kpis: {
     pageViews: number;
@@ -355,7 +394,7 @@ export async function fetchAllDashboardData(from: string, to: string) {
     }
   };
 
-  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition] = await Promise.all([
+  const [pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, trialEval] = await Promise.all([
     orNull(fetchEndpoint<PulseData>('pulse', from, to)),
     orNull(fetchEndpoint<UsersData>('users', from, to)),
     orNull(fetchEndpoint<RevenueData>('revenue', from, to)),
@@ -366,9 +405,11 @@ export async function fetchAllDashboardData(from: string, to: string) {
     // pero pasamos los params igual por uniformidad. El backend los ignora.
     orNull(fetchEndpoint<FinancialHealthData>('financial-health', from, to)),
     orNull(fetchEndpoint<AcquisitionData>('acquisition', from, to)),
+    // Eval del trial PRO de 21 días — A2..A5 de la eval firmada el 1-sep-2026
+    orNull(fetchEndpoint<TrialEvalData>('trial-eval', from, to)),
   ]);
 
-  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition };
+  return { pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, trialEval };
 }
 
 // ─── Users List API ─────────────────────────────────────────────

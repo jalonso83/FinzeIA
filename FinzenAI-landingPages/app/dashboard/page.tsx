@@ -8,6 +8,7 @@ import UserGrowthChart from '@/components/dashboard/UserGrowthChart';
 import ChartDonut from '@/components/dashboard/ChartDonut';
 import ChartBar from '@/components/dashboard/ChartBar';
 import QuickStats from '@/components/dashboard/QuickStats';
+import TrialEvalCard from '@/components/dashboard/TrialEvalCard';
 import DateRangePicker from '@/components/dashboard/DateRangePicker';
 import { useDashboardData } from '@/hooks/useDashboardData';
 import { useEffect, useState } from 'react';
@@ -158,7 +159,7 @@ function buildBannerData(pulse: any, revenue: any, financialHealth: any) {
 // ─── Component ──────────────────────────────────────────────────
 
 export default function DashboardPulso() {
-  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, financialHealth, loading, error } = useDashboardData();
+  const { range, setRange, pulse, users, revenue, engagement, openaiCosts, financialHealth, trialEval, loading, error } = useDashboardData();
   const [role, setRole] = useState<Role>('admin');
   useEffect(() => { setRole(getClientRole()); }, []);
   const showFinancials = canSeeFinancials(role);
@@ -265,6 +266,13 @@ export default function DashboardPulso() {
             Por fecha real de activación (trial_device_registry). Esta serie es de los últimos 12 meses y no depende del filtro de fechas de arriba.
           </p>
         </div>
+      </div>
+
+      {/* Eval del Trial PRO de 21 días — va justo debajo de la serie de trials
+          porque es su lectura: el gráfico de arriba dice cuántos empiezan, esta
+          sección dice en qué terminan y si el mecanismo funciona. */}
+      <div className="mb-6">
+        <TrialEvalCard data={trialEval} />
       </div>
 
       {/* Quick Stats */}

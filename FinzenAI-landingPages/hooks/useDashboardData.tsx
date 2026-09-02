@@ -15,6 +15,7 @@ import {
   type UnitEconomicsData,
   type FinancialHealthData,
   type AcquisitionData,
+  type TrialEvalData,
 } from '@/lib/dashboard-api';
 
 interface DashboardState {
@@ -32,6 +33,7 @@ interface DashboardState {
   unitEconomics: UnitEconomicsData | null;
   financialHealth: FinancialHealthData | null;
   acquisition: AcquisitionData | null;
+  trialEval: TrialEvalData | null;
   loading: boolean;
   error: string | null;
 }
@@ -49,6 +51,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
   const [openaiCosts, setOpenaiCosts] = useState<OpenAICostsData | null>(null);
   const [unitEconomics, setUnitEconomics] = useState<UnitEconomicsData | null>(null);
   const [financialHealth, setFinancialHealth] = useState<FinancialHealthData | null>(null);
+  const [trialEval, setTrialEval] = useState<TrialEvalData | null>(null);
   const [acquisition, setAcquisition] = useState<AcquisitionData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +79,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
       setUnitEconomics(data.unitEconomics);
       setFinancialHealth(data.financialHealth);
       setAcquisition(data.acquisition);
+      setTrialEval(data.trialEval);
     } catch (err: unknown) {
       if (reqId !== requestIdRef.current) return; // respuesta obsoleta → ignorar
       const msg = err instanceof Error ? err.message : 'Error desconocido';
@@ -95,7 +99,7 @@ export function DashboardProvider({ children }: { children: ReactNode }) {
 
   return (
     <DashboardContext.Provider
-      value={{ range, setRange, customPeriod, setCustomPeriod, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, loading, error }}
+      value={{ range, setRange, customPeriod, setCustomPeriod, pulse, users, revenue, engagement, openaiCosts, unitEconomics, financialHealth, acquisition, trialEval, loading, error }}
     >
       {children}
     </DashboardContext.Provider>
