@@ -76,6 +76,8 @@ export interface EngagementData {
   zenioRealAdoptionRate: number;
   zenioMessagesTotal: number;
   zenioMessagesThisMonth: number;
+  /** Usuarios distintos que usaron Zenio en el período. */
+  zenioUsuariosPeriodo?: number;
   txAdoptionRate: number;
   streakActiveUsers: number;
   streakActiveRate: number;
