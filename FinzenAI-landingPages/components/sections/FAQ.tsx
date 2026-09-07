@@ -12,16 +12,20 @@ const faqs = [
       'No. FinZen AI es una herramienta de finanzas personales. No manejamos tu dinero, te ayudamos a entenderlo y organizarlo.',
   },
   {
-    id: 'faq-2',
-    question: '¿Es seguro conectar mi email?',
-    answer:
-      'Sí. Usamos autenticación segura OAuth. No almacenamos contraseñas. Solo leemos notificaciones bancarias para importar transacciones automáticamente.',
-  },
-  {
     id: 'faq-3',
     question: '¿Puedo usar FinZen AI gratis?',
     answer:
-      'Sí. El plan gratuito incluye transacciones ilimitadas, dashboard completo, 4 presupuestos, 2 metas de ahorro y 15 consultas a Zenio por mes. Sin límite de tiempo.',
+      'Sí, y de dos formas. Al registrarte recibes 21 días del plan PRO completo, sin tarjeta de crédito. Cuando terminan, te quedas en el plan gratuito para siempre: transacciones ilimitadas, dashboard completo, 4 presupuestos, 2 metas de ahorro y 15 consultas a Zenio por mes.',
+  },
+  {
+    // Iba de segunda, antes de que la página explicara qué es conectar el
+    // correo: respondía una objeción de seguridad sobre una propuesta que
+    // todavía no se había hecho. Ahora va después de la de precios, cuando ya
+    // se vio la funcionalidad en el Hero, en Features y en Cómo Funciona.
+    id: 'faq-2',
+    question: '¿Es seguro conectar mi correo?',
+    answer:
+      'Sí. Usamos autenticación segura de Google y Microsoft (OAuth); nunca guardamos tu contraseña y puedes desconectarlo cuando quieras. Solo leemos las notificaciones de tu banco para registrar tus transacciones — no tocamos nada más de tu correo.',
   },
   {
     id: 'faq-4',

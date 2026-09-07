@@ -1,6 +1,6 @@
 'use client';
 
-import { Download, MessageCircle, TrendingUp } from 'lucide-react';
+import { Download, Mail, TrendingUp } from 'lucide-react';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 import Icon from '@/components/ui/Icon';
 import { useInView } from '@/hooks/useInView';
@@ -9,13 +9,18 @@ const steps = [
   {
     icon: Download,
     title: 'Descarga gratis',
-    description: 'Disponible en App Store.',
+    description: 'Disponible en App Store y Google Play.',
   },
   {
-    icon: MessageCircle,
-    title: 'Habla con Zenio',
+    // Este paso decía "Habla con Zenio · Zenio te guía paso a paso para
+    // configurar tu perfil, metas y presupuestos", que era el recorrido guiado
+    // de bienvenida. Ese flujo ya no corre por defecto —solo lo llena quien
+    // quiere—, así que la página prometía algo que no pasa. Se cambia por lo que
+    // de verdad queremos que la persona haga primero.
+    icon: Mail,
+    title: 'Conecta tu correo',
     description:
-      'Zenio te guía paso a paso para configurar tu perfil, metas y presupuestos.',
+      'FinZen lee las notificaciones que ya te manda tu banco y registra tus gastos solo. Sin teclear nada.',
   },
   {
     icon: TrendingUp,

@@ -8,7 +8,9 @@ import { getAppStoreLink } from '@/lib/constants';
 
 const stats = [
   { value: '24/7', label: 'Zenio disponible siempre' },
-  { value: '3 seg', label: 'Registra un gasto hablando' },
+  // Antes: "3 seg · Registra un gasto hablando". Seguía vendiendo la voz como
+  // el diferencial, cuando el de hoy es no tener que registrar nada.
+  { value: '0', label: 'Gastos que tienes que teclear' },
   { value: '100%', label: 'Control de tu dinero' },
 ];
 

@@ -30,10 +30,14 @@ export default function Hero() {
                 style={{textShadow: '0 4px 8px rgba(0,0,0,0.3)'}}>
               El amigo que sabe de dinero que siempre quisiste tener
             </h1>
+            {/* Antes abría con "registra gastos hablando". La voz sigue estando,
+                pero ya no es la mejor promesa: la mejor es que no tengas que
+                registrar nada. El titular no se toca — no depende de qué
+                funcionalidad esté al frente. */}
             <p className="text-white/80 text-lg md:text-xl font-rubik font-normal mb-8 max-w-lg mx-auto md:mx-0 leading-relaxed animate-slide-in-bottom">
-              Registra gastos hablando, controla presupuestos sin esfuerzo y
-              ahorra con un asistente que te entiende. FinZen AI transforma
-              cómo manejas tu dinero.
+              Conecta tu correo y tus gastos se registran solos. Presupuestos,
+              metas y un asistente que te entiende — sin teclear una sola
+              transacción.
             </p>
 
             {/* CTAs conditioned by device */}

@@ -1,6 +1,7 @@
 'use client';
 
 import {
+  Mail,
   MessageCircle,
   LayoutDashboard,
   Wallet,
@@ -14,6 +15,17 @@ import Icon from '@/components/ui/Icon';
 import { useInView } from '@/hooks/useInView';
 
 const features = [
+  {
+    // Va primera a propósito. Antes no estaba en ninguna de las seis tarjetas:
+    // la funcionalidad sobre la que se montó 2.0 solo aparecía como un bullet
+    // del plan PRO y como una FAQ que preguntaba si era segura — o sea, la
+    // página se defendía de una objeción sobre algo que nunca había propuesto.
+    icon: Mail,
+    color: 'text-finzen-green',
+    title: 'Gastos en automático',
+    description:
+      'Conecta tu correo y FinZen registra tus compras solo, leyendo las notificaciones que ya te manda tu banco. Ni una transacción a mano.',
+  },
   {
     icon: MessageCircle,
     color: 'text-finzen-green',

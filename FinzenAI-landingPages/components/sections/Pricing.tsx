@@ -74,7 +74,10 @@ const plans: PricingPlan[] = [
       { text: 'Detector de Gastos Hormiga completo' },
       { text: 'Exportar CSV' },
     ],
-    cta: 'Prueba 7 Días Gratis',
+    // Sin promesa de prueba: la que se da al registrarse es de PRO, no de Plus.
+    // Ofrecer aquí una "prueba de Plus" mandaba a la tienda a alguien que iba a
+    // recibir otra cosa.
+    cta: 'Descargar Gratis',
     ctaVariant: 'primary',
     highlighted: true,
     planId: 'plus',
@@ -97,7 +100,7 @@ const plans: PricingPlan[] = [
       { text: 'Exportar PDF' },
       { text: 'Recordatorios ilimitados' },
     ],
-    cta: 'Prueba 7 Días Gratis',
+    cta: 'Prueba 21 Días Gratis',
     ctaVariant: 'primary',
     highlighted: false,
     planId: 'pro',
@@ -259,9 +262,11 @@ export default function Pricing() {
         ))}
       </div>
 
+      {/* Se dice PRO explícitamente: al registrarse se recibe PRO por 21 días,
+          no una prueba genérica ni una de Plus. */}
       <p className="text-finzen-gray text-sm text-center mt-8">
-        Prueba gratuita de 7 días. Sin tarjeta de crédito. Cancela cuando
-        quieras.
+        Al registrarte recibes 21 días de PRO gratis. Sin tarjeta de crédito.
+        Cancela cuando quieras.
       </p>
       <p className="text-finzen-gray/50 text-xs text-center mt-4">
         FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un
