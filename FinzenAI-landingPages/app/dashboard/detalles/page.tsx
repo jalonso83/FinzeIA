@@ -538,6 +538,61 @@ function TabEngagement({ engagement }: { engagement: any }) {
           <StatBox label="Conversión Referidos" value={`${engagement.referrals?.converted ?? 0} (${engagement.referrals?.conversionRate ?? 0}%)`} tooltip="Referidos creados en el período que terminaron convirtiéndose en usuarios activos. El % es vs total de referidos enviados (mismo cohorte)." />
         </div>
       </Section>
+
+      {/* ── GRUPO E — DE DÓNDE SALE EL PAÍS ──────────────────────── */}
+      <Section
+        title="Cómo se asignó el país"
+        tooltip="En registros por Google/Apple el país NO lo escribe la persona: se infiere. Se prueban cuatro señales en orden — el regionCode del teléfono, la región del idioma (es-DO → DO), la IP contra GeoIP, y si ninguna funciona se cae a un valor por defecto que es 'Estados Unidos'. El problema: ese default queda guardado con la MISMA cadena que un estadounidense real, así que en la base no se distinguen. Esta tabla los separa. Solo tiene datos desde que se desplegó el campo countrySource — los registros anteriores salen como 'formulario' aunque hayan sido por SSO."
+      >
+        {(() => {
+          const filas = engagement.fuenteDelPais ?? [];
+          if (!filas.length) {
+            return <p className="text-sm text-finzen-gray">Sin registros en el período.</p>;
+          }
+          const total = filas.reduce((s: number, f: any) => s + f.count, 0);
+          const ETIQUETAS: Record<string, string> = {
+            device: 'Teléfono (regionCode)',
+            locale: 'Idioma del teléfono',
+            geoip: 'GeoIP (la IP)',
+            default: '⚠️ No se detectó — se asumió',
+            formulario: 'Lo escribió la persona',
+          };
+          return (
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="text-left text-finzen-gray border-b border-finzen-gray/20">
+                    <th className="py-2 pr-4 font-medium">Señal</th>
+                    <th className="py-2 pr-4 font-medium">País asignado</th>
+                    <th className="py-2 pr-4 font-medium text-right">Usuarios</th>
+                    <th className="py-2 font-medium text-right">% del total</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filas.map((f: any, i: number) => (
+                    <tr
+                      key={`${f.fuente}-${f.country}-${i}`}
+                      className={`border-b border-finzen-gray/10 ${f.fuente === 'default' ? 'bg-amber-50' : ''}`}
+                    >
+                      <td className="py-2 pr-4">{ETIQUETAS[f.fuente] ?? f.fuente}</td>
+                      <td className="py-2 pr-4">{f.country}</td>
+                      <td className="py-2 pr-4 text-right tabular-nums">{f.count.toLocaleString('es')}</td>
+                      <td className="py-2 text-right tabular-nums">
+                        {total > 0 ? ((f.count / total) * 100).toFixed(1) : '0.0'}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <p className="text-xs text-finzen-gray mt-3">
+                La fila resaltada es la que importa: ahí el país no se detectó, se asumió. Si crece,
+                el problema está en las señales (la app no manda región, o el GeoIP está fallando),
+                no en que tengamos usuarios en Estados Unidos.
+              </p>
+            </div>
+          );
+        })()}
+      </Section>
     </div>
   );
 }

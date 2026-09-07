@@ -95,6 +95,9 @@ export interface EngagementData {
   // onboarding como completo, así que esas tasas medían otra cosa.
   referrals: { total: number; converted: number; conversionRate: number };
   registrationsByChannel: { country: string; count: number }[];
+  /** Qué señal decidió el país en registros por Google/Apple. `default` = no se
+   *  detectó, se asumió "Estados Unidos". `formulario` = lo escribió la persona. */
+  fuenteDelPais: { fuente: string; country: string; count: number }[];
   period: { from: string; to: string };
 }
 
