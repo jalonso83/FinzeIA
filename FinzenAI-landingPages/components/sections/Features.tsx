@@ -8,18 +8,31 @@ import {
   Target,
   Search,
   Trophy,
+  BellRing,
+  FileText,
 } from 'lucide-react';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 import Card from '@/components/ui/Card';
 import Icon from '@/components/ui/Icon';
 import { useInView } from '@/hooks/useInView';
 
+// El orden es la estructura del mensaje, no una lista de funcionalidades. En una
+// rejilla de 3 columnas cada fila se lee como un bloque:
+//
+//   Fila 1 — lo que pasa SIN que el usuario haga nada. Es la promesa de 2.0 y
+//            por eso abre. Antes ninguna de estas tres estaba aquí: "Gastos en
+//            automático" ni siquiera existía como tarjeta —vivía como un bullet
+//            del plan PRO y como una FAQ que preguntaba si era segura, o sea que
+//            la página se defendía de una objeción sobre algo que nunca había
+//            propuesto.
+//   Fila 2 — las herramientas del día a día.
+//   Fila 3 — lo que sostiene el hábito.
+//
+// Son 9 a propósito: llenan 3×3 exacto en escritorio. Con 7 quedaba una suelta
+// abajo. Si se agrega o quita una, hay que volver a cuadrar en múltiplos de 3.
 const features = [
+  // ─── Fila 1 · trabaja sola ───────────────────────────────────────────────
   {
-    // Va primera a propósito. Antes no estaba en ninguna de las seis tarjetas:
-    // la funcionalidad sobre la que se montó 2.0 solo aparecía como un bullet
-    // del plan PRO y como una FAQ que preguntaba si era segura — o sea, la
-    // página se defendía de una objeción sobre algo que nunca había propuesto.
     icon: Mail,
     color: 'text-finzen-green',
     title: 'Gastos en automático',
@@ -27,8 +40,24 @@ const features = [
       'Conecta tu correo y FinZen registra tus compras solo, leyendo las notificaciones que ya te manda tu banco. Ni una transacción a mano.',
   },
   {
-    icon: MessageCircle,
+    icon: BellRing,
     color: 'text-finzen-green',
+    title: 'Recordatorios de pago',
+    description:
+      'Dile cuándo vence la luz, el alquiler o la tarjeta y FinZen te avisa antes. No más recargos por olvido.',
+  },
+  {
+    icon: FileText,
+    color: 'text-finzen-green',
+    title: 'Reportes con IA',
+    description:
+      'Cada quincena Zenio te manda un análisis de en qué se te fue el dinero, qué cambió y qué conviene ajustar. Escrito, no una gráfica más.',
+  },
+
+  // ─── Fila 2 · las herramientas ───────────────────────────────────────────
+  {
+    icon: MessageCircle,
+    color: 'text-finzen-blue',
     title: 'Zenio AI, tu copiloto financiero',
     description:
       'Habla con Zenio como si fuera un amigo. Dile "Gasté 500 en comida" y listo, se registra solo. Pregúntale lo que quieras sobre finanzas, te responde sin juzgarte.',
@@ -47,9 +76,11 @@ const features = [
     description:
       'Define límites por categoría y recibe alertas antes de pasarte. Barras de progreso visuales te muestran exactamente dónde estás.',
   },
+
+  // ─── Fila 3 · lo que sostiene el hábito ──────────────────────────────────
   {
     icon: Target,
-    color: 'text-finzen-blue',
+    color: 'text-finzen-green',
     title: 'Metas de ahorro',
     description:
       'Vacaciones, fondo de emergencia, tu primer carro. Crea metas con fecha y monto, contribuye cuando puedas y visualiza tu progreso.',
