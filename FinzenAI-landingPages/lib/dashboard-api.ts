@@ -16,6 +16,9 @@ export interface PulseData {
   enRecuperacion: number;
   /** Ya canceló pero conserva acceso hasta que venza lo pagado. Señal anticipada. */
   marcadosParaCancelar: number;
+  /** Cuántos entraron en past_due DENTRO del período, hayan salido o no. A
+   *  diferencia de `enRecuperacion` (foto de ahora), este sí respeta el filtro. */
+  rebotesDelPeriodo: number;
   trialsActive: number;
   trialsStarted: number;
   trialConversionRate: number;
@@ -97,7 +100,7 @@ export interface EngagementData {
   registrationsByChannel: { country: string; count: number }[];
   /** Qué señal decidió el país en registros por Google/Apple. `default` = no se
    *  detectó, se asumió "Estados Unidos". `formulario` = lo escribió la persona. */
-  fuenteDelPais: { fuente: string; country: string; count: number }[];
+  fuenteDelPais: { fuente: string; country: string; count: number; totalPais: number }[];
   period: { from: string; to: string };
 }
 

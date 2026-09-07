@@ -10,14 +10,22 @@ interface KPICardProps {
   change: string | null;
   changeType: 'positive' | 'negative' | 'neutral';
   tooltip?: string;
+  /** Nota al pie, sin flecha ni "vs prev". Para cuando el número de abajo no es
+   *  una comparación con el período anterior sino otra lectura del mismo dato
+   *  (ej. "1 rebotó en el período" bajo el conteo de rebotes de ahora mismo). */
+  sub?: string | null;
 }
 
-export default function KPICard({ label, value, change, changeType, tooltip }: KPICardProps) {
+export default function KPICard({ label, value, change, changeType, tooltip, sub }: KPICardProps) {
   const [showTooltip, setShowTooltip] = useState(false);
 
   return (
     <div className="bg-white rounded-xl border border-finzen-gray/20 p-5 hover:shadow-xl hover:-translate-y-1 transition-all duration-300 group relative">
-      <div className="flex items-center gap-1.5 mb-1">
+      {/* min-h de dos renglones: sin esto, un título que envuelve empuja su
+          número hacia abajo y descuadra toda la fila de tarjetas — los valores
+          dejan de leerse a la misma altura. `items-start` para que el icono de
+          ayuda se quede arriba junto a la primera línea del título. */}
+      <div className="flex items-start gap-1.5 mb-1 min-h-[2.5rem]">
         <p className="text-sm text-finzen-gray font-medium tracking-wide">{label}</p>
         {tooltip && (
           <div
@@ -53,6 +61,9 @@ export default function KPICard({ label, value, change, changeType, tooltip }: K
           <span className="font-semibold">{change}</span>
           <span className="text-finzen-gray font-normal tracking-wide">vs prev</span>
         </div>
+      )}
+      {sub && !change && (
+        <p className="mt-2 text-xs text-finzen-gray tracking-wide">{sub}</p>
       )}
     </div>
   );

@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect, useState, type ReactNode } from 'react';
+import { Fragment, Suspense, useEffect, useState, type ReactNode } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { Users, DollarSign, Activity, Calculator, HeartPulse, Megaphone, Loader2, FlaskConical, Check, Minus, LayoutGrid, ChevronDown } from 'lucide-react';
 import BannerSuperior from '@/components/dashboard/BannerSuperior';
@@ -557,37 +557,64 @@ function TabEngagement({ engagement }: { engagement: any }) {
             default: '⚠️ No se detectó — se asumió',
             formulario: 'Lo escribió la persona',
           };
+          // Agrupado por país: el backend ya viene ordenado (países por su total,
+          // señales dentro), así que basta con recorrer y abrir grupo al cambiar
+          // de país. Antes salía ordenado solo por cantidad y las señales de un
+          // mismo país quedaban desperdigadas por toda la tabla, que es
+          // justamente lo que no dejaba comparar.
+          const grupos: { pais: string; total: number; filas: any[] }[] = [];
+          for (const f of filas) {
+            const ultimo = grupos[grupos.length - 1];
+            if (ultimo && ultimo.pais === f.country) ultimo.filas.push(f);
+            else grupos.push({ pais: f.country, total: f.totalPais ?? f.count, filas: [f] });
+          }
           return (
             <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="text-left text-finzen-gray border-b border-finzen-gray/20">
-                    <th className="py-2 pr-4 font-medium">Señal</th>
-                    <th className="py-2 pr-4 font-medium">País asignado</th>
+                    <th className="py-2 pr-4 font-medium">País / señal</th>
                     <th className="py-2 pr-4 font-medium text-right">Usuarios</th>
                     <th className="py-2 font-medium text-right">% del total</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {filas.map((f: any, i: number) => (
-                    <tr
-                      key={`${f.fuente}-${f.country}-${i}`}
-                      className={`border-b border-finzen-gray/10 ${f.fuente === 'default' ? 'bg-amber-50' : ''}`}
-                    >
-                      <td className="py-2 pr-4">{ETIQUETAS[f.fuente] ?? f.fuente}</td>
-                      <td className="py-2 pr-4">{f.country}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">{f.count.toLocaleString('es')}</td>
-                      <td className="py-2 text-right tabular-nums">
-                        {total > 0 ? ((f.count / total) * 100).toFixed(1) : '0.0'}%
-                      </td>
-                    </tr>
+                  {grupos.map((g) => (
+                    <Fragment key={g.pais}>
+                      <tr className="border-b border-finzen-gray/20 bg-finzen-gray/5">
+                        <td className="py-2 pr-4 font-semibold text-finzen-black">{g.pais}</td>
+                        <td className="py-2 pr-4 text-right font-semibold tabular-nums">
+                          {g.total.toLocaleString('es')}
+                        </td>
+                        <td className="py-2 text-right font-semibold tabular-nums">
+                          {total > 0 ? ((g.total / total) * 100).toFixed(1) : '0.0'}%
+                        </td>
+                      </tr>
+                      {g.filas.map((f: any, i: number) => (
+                        <tr
+                          key={`${g.pais}-${f.fuente}-${i}`}
+                          className={`border-b border-finzen-gray/10 ${f.fuente === 'default' ? 'bg-amber-50' : ''}`}
+                        >
+                          <td className="py-2 pr-4 pl-6 text-finzen-gray">
+                            {ETIQUETAS[f.fuente] ?? f.fuente}
+                          </td>
+                          <td className="py-2 pr-4 text-right tabular-nums">
+                            {f.count.toLocaleString('es')}
+                          </td>
+                          <td className="py-2 text-right tabular-nums text-finzen-gray">
+                            {g.total > 0 ? ((f.count / g.total) * 100).toFixed(1) : '0.0'}%
+                          </td>
+                        </tr>
+                      ))}
+                    </Fragment>
                   ))}
                 </tbody>
               </table>
               <p className="text-xs text-finzen-gray mt-3">
-                La fila resaltada es la que importa: ahí el país no se detectó, se asumió. Si crece,
-                el problema está en las señales (la app no manda región, o el GeoIP está fallando),
-                no en que tengamos usuarios en Estados Unidos.
+                El % de la fila del país es sobre el total de registros; el de las señales, sobre ese
+                país. Lo que hay que vigilar es la fila ámbar: ahí el país no se detectó, se asumió.
+                Si en Estados Unidos casi todo viene de ahí, no es que tengamos usuarios allá — es
+                que las señales no están llegando.
               </p>
             </div>
           );
