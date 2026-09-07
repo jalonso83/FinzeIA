@@ -55,7 +55,21 @@ function buildKpiCards(pulse: any) {
       value: `${pulse.churnRate}%`,
       change: null,
       changeType: pulse.churnRate > 10 ? ('negative' as const) : ('neutral' as const),
-      tooltip: 'Porcentaje de suscripciones pagadas que se cancelaron en el período. Menor es mejor.',
+      tooltip: 'Porcentaje de suscripciones pagadas que se dieron de baja en el período. Menor es mejor. Sale del sello `canceledAt`, que escriben tanto Stripe como RevenueCat al degradar — antes se leía del estado de la suscripción y era imposible que contara nada, porque el propio acto de dar de baja repone el estado a ACTIVE y borra la fecha del período. Mide desde su despliegue: lo anterior no se puede reconstruir. OJO: un trial que vence sin convertir NO entra aquí, eso es conversión fallida y no baja. Y con pocos suscriptores el porcentaje salta de 0 a 20 con una sola persona: léelo junto a las dos tarjetas de al lado, que son gente concreta.',
+    },
+    {
+      label: 'En recuperación',
+      value: String(pulse.enRecuperacion ?? 0),
+      change: null,
+      changeType: (pulse.enRecuperacion ?? 0) > 0 ? ('negative' as const) : ('neutral' as const),
+      tooltip: 'Suscripciones de pago a las que les rebotó el cobro y el proveedor está reintentando (estado PAST_DUE). NO son bajas: el cobro puede entrar, y de hecho eso pasó en agosto de 2026. Pero es ingreso en riesgo, y es la explicación de que el conteo de activas baje sin que nadie se haya ido — cuando una cuenta entra aquí, sale del conteo de ACTIVE. Sin esta tarjeta ese hueco parecía una cancelación.',
+    },
+    {
+      label: 'Marcados para cancelar',
+      value: String(pulse.marcadosParaCancelar ?? 0),
+      change: null,
+      changeType: (pulse.marcadosParaCancelar ?? 0) > 0 ? ('negative' as const) : ('neutral' as const),
+      tooltip: 'Ya cancelaron pero conservan el acceso hasta que termine el período que pagaron (cancelAtPeriodEnd). Es la única señal ANTICIPADA de baja que existe: avisa el día que la persona lo decide, no semanas después cuando vence. Lo llenan tanto Stripe como RevenueCat. Todavía cuentan como activas y como MRR.',
     },
     {
       label: 'Trials Activos',

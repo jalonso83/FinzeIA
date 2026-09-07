@@ -1184,11 +1184,16 @@ function H13ArmCard({ title, arm, accent, targetDays, showFunnel }: {
       <div className="space-y-2">
         <ExpRow label="Asignados (n)" value={arm.n.toLocaleString('es')} sub={arm.inProgress > 0 ? `${arm.inProgress} aún en ventana` : undefined} />
         <ExpRow label="Ventana cerrada" value={arm.matured.toLocaleString('es')} />
-        <ExpRow label={`≥${targetDays} días con registro`} value={`${arm.targetRate}%`} sub={`${arm.reachedTarget}/${arm.matured}`} strong />
+        <ExpRow label={`LOGRARON ≥${targetDays} días con registro`} value={`${arm.targetRate}%`} sub={`${arm.succeeded ?? arm.reachedTarget} de ${arm.matured} con ventana cerrada`} strong />
         {showFunnel && (
           <>
-            <ExpRow label="Aceptaron el reto" value={`${arm.acceptRate}%`} sub={`${arm.accepted}/${arm.offered} ofrecidos`} />
+            {/* El embudo sale de EVENTOS, no del estado: al vencer la ventana
+                todos pasan a COMPLETED y se pierde quién había aceptado. Contarlo
+                por estado inflaba las aceptaciones (42 cuando eran 24). */}
+            <ExpRow label="Vieron la oferta" value={`${arm.reachRate}%`} sub={`${arm.sawOffer} de ${arm.eligible} elegibles`} />
+            <ExpRow label="Aceptaron el reto" value={`${arm.acceptRate}%`} sub={`${arm.accepted} de ${arm.sawOffer} que la vieron`} />
             <ExpRow label="Rechazaron" value={arm.declined.toLocaleString('es')} />
+            <ExpRow label="Ventanas cerradas (no es logro)" value={arm.closed.toLocaleString('es')} sub="se les acabó el plazo, lo lograran o no" />
           </>
         )}
       </div>

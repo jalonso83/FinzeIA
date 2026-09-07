@@ -12,6 +12,10 @@ export interface PulseData {
   activatedUsers: number;
   planDistribution: Record<string, number>;
   churnRate: number;
+  /** Cobro rebotado, el proveedor reintentando. Ingreso en riesgo, aún no es baja. */
+  enRecuperacion: number;
+  /** Ya canceló pero conserva acceso hasta que venza lo pagado. Señal anticipada. */
+  marcadosParaCancelar: number;
   trialsActive: number;
   trialsStarted: number;
   trialConversionRate: number;
@@ -787,13 +791,25 @@ export interface H13Arm {
   n: number;
   matured: number;
   inProgress: number;
+  /** Cuántos LOGRARON el objetivo. No confundir con `closed`. */
   reachedTarget: number;
   targetRate: number;
-  offered: number;
+  /** Alias explícito de reachedTarget, para que el nombre no dé lugar a dudas. */
+  succeeded: number;
+  /** Se les venció la ventana, lo lograran o no. Antes se llamaba `completed`,
+   *  que se leía como "lo completaron" y era justo lo contrario: 35 cerrados
+   *  con 2 logros. */
+  closed: number;
+  /** Les tocaba ver la oferta (estado ≠ ASSIGNED al enrolar). */
+  eligible: number;
+  /** La vieron de verdad (evento h13_offer_shown). */
+  sawOffer: number;
   accepted: number;
   declined: number;
-  completed: number;
+  /** accepted / sawOffer */
   acceptRate: number;
+  /** sawOffer / eligible */
+  reachRate: number;
 }
 
 export interface H13Stats {
