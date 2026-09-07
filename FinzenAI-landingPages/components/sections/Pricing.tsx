@@ -93,8 +93,12 @@ const plans: PricingPlan[] = [
     annualNote: 'Solo $8.33/mes · Paga 10 meses, llévate 12',
     features: [
       { text: 'Todo de Plus +' },
-      { text: 'Sincronización de email (Gmail/Outlook)' },
-      { text: 'Importación automática de transacciones' },
+      // Un solo bullet, y con el mismo nombre que el resto del sitio. Antes eran
+      // dos —"Sincronización de email (Gmail/Outlook)" e "Importación automática
+      // de transacciones"— que son la misma cosa dicha dos veces: conectar la
+      // cuenta y el resultado de conectarla. Y ninguno usaba el nombre con el
+      // que se llama en el Hero, en Features y en Cómo Funciona.
+      { text: 'Gastos en automático vía mail (Gmail/Outlook)' },
       { text: 'Reportes quincenales con IA' },
       { text: 'Tips personalizados' },
       { text: 'Exportar PDF' },
