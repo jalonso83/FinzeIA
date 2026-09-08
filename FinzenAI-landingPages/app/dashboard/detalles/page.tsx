@@ -502,28 +502,13 @@ function TabEngagement({ engagement }: { engagement: any }) {
             </div>
             <p className="text-[11px] text-finzen-gray mb-1 px-1">Base con acceso (pagando + trial): {fu.skipVsSave?.accessBase ?? 0} usuarios.</p>
 
-            <p className="text-xs font-semibold text-finzen-gray mb-2 mt-6">🎟️ Prueba gratis <span className="font-normal">(embudo: ver planes → activar)</span></p>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-2">
-              <StatBox
-                label="Vieron los planes"
-                value={String(fu.trialFunnel?.viewedUsers ?? 0)}
-                tooltip="Usuarios únicos que abrieron la pantalla de Suscripciones en el período. Se mide por la llamada a /subscriptions/plans, que solo hace esa pantalla."
-              />
-              <StatBox
-                label="Llegan a verla"
-                value={`${fu.trialFunnel?.viewRate ?? 0}%`}
-                highlight
-                tooltip="Vieron los planes / usuarios FREE que todavía pueden activar su prueba. Si este número es muy bajo, el problema es de DESCUBRIMIENTO: no encuentran la pantalla, y cambiar el texto de adentro no mueve nada."
-              />
-              <StatBox
-                label="Vieron → Activaron"
-                value={`${fu.trialFunnel?.startedUsers ?? 0} (${fu.trialFunnel?.viewToStartRate ?? 0}%)`}
-                tooltip="De los que vieron los planes, cuántos activaron la prueba. Si llegan muchos y activan pocos, el problema es de la PANTALLA (el mensaje de 'sin tarjeta' solo aparece después de tocar un plan de pago)."
-              />
-            </div>
-            <p className="text-[11px] text-finzen-gray mb-1 px-1">
-              Base elegible: {fu.trialFunnel?.eligibleBase ?? 0} usuarios FREE con la prueba todavía disponible (es un stock, no del período).
-            </p>
+            {/* Aquí iba el embudo "🎟️ Prueba gratis (ver planes → activar)".
+                Se quitó porque dejó de existir el flujo que medía: con el trial
+                de 21 días, el PRO se concede solo al registrarse y ya no hay
+                pantalla de planes que ver ni prueba que activar. El embudo se
+                quedaría clavado en cero para siempre y se leería como una caída,
+                no como algo que ya no aplica. Lo que sustituye a esta medición es
+                la sección de evaluación del trial (TrialEvalCard) en Pulso. */}
           </Section>
         );
       })()}

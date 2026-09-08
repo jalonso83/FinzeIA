@@ -51,6 +51,13 @@ function buildKpiCards(pulse: any) {
       tooltip: 'Usuarios del período que registraron al menos una transacción (criterio de activación real).',
     },
     {
+      label: 'Conversión Trial→Pago',
+      value: `${pulse.trialConversionRate ?? 0}%`,
+      change: null,
+      changeType: pulse.trialConversionRate >= 20 ? ('positive' as const) : 'neutral' as const,
+      tooltip: 'De los trials iniciados en el período, % que llegó a tener un pago exitoso. Ojo: trials recientes aún pueden convertir, así que en rangos cortos esta tasa puede subir con el tiempo. El detalle del trial de 21 días —cuántos arrancaron, cuántos siguen corriendo y en qué terminaron— está en la sección de evaluación, más abajo.',
+    },
+    {
       label: 'Churn Rate',
       value: `${pulse.churnRate}%`,
       change: null,
@@ -80,27 +87,11 @@ function buildKpiCards(pulse: any) {
       changeType: (pulse.marcadosParaCancelar ?? 0) > 0 ? ('negative' as const) : ('neutral' as const),
       tooltip: 'Ya cancelaron pero conservan el acceso hasta que termine el período que pagaron (cancelAtPeriodEnd). Es la única señal ANTICIPADA de baja que existe: avisa el día que la persona lo decide, no semanas después cuando vence. Lo llenan tanto Stripe como RevenueCat. Todavía cuentan como activas y como MRR.',
     },
-    {
-      label: 'Trials Activos',
-      value: String(pulse.trialsActive),
-      change: null,
-      changeType: 'neutral' as const,
-      tooltip: 'Usuarios que están actualmente en período de prueba gratuita de 7 días.',
-    },
-    {
-      label: 'Trials Iniciados',
-      value: String(pulse.trialsStarted ?? 0),
-      change: null,
-      changeType: 'neutral' as const,
-      tooltip: 'Trials que arrancaron dentro del período seleccionado, contados por su fecha real de activación (trial_device_registry). Incluye los que ya terminaron o convirtieron, no solo los activos.',
-    },
-    {
-      label: 'Conversión Trial→Pago',
-      value: `${pulse.trialConversionRate ?? 0}%`,
-      change: null,
-      changeType: pulse.trialConversionRate >= 20 ? ('positive' as const) : 'neutral' as const,
-      tooltip: 'De los trials iniciados en el período, % que llegó a tener un pago exitoso. Ojo: trials recientes aún pueden convertir, así que en rangos cortos esta tasa puede subir con el tiempo.',
-    },
+    // "Trials Activos" y "Trials Iniciados" salieron de aquí: viven en la sección
+    // de evaluación del trial de 21 días (TrialEvalCard), que los muestra con su
+    // contexto —ventana, cohorte y umbrales— en vez de como dos números sueltos.
+    // Tenerlos en los dos sitios invitaba a compararlos y a que no cuadraran,
+    // porque arriba se leían con el filtro de fechas y abajo por cohorte.
   ];
 }
 
@@ -240,8 +231,12 @@ export default function DashboardPulso() {
       {/* Banner Superior — solo roles con acceso a finanzas (MRR/runway) */}
       {showFinancials && <BannerSuperior data={bannerData} />}
 
-      {/* KPI Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-6">
+      {/* KPI Cards — 4 columnas para que las 8 tarjetas llenen 4×2 exacto. Antes
+          eran 6 columnas con 10 tarjetas (6+4); al sacar las dos de trials, con 6
+          columnas quedaba 6+2 y una fila casi vacía. Cada fila además agrupa un
+          tema: arriba adquisición y activación, abajo retención y dinero. Si se
+          agrega o quita una tarjeta hay que volver a cuadrar en múltiplos de 4. */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
         {allKpiCards.map((kpi) => (
           <KPICard key={kpi.label} {...kpi} />
         ))}
