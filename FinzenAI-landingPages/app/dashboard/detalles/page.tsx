@@ -979,7 +979,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
       {/* Sección 4 — Top Sources */}
       <Section
         title="Top Sources (canales de adquisición)"
-        tooltip="Agrupa eventos por utm_source. 'Directo' = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking). Registros = anonymousIds únicos que dieron click al botón 'Descargar' (cada Lead cuenta como atribución). CR% = Registros / Visitors."
+        tooltip="Agrupa eventos por utm_source. 'Directo' = users que llegaron sin UTM (escribieron la URL directo, click en bookmark, búsqueda orgánica sin tracking). Registros = anonymousIds únicos que dieron click al botón 'Descargar' (cada Lead cuenta como atribución). CR% = Registros / Visitors. Los valores en ámbar con la marca M se escribieron a mano en Costos (copiados del Ads Manager) porque el píxel no vio esa campaña; mandan sobre lo medido."
       >
         <div className="mb-3 inline-flex items-center gap-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs text-amber-800">
           <span>📌</span>
@@ -1021,9 +1021,9 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
                     <td className="px-4 py-3 text-right text-finzen-black">
                       {row.costUSD > 0 ? `$${row.costUSD.toFixed(2)}` : <span className="text-finzen-gray/50">—</span>}
                     </td>
-                    <td className="px-4 py-3 text-right text-finzen-black">{row.visitors.toLocaleString('es')}</td>
-                    <td className="px-4 py-3 text-right text-finzen-black">{row.leads.toLocaleString('es')}</td>
-                    <td className="px-4 py-3 text-right text-finzen-black">{row.registrations.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right text-finzen-black"><ManualCell value={row.visitors} manual={row.manual.includes('visitors')} /></td>
+                    <td className="px-4 py-3 text-right text-finzen-black"><ManualCell value={row.leads} manual={row.manual.includes('leads')} /></td>
+                    <td className="px-4 py-3 text-right text-finzen-black"><ManualCell value={row.registrations} manual={row.manual.includes('registrations')} /></td>
                     <td className="px-4 py-3 text-right text-finzen-black font-semibold">{row.subscriptions.toLocaleString('es')}</td>
                     <td className="px-4 py-3 text-right text-finzen-black">${row.revenue.toFixed(2)}</td>
                     <td className="px-4 py-3 text-right text-finzen-green font-medium">{row.conversionRate.toFixed(2)}%</td>
@@ -1035,6 +1035,21 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
         )}
       </Section>
     </div>
+  );
+}
+
+// Valor de Top Sources que vino escrito a mano desde Costos (Ads Manager), no
+// medido por el píxel. Se marca para que no se lea como dato de la landing.
+function ManualCell({ value, manual }: { value: number; manual: boolean }) {
+  if (!manual) return <>{value.toLocaleString('es')}</>;
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded bg-amber-50 border border-amber-200 px-1.5 py-0.5 text-amber-900"
+      title="Escrito a mano en Costos (Ads Manager). Manda sobre lo que midió el píxel."
+    >
+      {value.toLocaleString('es')}
+      <span className="text-[9px] font-bold uppercase text-amber-700">M</span>
+    </span>
   );
 }
 

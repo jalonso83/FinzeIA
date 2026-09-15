@@ -257,6 +257,7 @@ export interface AcquisitionData {
     conversionRate: number;
     costUSD: number;            // inversión manual cruzada desde Costos (0 si no hay)
     campaignDate: string | null; // ISO; fecha de inicio (de Costos)
+    manual: string[];           // campos copiados a mano del Ads Manager: 'visitors' | 'leads' | 'registrations'
   }[];
   cohort: {
     trackingStartDate: string | null;
