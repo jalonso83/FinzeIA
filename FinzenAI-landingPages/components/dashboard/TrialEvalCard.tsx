@@ -276,10 +276,10 @@ export default function TrialEvalCard({ data }: Props) {
 
       {/* A6 — Desenlace por semana de vencimiento. Es lo que cierra la identidad
           iniciados = activos + vencidos + convertidos + cancelados semana a
-          semana, a partir del 21-sep (primeros vencimientos de 21 días). */}
+          semana. Arranca el 31-ago; los primeros vencimientos caen el 21-sep. */}
       <div>
         <p className="text-sm font-semibold text-slate-900 mb-2">
-          Desenlace por semana (desde el 21 de septiembre)
+          Desenlace por semana (desde el arranque del trial, 31 de agosto)
         </p>
         <p className="text-xs text-finzen-gray mb-2">
           Cuántos pasaron por el acantilado del día 21 cada semana y cuántos compraron. Cierra la identidad
@@ -292,7 +292,7 @@ export default function TrialEvalCard({ data }: Props) {
           <li><strong>En trial al cierre:</strong> cuántos seguían en prueba al terminar la semana. Cada semana baja por los tres de arriba y sube por los registros nuevos.</li>
         </ul>
         {desenlacePorSemana.length === 0 ? (
-          <p className="text-sm text-finzen-gray">Todavía no hay semanas con vencimientos: los primeros trials de 21 días vencen el 21 de septiembre.</p>
+          <p className="text-sm text-finzen-gray">Sin datos todavía.</p>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
