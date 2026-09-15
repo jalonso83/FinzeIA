@@ -215,7 +215,7 @@ function CurvaRetencion({ datos, periodo }: { datos: TrialEvalData['retencionPor
 export default function TrialEvalCard({ data }: Props) {
   if (!data) return null;
 
-  const { emailSync, desenlaceTrial, contraste, retencionPorDia } = data;
+  const { emailSync, desenlaceTrial, contraste, retencionPorDia, desenlacePorSemana = [] } = data;
   // La suma de los cuatro estados tiene que dar el total. Si no cuadra, algo
   // está mal clasificado y vale más verlo que esconderlo.
   const suma =
@@ -273,6 +273,56 @@ export default function TrialEvalCard({ data }: Props) {
           {suma}, pero el total es {desenlaceTrial.total}. Hay trials mal clasificados.
         </div>
       )}
+
+      {/* A6 — Desenlace por semana de vencimiento. Es lo que cierra la identidad
+          iniciados = activos + vencidos + convertidos + cancelados semana a
+          semana, a partir del 21-sep (primeros vencimientos de 21 días). */}
+      <div>
+        <p className="text-sm font-semibold text-slate-900 mb-2">
+          Desenlace por semana (desde el 21 de septiembre)
+        </p>
+        <p className="text-xs text-finzen-gray mb-2">
+          Cuántos pasaron por el acantilado del día 21 cada semana y cuántos compraron. Cierra la identidad
+          <em> iniciados = en trial + vencieron + cancelaron + convirtieron</em> semana a semana.
+        </p>
+        <ul className="text-xs text-finzen-gray mb-3 space-y-0.5 list-disc pl-4">
+          <li><strong>Vencieron:</strong> llegaron al día 21 sin pagar y cayeron a FREE esa semana.</li>
+          <li><strong>Cancelaron:</strong> salieron del trial antes del día 21, por decisión propia.</li>
+          <li><strong>Convirtieron:</strong> hicieron su primer pago esa semana. Se ancla al <em>pago</em>, no al vencimiento: quien paga antes del día 21 cuenta la semana que pagó.</li>
+          <li><strong>En trial al cierre:</strong> cuántos seguían en prueba al terminar la semana. Cada semana baja por los tres de arriba y sube por los registros nuevos.</li>
+        </ul>
+        {desenlacePorSemana.length === 0 ? (
+          <p className="text-sm text-finzen-gray">Todavía no hay semanas con vencimientos: los primeros trials de 21 días vencen el 21 de septiembre.</p>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-left text-xs text-finzen-gray uppercase tracking-wider border-b border-finzen-gray/20">
+                  <th className="py-2 pr-3 font-medium">Semana</th>
+                  <th className="py-2 px-3 font-medium text-right">Vencieron</th>
+                  <th className="py-2 px-3 font-medium text-right">Cancelaron</th>
+                  <th className="py-2 px-3 font-medium text-right">Convirtieron</th>
+                  <th className="py-2 pl-3 font-medium text-right">En trial al cierre</th>
+                </tr>
+              </thead>
+              <tbody>
+                {desenlacePorSemana.map((w) => (
+                  <tr key={w.semana} className="border-b border-finzen-gray/10 last:border-0">
+                    <td className="py-2 pr-3 text-slate-900">
+                      {new Date(w.semana).toLocaleDateString('es', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
+                      {w.parcial && <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1">en curso</span>}
+                    </td>
+                    <td className="py-2 px-3 text-right tabular-nums">{w.vencieron}</td>
+                    <td className="py-2 px-3 text-right tabular-nums">{w.cancelaron}</td>
+                    <td className="py-2 px-3 text-right tabular-nums font-semibold text-emerald-700">{w.convirtieron}</td>
+                    <td className="py-2 pl-3 text-right tabular-nums text-finzen-gray">{w.enTrialAlCierre}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
 
       {/* A5 — §4B, la prueba de la hipótesis central */}
       <div>

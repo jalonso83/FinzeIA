@@ -197,6 +197,15 @@ export interface TrialEvalData {
     d7: ContrasteEmailSync;
     d30: ContrasteEmailSync;
   };
+  /** Desenlace por semana ISO de vencimiento, desde el 21-sep-2026. */
+  desenlacePorSemana: {
+    semana: string;
+    vencieron: number;
+    cancelaron: number;
+    convirtieron: number;
+    enTrialAlCierre: number;
+    parcial: boolean;
+  }[];
   cohorteLimpiaDesde: string;
   period: { from: string; to: string };
 }
