@@ -537,9 +537,15 @@ export interface CampaignCostRow {
   notes: string | null;
   campaignDate: string | null; // ISO; fecha de inicio (solo filas con costo manual)
   hidden: boolean;             // borrado lógico: oculta del dashboard
-  visitors: number;
+  visitors: number;        // efectivo: manual si existe, si no el píxel
   leads: number;
   registrations: number;   // anonymousIds únicos con Lead (atribuidos)
+  autoVisitors: number;    // lo que vio el píxel (siempre)
+  autoLeads: number;
+  autoRegistrations: number;
+  manualVisitors: number | null;      // escrito a mano (Ads Manager); null = no hay
+  manualLeads: number | null;
+  manualRegistrations: number | null;
   cpv: number | null;
   cpl: number | null;
   cac: number | null;
@@ -575,6 +581,10 @@ export async function upsertCampaignCost(input: {
   costUSD: number;
   notes?: string | null;
   campaignDate?: string | null;
+  // undefined = no tocar; null = volver al automático; número = fijar.
+  manualVisitors?: number | null;
+  manualLeads?: number | null;
+  manualRegistrations?: number | null;
 }): Promise<void> {
   const res = await fetch('/api/admin/campaign-costs', {
     method: 'PUT',

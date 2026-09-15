@@ -34,11 +34,11 @@ const GLOSSARY = {
   inversion:
     'Costo manual ingresado para esta campaña. Es acumulativo total: cuando inviertas más, actualizas el número aquí. No tiene granularidad temporal.',
   visitors:
-    'AnonymousIds únicos que vieron la landing page (PageView). Lifetime — no se filtra por fecha.',
+    'AnonymousIds únicos que vieron la landing page (PageView). Lifetime — no se filtra por fecha. Editable: si la campaña va directo a la tienda y el píxel no la ve, escribe aquí los clics en el enlace del Ads Manager; el valor manual manda sobre el automático.',
   leads:
-    'Total de clicks al botón "Descargar iOS/Android" (incluye reclicks del mismo user). Lifetime.',
+    'Total de clicks al botón "Descargar iOS/Android" (incluye reclicks del mismo user). Lifetime. Editable: para campañas directas a la tienda, pega aquí los "Resultados" (instalaciones / clics a la tienda) del Ads Manager.',
   atribuidos:
-    'AnonymousIds únicos que clickearon "Descargar" (cada anonymousId cuenta una sola vez, sin importar reclicks). Es la unidad de atribución por campaña.',
+    'AnonymousIds únicos que clickearon "Descargar" (cada anonymousId cuenta una sola vez, sin importar reclicks). Es la unidad de atribución por campaña. Editable: registros atribuidos según el Ads Manager, si los tienes.',
   cpv:
     'Cost Per Visit = Inversión / Visitors. Cuánto te cuesta cada visita a la landing. Útil para campañas de awareness.',
   cpl:
@@ -188,17 +188,107 @@ function DateInput({
   );
 }
 
+// Métrica editable a mano (Visitors / Leads / Atribuidos). Muestra el valor
+// efectivo; si es manual lleva marca y una "x" para volver al automático. El
+// automático (píxel) se ve en el placeholder cuando el campo está vacío.
+function MetricInput({
+  manual,
+  auto,
+  onSave,
+  disabled,
+}: {
+  manual: number | null;
+  auto: number;
+  onSave: (value: number | null) => Promise<void>;
+  disabled?: boolean;
+}) {
+  const toStr = (v: number | null) => (v === null ? '' : String(v));
+  const [value, setValue] = useState(toStr(manual));
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    setValue(toStr(manual));
+  }, [manual]);
+
+  const hasChanged = value !== toStr(manual);
+
+  const save = async (v: number | null) => {
+    setSaving(true);
+    setError(null);
+    try {
+      await onSave(v);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : 'Error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (value === '') return save(null);
+    const n = parseInt(value, 10);
+    if (!Number.isInteger(n) || n < 0) {
+      setError('Inválido');
+      return;
+    }
+    await save(n);
+  };
+
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <input
+        type="number"
+        min="0"
+        step="1"
+        value={value}
+        placeholder={auto.toLocaleString('es')}
+        onChange={(e) => setValue(e.target.value)}
+        disabled={disabled || saving}
+        title={manual !== null ? `Manual. Píxel: ${auto.toLocaleString('es')}` : 'Automático (píxel). Escribe para fijar a mano.'}
+        className={`w-20 px-2 py-1 text-sm border rounded text-right focus:outline-none focus:ring-1 focus:ring-finzen-blue/30 focus:border-finzen-blue disabled:bg-finzen-white ${
+          manual !== null ? 'border-amber-300 bg-amber-50 text-finzen-black' : 'border-finzen-gray/20 text-finzen-black placeholder:text-finzen-black'
+        }`}
+      />
+      {manual !== null && !hasChanged && (
+        <button
+          onClick={() => save(null)}
+          disabled={saving}
+          title="Volver al automático (píxel)"
+          className="p-0.5 text-amber-700 hover:bg-amber-100 rounded transition-colors disabled:opacity-50"
+        >
+          <X size={12} />
+        </button>
+      )}
+      {hasChanged && (
+        <button
+          onClick={handleSave}
+          disabled={saving}
+          title="Guardar"
+          className="p-1 text-finzen-blue hover:bg-finzen-blue/10 rounded transition-colors disabled:opacity-50"
+        >
+          {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+        </button>
+      )}
+      {error && <span className="text-[10px] text-finzen-red ml-1">{error}</span>}
+    </div>
+  );
+}
+
 function ManualForm({
   onAdd,
   onCancel,
 }: {
-  onAdd: (input: { source: string; campaign: string; costUSD: number; campaignDate: string | null }) => Promise<void>;
+  onAdd: (input: ManualInput) => Promise<void>;
   onCancel: () => void;
 }) {
   const [source, setSource] = useState('');
   const [campaign, setCampaign] = useState('');
   const [cost, setCost] = useState('');
   const [startDate, setStartDate] = useState('');
+  const [mVisitors, setMVisitors] = useState('');
+  const [mLeads, setMLeads] = useState('');
+  const [mRegs, setMRegs] = useState('');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -212,10 +302,23 @@ function ManualForm({
       setError('Inversión inválida');
       return;
     }
+    const toInt = (v: string): number | null | 'bad' => {
+      if (v.trim() === '') return null;
+      const n = parseInt(v, 10);
+      return Number.isInteger(n) && n >= 0 ? n : 'bad';
+    };
+    const mv = toInt(mVisitors), ml = toInt(mLeads), mr = toInt(mRegs);
+    if (mv === 'bad' || ml === 'bad' || mr === 'bad') {
+      setError('Las métricas manuales deben ser enteros ≥ 0');
+      return;
+    }
     setSaving(true);
     setError(null);
     try {
-      await onAdd({ source: source.trim(), campaign: campaign.trim(), costUSD: num, campaignDate: startDate || null });
+      await onAdd({
+        source: source.trim(), campaign: campaign.trim(), costUSD: num, campaignDate: startDate || null,
+        manualVisitors: mv, manualLeads: ml, manualRegistrations: mr,
+      });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Error');
     } finally {
@@ -281,6 +384,28 @@ function ManualForm({
           </div>
         </div>
       </div>
+      <div>
+        <p className="text-xs text-finzen-gray mb-1.5">
+          Métricas del Ads Manager <span className="text-finzen-gray/70">(opcional — solo si el píxel no ve esta campaña, p. ej. anuncios directos a la tienda)</span>
+        </p>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div>
+            <label className="block text-xs text-finzen-gray mb-1">Visitors (clics en el enlace)</label>
+            <input type="number" min="0" step="1" value={mVisitors} onChange={(e) => setMVisitors(e.target.value)} placeholder="—"
+              className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue" />
+          </div>
+          <div>
+            <label className="block text-xs text-finzen-gray mb-1">Leads (resultados)</label>
+            <input type="number" min="0" step="1" value={mLeads} onChange={(e) => setMLeads(e.target.value)} placeholder="—"
+              className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue" />
+          </div>
+          <div>
+            <label className="block text-xs text-finzen-gray mb-1">Atribuidos (registros)</label>
+            <input type="number" min="0" step="1" value={mRegs} onChange={(e) => setMRegs(e.target.value)} placeholder="—"
+              className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue" />
+          </div>
+        </div>
+      </div>
       {error && <p className="text-xs text-finzen-red">{error}</p>}
       <div className="flex items-center justify-end gap-2">
         <button
@@ -302,6 +427,11 @@ function ManualForm({
     </div>
   );
 }
+
+type ManualInput = {
+  source: string; campaign: string; costUSD: number; campaignDate: string | null;
+  manualVisitors: number | null; manualLeads: number | null; manualRegistrations: number | null;
+};
 
 const PAGE_SIZE = 10;
 
@@ -366,7 +496,24 @@ export default function CostosPage() {
     }
   };
 
-  const handleAddManual = async (input: { source: string; campaign: string; costUSD: number; campaignDate: string | null }) => {
+  // Una métrica a mano (Visitors / Leads / Atribuidos). Solo manda ese campo:
+  // el backend deja intactos los que no van en el body.
+  const handleSaveMetric = async (
+    row: CampaignCostRow,
+    field: 'manualVisitors' | 'manualLeads' | 'manualRegistrations',
+    value: number | null,
+  ) => {
+    await upsertCampaignCost({
+      source: row.source,
+      campaign: row.campaign,
+      costUSD: row.costUSD,
+      campaignDate: row.campaignDate,
+      [field]: value,
+    });
+    await load();
+  };
+
+  const handleAddManual = async (input: ManualInput) => {
     await upsertCampaignCost(input);
     setShowManualForm(false);
     await load();
@@ -571,9 +718,15 @@ export default function CostosPage() {
                         onSave={(v) => handleSaveCost(row, v)}
                       />
                     </td>
-                    <td className="px-4 py-3 text-right text-finzen-black">{row.visitors.toLocaleString('es')}</td>
-                    <td className="px-4 py-3 text-right text-finzen-black">{row.leads.toLocaleString('es')}</td>
-                    <td className="px-4 py-3 text-right text-finzen-black font-medium">{row.registrations.toLocaleString('es')}</td>
+                    <td className="px-4 py-3 text-right">
+                      <MetricInput manual={row.manualVisitors} auto={row.autoVisitors} onSave={(v) => handleSaveMetric(row, 'manualVisitors', v)} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <MetricInput manual={row.manualLeads} auto={row.autoLeads} onSave={(v) => handleSaveMetric(row, 'manualLeads', v)} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <MetricInput manual={row.manualRegistrations} auto={row.autoRegistrations} onSave={(v) => handleSaveMetric(row, 'manualRegistrations', v)} />
+                    </td>
                     <td className="px-4 py-3 text-right text-finzen-gray">{formatMoney(row.cpv)}</td>
                     <td className="px-4 py-3 text-right text-finzen-gray">{formatMoney(row.cpl)}</td>
                     <td className="px-4 py-3 text-right text-finzen-black font-medium">{formatMoney(row.cac)}</td>
