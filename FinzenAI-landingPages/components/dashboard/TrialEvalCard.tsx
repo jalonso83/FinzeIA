@@ -221,6 +221,16 @@ export default function TrialEvalCard({ data }: Props) {
   const suma =
     desenlaceTrial.activos + desenlaceTrial.convirtio + desenlaceTrial.vencio + desenlaceTrial.cancelo;
   const cuadra = suma === desenlaceTrial.total;
+  // La tabla semanal tiene que cerrar contra las mismas tarjetas: la suma de
+  // vencidos + cancelados + convertidos de todas las semanas, más los que
+  // siguen en trial al cierre de la última, debe dar los iniciados.
+  const sumSemanas = desenlacePorSemana.reduce(
+    (a, w) => ({ vencieron: a.vencieron + w.vencieron, cancelaron: a.cancelaron + w.cancelaron, convirtieron: a.convirtieron + w.convirtieron }),
+    { vencieron: 0, cancelaron: 0, convirtieron: 0 },
+  );
+  const ultimaSemana = desenlacePorSemana[desenlacePorSemana.length - 1];
+  const tablaCuadra =
+    (ultimaSemana?.enTrialAlCierre ?? 0) + sumSemanas.vencieron + sumSemanas.cancelaron + sumSemanas.convirtieron === desenlaceTrial.total;
 
   return (
     <section className="space-y-4">
@@ -233,7 +243,7 @@ export default function TrialEvalCard({ data }: Props) {
       </div>
 
       {/* A2 — el indicador adelantado */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
         <Metrica
           etiqueta="Activación de Email Sync"
           valor={emailSync.pctActivacion}
@@ -257,6 +267,11 @@ export default function TrialEvalCard({ data }: Props) {
           }
         />
         <Metrica
+          etiqueta="Vencieron"
+          valor={desenlaceTrial.vencio}
+          nota="Llegaron al día 21 sin pagar y cayeron a FREE"
+        />
+        <Metrica
           etiqueta="Cancelación temprana"
           valor={desenlaceTrial.pctCancelacionTemprana}
           sufijo="%"
@@ -267,12 +282,12 @@ export default function TrialEvalCard({ data }: Props) {
         />
       </div>
 
-      {!cuadra && (
-        <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 text-sm text-amber-900">
-          <strong>Los estados no cuadran:</strong> activos + convirtió + venció + canceló ={' '}
-          {suma}, pero el total es {desenlaceTrial.total}. Hay trials mal clasificados.
-        </div>
-      )}
+      <div className={`rounded-lg border p-3 text-sm ${cuadra ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+        <strong>{cuadra ? 'Cuadra:' : 'Los estados no cuadran:'}</strong>{' '}
+        {desenlaceTrial.total} iniciados = {desenlaceTrial.activos} en trial + {desenlaceTrial.vencio} vencieron +{' '}
+        {desenlaceTrial.cancelo} cancelaron + {desenlaceTrial.convirtio} convirtieron
+        {cuadra ? '' : ` (la suma da ${suma}). Hay trials mal clasificados.`}
+      </div>
 
       {/* A6 — Desenlace por semana de vencimiento. Es lo que cierra la identidad
           iniciados = activos + vencidos + convertidos + cancelados semana a
@@ -307,7 +322,7 @@ export default function TrialEvalCard({ data }: Props) {
               </thead>
               <tbody>
                 {desenlacePorSemana.map((w) => (
-                  <tr key={w.semana} className="border-b border-finzen-gray/10 last:border-0">
+                  <tr key={w.semana} className="border-b border-finzen-gray/10">
                     <td className="py-2 pr-3 text-slate-900">
                       {new Date(w.semana).toLocaleDateString('es', { day: 'numeric', month: 'short', timeZone: 'UTC' })}
                       {w.parcial && <span className="ml-1.5 text-[10px] text-amber-700 bg-amber-50 border border-amber-200 rounded px-1">en curso</span>}
@@ -318,8 +333,20 @@ export default function TrialEvalCard({ data }: Props) {
                     <td className="py-2 pl-3 text-right tabular-nums text-finzen-gray">{w.enTrialAlCierre}</td>
                   </tr>
                 ))}
+                <tr className="text-xs text-finzen-gray">
+                  <td className="py-2 pr-3">Total (misma cohorte que las tarjetas)</td>
+                  <td className="py-2 px-3 text-right tabular-nums">{sumSemanas.vencieron}</td>
+                  <td className="py-2 px-3 text-right tabular-nums">{sumSemanas.cancelaron}</td>
+                  <td className="py-2 px-3 text-right tabular-nums">{sumSemanas.convirtieron}</td>
+                  <td className="py-2 pl-3 text-right tabular-nums">{ultimaSemana?.enTrialAlCierre ?? 0}</td>
+                </tr>
               </tbody>
             </table>
+            <p className={`mt-2 text-xs ${tablaCuadra ? 'text-emerald-700' : 'text-amber-700'}`}>
+              {tablaCuadra
+                ? `Cuadra con las tarjetas: ${desenlaceTrial.total} iniciados = ${ultimaSemana?.enTrialAlCierre ?? 0} en trial + ${sumSemanas.vencieron} + ${sumSemanas.cancelaron} + ${sumSemanas.convirtieron}.`
+                : `No cuadra con las tarjetas: la tabla suma ${(ultimaSemana?.enTrialAlCierre ?? 0) + sumSemanas.vencieron + sumSemanas.cancelaron + sumSemanas.convirtieron} y los iniciados son ${desenlaceTrial.total}.`}
+            </p>
           </div>
         )}
       </div>
@@ -344,7 +371,8 @@ export default function TrialEvalCard({ data }: Props) {
 
       <p className="text-xs text-finzen-gray">
         Cohorte limpia desde el 1 de septiembre: el 31 de agosto las variables se encendieron a
-        media tarde y ese día quedaron mezclados los dos regímenes.
+        media tarde y ese día quedaron mezclados los dos regímenes. Toda esta sección —tarjetas, tabla,
+        curva y contraste— se acota a esa cohorte aunque el rango del panel empiece antes.
       </p>
     </section>
   );
