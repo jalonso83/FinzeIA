@@ -6,7 +6,7 @@
 // (/broadcasts + /:id/send). Incluye "Modo prueba" para enviar SOLO al admin.
 // ─────────────────────────────────────────────────────────────────────────
 
-import { useState, useEffect } from 'react';
+import { Fragment, useState, useEffect } from 'react';
 import {
   Megaphone, Send, Bell, Save, AlertTriangle, Check, ChevronRight, ChevronLeft, X,
   Clock, Smartphone, Apple, Plus, Sparkles, Tag, Settings2, Loader2, Bot, Trash2,
@@ -21,7 +21,10 @@ import {
 type BroadcastType = 'ANNOUNCEMENT' | 'MARKETING' | 'SYSTEM';
 type Plan = 'FREE' | 'PREMIUM' | 'PRO';
 type Platform = 'IOS' | 'ANDROID';
-type Segment = 'never_activated' | 'dormant' | 'active' | 'trial_available';
+type Segment =
+  | 'never_activated' | 'one_and_done' | 'dormant' | 'active'
+  | 'trial_no_activity' | 'trial_ending' | 'trial_available'
+  | 'near_paywall' | 'payment_failed' | 'subscriber_inactive';
 type DormantDays = '7' | '14' | '30';
 
 const TYPE_META: Record<BroadcastType, { label: string; desc: string; icon: typeof Sparkles; chip: string }> = {
@@ -30,12 +33,22 @@ const TYPE_META: Record<BroadcastType, { label: string; desc: string; icon: type
   SYSTEM: { label: 'Sistema', desc: 'Mantenimiento, avisos críticos', icon: Settings2, chip: 'bg-gray-100 text-gray-600' },
 };
 
-const SEGMENT_META: Record<Segment, { label: string; desc: string }> = {
-  never_activated: { label: 'Nunca activó', desc: 'Registrado, 0 transacciones de por vida' },
-  dormant: { label: 'Dormidos', desc: 'Tuvo actividad, pero nada en el umbral elegido' },
-  active: { label: 'Activos', desc: 'Actividad reciente (para anuncios / promos)' },
-  trial_available: { label: 'Prueba sin usar', desc: 'FREE que nunca activó sus 7 días gratis (no pedimos tarjeta)' },
+// Orden = orden en pantalla. Agrupados por etapa: activación → trial → conversión → pago.
+const SEGMENT_META: Record<Segment, { label: string; desc: string; group: string }> = {
+  never_activated: { label: 'Nunca activó', desc: 'Registrado, 0 transacciones de por vida', group: 'Activación' },
+  one_and_done: { label: 'Una y nunca más', desc: 'Exactamente 1 transacción y sin actividad hace 7+ días', group: 'Activación' },
+  dormant: { label: 'Dormidos', desc: 'Tuvo actividad, pero nada en el umbral elegido', group: 'Activación' },
+  active: { label: 'Activos', desc: 'Actividad reciente (para anuncios / promos)', group: 'Activación' },
+  trial_no_activity: { label: 'Trial sin usar lo Pro', desc: 'En prueba hace 3+ días y sin tocar nada exclusivo del plan (correo, presupuestos/metas/Zenio sobre el límite FREE)', group: 'Trial' },
+  trial_ending: { label: 'Trial por vencer', desc: 'La prueba vence en los próximos 3 días', group: 'Trial' },
+  trial_available: { label: 'Prueba sin usar', desc: 'FREE de antes del trial automático que nunca activó su prueba (botón en Suscripciones)', group: 'Trial' },
+  near_paywall: { label: 'Cerca del límite FREE', desc: 'FREE a 1 presupuesto del tope o con las metas al tope', group: 'Conversión' },
+  payment_failed: { label: 'Pago rechazado', desc: 'Suscriptor con el cobro en reintento (PAST_DUE)', group: 'Pago' },
+  subscriber_inactive: { label: 'Pagan y no usan', desc: 'Plus/Pro activo sin actividad en el umbral elegido', group: 'Pago' },
 };
+const SEGMENT_ORDER = Object.keys(SEGMENT_META) as Segment[];
+// Segmentos a los que aplica el selector "Inactivo hace".
+const USES_DORMANT_DAYS: Segment[] = ['dormant', 'active', 'subscriber_inactive'];
 
 const DORMANT_OPTIONS: { value: DormantDays; label: string }[] = [
   { value: '7', label: '7 días' },
@@ -88,6 +101,11 @@ const AGENT_SEGMENT_LABELS: Record<string, string> = {
   budget_exceeded: 'Presupuesto excedido',
   trial_ending: 'Trial por vencer',
   trial_available: 'Prueba sin usar',
+  one_and_done: 'Una y nunca más',
+  payment_failed: 'Pago rechazado',
+  subscriber_inactive: 'Pagan y no usan',
+  trial_no_activity: 'Trial sin usar lo Pro',
+  near_paywall: 'Cerca del límite FREE',
 };
 
 // ─── Vista previa del push (teléfono) ────────────────────────────────────
@@ -315,7 +333,12 @@ function audienceCriteriaLines(b: BroadcastItem): string[] {
       case 'active': return `Activos (actividad en los últimos ${a.dormantDays ?? 14} días)`;
       case 'budget_exceeded': return 'Presupuesto excedido (gasto superó el monto de un presupuesto vigente)';
       case 'trial_ending': return `Trial por vencer (en los próximos ${a.trialEndingDays ?? 3} días)`;
-      case 'trial_available': return 'Prueba sin usar (FREE que nunca activó sus 7 días gratis)';
+      case 'trial_available': return 'Prueba sin usar (FREE que nunca activó su prueba gratis)';
+      case 'one_and_done': return `Una y nunca más (1 transacción y sin actividad hace ${a.oneAndDoneDays ?? 7}+ días)`;
+      case 'payment_failed': return 'Pago rechazado (suscriptor en PAST_DUE)';
+      case 'subscriber_inactive': return `Pagan y no usan (Plus/Pro sin actividad hace ${a.dormantDays ?? 14}+ días)`;
+      case 'trial_no_activity': return `Trial sin usar lo Pro (en prueba hace ${a.trialMinDays ?? 3}+ días, sin funciones exclusivas)`;
+      case 'near_paywall': return 'Cerca del límite FREE (presupuestos a 1 del tope o metas al tope)';
       default: return s;
     }
   };
@@ -1431,12 +1454,16 @@ export default function BroadcastsPage() {
                   <div className="mb-3">
                     <p className="text-xs font-medium text-finzen-gray uppercase tracking-wider mb-1.5">Segmento</p>
                     <div className="space-y-2">
-                      {(['never_activated', 'dormant', 'active', 'trial_available'] as Segment[]).map((s) => {
+                      {SEGMENT_ORDER.map((s, i) => {
                         const meta = SEGMENT_META[s];
                         const checked = segments.includes(s);
+                        const newGroup = i === 0 || SEGMENT_META[SEGMENT_ORDER[i - 1]].group !== meta.group;
                         return (
+                          <Fragment key={s}>
+                          {newGroup && (
+                            <p className={`text-[10px] font-semibold uppercase tracking-wider text-finzen-gray/70 ${i === 0 ? '' : 'pt-1'}`}>{meta.group}</p>
+                          )}
                           <button
-                            key={s}
                             onClick={() => { toggleSegment(s); invalidate(); }}
                             className={`w-full text-left flex items-start gap-2.5 rounded-lg border p-2.5 transition-all ${
                               checked ? 'border-finzen-blue bg-finzen-blue/5' : 'border-finzen-gray/20 hover:border-finzen-gray/40'
@@ -1452,6 +1479,7 @@ export default function BroadcastsPage() {
                               <span className="text-[11px] text-finzen-gray">{meta.desc}</span>
                             </span>
                           </button>
+                          </Fragment>
                         );
                       })}
                     </div>
@@ -1472,9 +1500,9 @@ export default function BroadcastsPage() {
                       <p className="text-xs font-medium text-finzen-gray uppercase tracking-wider mb-1.5">Inactivo hace</p>
                       <select
                         value={dormantDays}
-                        disabled={!segments.includes('dormant')}
+                        disabled={!segments.some((s) => USES_DORMANT_DAYS.includes(s))}
                         onChange={(e) => { setDormantDays(e.target.value as DormantDays); invalidate(); }}
-                        title="Aplica al segmento Dormidos"
+                        title="Aplica a Dormidos, Activos y Pagan y no usan"
                         className="w-full px-3 py-2 text-sm border border-finzen-gray/20 rounded-lg bg-white text-finzen-black focus:outline-none focus:ring-2 focus:ring-finzen-blue/20 focus:border-finzen-blue disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {DORMANT_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

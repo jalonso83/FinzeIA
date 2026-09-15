@@ -615,8 +615,10 @@ export interface BroadcastAudience {
   platforms: string[];
   country?: string;
   segments: string[];
-  dormantDays?: number;
-  trialEndingDays?: number; // segmento trial_ending (propuestas del agente)
+  dormantDays?: number;      // dormant / active / subscriber_inactive
+  trialEndingDays?: number;  // trial_ending
+  oneAndDoneDays?: number;   // one_and_done
+  trialMinDays?: number;     // trial_no_activity
   test?: boolean;
   targetEmail?: string; // envío dirigido a un usuario específico
 }
