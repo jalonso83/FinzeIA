@@ -985,7 +985,31 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
           <span>📌</span>
           <span>Datos lifetime — el filtro de fechas no aplica aquí</span>
         </div>
-        {bySource.length === 0 ? (
+        <TopSourcesTable rows={bySource} />
+      </Section>
+    </div>
+  );
+}
+
+const TOP_SOURCES_PAGE_SIZE = 10;
+
+// Tabla de Top Sources con paginado en cliente (son datos lifetime: crecen con
+// cada campaña y sin páginas la sección se hacía interminable).
+function TopSourcesTable({ rows }: { rows: AcquisitionData['bySource'] }) {
+  const [page, setPage] = useState(1);
+  const totalPages = Math.max(1, Math.ceil(rows.length / TOP_SOURCES_PAGE_SIZE));
+  const currentPage = Math.min(page, totalPages);
+  const pagedRows = rows.slice((currentPage - 1) * TOP_SOURCES_PAGE_SIZE, currentPage * TOP_SOURCES_PAGE_SIZE);
+  const fromRow = rows.length === 0 ? 0 : (currentPage - 1) * TOP_SOURCES_PAGE_SIZE + 1;
+  const toRow = Math.min(currentPage * TOP_SOURCES_PAGE_SIZE, rows.length);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
+  return (
+    <div className="space-y-3">
+        {rows.length === 0 ? (
           <div className="rounded-lg border border-finzen-gray/20 bg-white p-6 text-center text-sm text-finzen-gray">
             Sin sources atribuidos todavía.
           </div>
@@ -1008,7 +1032,7 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
                 </tr>
               </thead>
               <tbody>
-                {bySource.map((row, idx) => (
+                {pagedRows.map((row, idx) => (
                   <tr key={`${row.source}-${row.campaign ?? 'none'}-${idx}`} className="border-b border-finzen-gray/10 last:border-0 hover:bg-finzen-white/50">
                     <td className="px-4 py-3 text-finzen-black font-medium">{row.source}</td>
                     <td className="px-4 py-3 text-finzen-black">{row.medium ?? <span className="text-finzen-gray/50">—</span>}</td>
@@ -1033,7 +1057,45 @@ function TabAdquisicion({ acquisition }: { acquisition: AcquisitionData | null }
             </table>
           </div>
         )}
-      </Section>
+      {totalPages > 1 && (
+        <div className="flex items-center justify-between text-sm">
+          <span className="text-finzen-gray">Mostrando {fromRow}-{toRow} de {rows.length}</span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setPage(currentPage - 1)}
+              disabled={currentPage <= 1}
+              className="px-3 py-1.5 rounded-md border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Anterior
+            </button>
+            {Array.from({ length: Math.min(totalPages, 5) }, (_, i) => {
+              let pageNum: number;
+              if (totalPages <= 5) pageNum = i + 1;
+              else if (currentPage <= 3) pageNum = i + 1;
+              else if (currentPage >= totalPages - 2) pageNum = totalPages - 4 + i;
+              else pageNum = currentPage - 2 + i;
+              return (
+                <button
+                  key={pageNum}
+                  onClick={() => setPage(pageNum)}
+                  className={`px-3 py-1.5 rounded-md text-sm font-medium transition-colors ${
+                    pageNum === currentPage ? 'bg-finzen-blue text-white' : 'text-finzen-gray hover:bg-finzen-white'
+                  }`}
+                >
+                  {pageNum}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setPage(currentPage + 1)}
+              disabled={currentPage >= totalPages}
+              className="px-3 py-1.5 rounded-md border border-finzen-gray/20 text-finzen-gray hover:bg-finzen-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            >
+              Siguiente
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
