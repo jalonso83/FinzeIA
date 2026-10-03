@@ -62,14 +62,14 @@ function buildKpiCards(pulse: any) {
       value: String(pulse.trialsActive),
       change: null,
       changeType: 'neutral' as const,
-      tooltip: 'Usuarios que están actualmente en período de prueba gratuita de 7 días.',
+      tooltip: 'Usuarios que están actualmente en período de prueba gratuita (21 días desde el 31-ago-2026; antes eran 7).',
     },
     {
       label: 'Trials Iniciados',
       value: String(pulse.trialsStarted ?? 0),
       change: null,
       changeType: 'neutral' as const,
-      tooltip: 'Trials que arrancaron dentro del período seleccionado, contados por su fecha real de activación (trial_device_registry). Incluye los que ya terminaron o convirtieron, no solo los activos.',
+      tooltip: 'Trials que arrancaron dentro del período seleccionado, por su fecha real de inicio. Desde el 31-ago-2026 el trial arranca solo al registrarse, así que coincide con los registros del período. Incluye los que ya terminaron o convirtieron, no solo los activos.',
     },
     {
       label: 'Conversión Trial→Pago',

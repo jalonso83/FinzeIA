@@ -114,6 +114,9 @@ function buildTrialsByMonth(pulse: any) {
     return {
       date: d.toLocaleDateString('es', { month: 'short', year: '2-digit', timeZone: 'UTC' }),
       trials: m.trials,
+      convirtieron: m.convirtieron ?? 0,
+      vencieron: m.vencieron ?? 0,
+      cancelaron: m.cancelaron ?? 0,
     };
   });
 }
@@ -273,15 +276,18 @@ export default function DashboardPulso() {
       <div className="grid grid-cols-1 gap-6 mb-6">
         <div>
           <ChartLine
-            title="Trials Iniciados por Mes (últimos 12 meses)"
+            title="Trials por Mes: inicio y desenlace (últimos 12 meses)"
             data={trialsByMonthData}
             xKey="date"
             lines={[
-              { dataKey: 'trials', color: '#6cad7f', name: 'Trials' },
+              { dataKey: 'trials', color: '#6cad7f', name: 'Iniciaron' },
+              { dataKey: 'convirtieron', color: '#204274', name: 'Pagaron' },
+              { dataKey: 'vencieron', color: '#b0b8be', name: 'Vencieron' },
+              { dataKey: 'cancelaron', color: '#ef4444', name: 'Cancelaron' },
             ]}
           />
           <p className="text-xs text-finzen-gray mt-2 px-1">
-            Por fecha real de activación (trial_device_registry). Esta serie es de los últimos 12 meses y no depende del filtro de fechas de arriba.
+            Desde el 31-ago-2026 el trial arranca solo al registrarse, así que &quot;Iniciaron&quot; es igual a los registros del mes. Antes de esa fecha cuenta por la fecha de activación del trial. &quot;Pagaron&quot; va por el mes del primer pago; &quot;Vencieron&quot; y &quot;Cancelaron&quot;, por el mes en que terminó el trial. Últimos 12 meses, no depende del filtro de fechas de arriba.
           </p>
         </div>
       </div>
