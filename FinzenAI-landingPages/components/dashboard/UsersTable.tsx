@@ -175,7 +175,7 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
     <div>
       {/* Table */}
       <div className="overflow-x-auto border border-finzen-gray/20 rounded-lg">
-        <table className="w-full min-w-[900px]">
+        <table className="w-full min-w-[1100px]">
           <thead>
             <tr className="bg-finzen-white text-left text-xs font-semibold text-finzen-gray uppercase tracking-wider">
               <th className="px-4 py-3">Usuario</th>
@@ -191,9 +191,11 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                 <SortHeader label="Registro" field="createdAt" currentSort={currentSort} currentOrder={currentOrder} onSort={handleSort} />
               </th>
               <th className="px-4 py-3">Plataforma</th>
-              <th className="px-4 py-3 text-center">TX</th>
-              <th className="px-4 py-3 text-center" title="Metas declaradas y, entre paréntesis, total de contribuciones a esas metas">Metas</th>
+              <th className="px-4 py-3 text-center" title="Transacciones totales y, entre paréntesis, cuántas entraron por el correo bancario">TX</th>
+              <th className="px-4 py-3 text-center" title="Presupuestos activos">Presup.</th>
+              <th className="px-4 py-3 text-center" title="Correo bancario conectado (sincronización automática de gastos)">Correo</th>
               <th className="px-4 py-3 text-center" title="Mensajes reales enviados a Zenio (acumulado; excluye saludos automáticos y onboarding)">Zenio</th>
+              <th className="px-4 py-3 text-center" title="Días distintos con actividad en la app. 1 = solo usó la app el día del registro y no volvió">Días act.</th>
               <th className="px-4 py-3">Última act.</th>
               <th className="px-4 py-3 text-center" title="Plan regalado con fecha de caducidad (win-back, disculpa, beta tester)">Gracia</th>
             </tr>
@@ -271,22 +273,35 @@ export default function UsersTable({ users, pagination, params, onSort, onPageCh
                       );
                     })()}
                   </td>
-                  {/* TX */}
-                  <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
-                    {user.transactionCount}
-                  </td>
-                  {/* Metas — cantidad declarada (total de contribuciones) */}
+                  {/* TX — total (importadas del correo) */}
                   <td
-                    className="px-4 py-3 text-sm text-center font-medium text-finzen-black"
-                    title={`${user.goalCount ?? 0} meta${(user.goalCount ?? 0) !== 1 ? 's' : ''} · ${user.goalContributions ?? 0} contribución${(user.goalContributions ?? 0) !== 1 ? 'es' : ''}`}
+                    className="px-4 py-3 text-sm text-center font-medium text-finzen-black whitespace-nowrap"
+                    title={`${user.transactionCount} transacciones · ${user.importedTxCount ?? 0} del correo · ${user.transactionCount - (user.importedTxCount ?? 0)} manuales`}
                   >
-                    {(user.goalCount ?? 0) > 0
-                      ? `${user.goalCount} (${user.goalContributions ?? 0})`
-                      : '0'}
+                    {user.transactionCount}
+                    {(user.importedTxCount ?? 0) > 0 && (
+                      <span className="text-finzen-gray font-normal"> ({user.importedTxCount})</span>
+                    )}
+                  </td>
+                  {/* Presupuestos activos */}
+                  <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
+                    {user.budgetCount ?? 0}
+                  </td>
+                  {/* Correo bancario */}
+                  <td className="px-4 py-3 text-center">
+                    {user.emailConnected ? (
+                      <span className="inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Sí</span>
+                    ) : (
+                      <span className="text-sm text-finzen-gray">--</span>
+                    )}
                   </td>
                   {/* Zenio */}
                   <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
                     {user.zenioQueries}
+                  </td>
+                  {/* Días activos */}
+                  <td className="px-4 py-3 text-sm text-center font-medium text-finzen-black">
+                    {user.activeDays ?? 0}
                   </td>
                   {/* Última actividad */}
                   <td className="px-4 py-3 text-sm text-finzen-gray">{timeAgo(user.lastActivity)}</td>

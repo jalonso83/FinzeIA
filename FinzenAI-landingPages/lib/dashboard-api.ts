@@ -282,8 +282,10 @@ export interface UserListItem {
   currentPeriodEnd: string | null;
   transactionCount: number;
   zenioQueries: number;
-  goalCount: number;
-  goalContributions: number;
+  importedTxCount: number;
+  budgetCount: number;
+  emailConnected: boolean;
+  activeDays: number;
   lastActivity: string | null;
   cohort: 'Android' | 'iOS' | 'Desconocido';
 }
