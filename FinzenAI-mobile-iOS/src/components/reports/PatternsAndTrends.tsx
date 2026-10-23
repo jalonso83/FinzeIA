@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDashboardStore } from '../../stores/dashboard';
@@ -31,7 +32,13 @@ interface PatternsData {
 }
 
 
-const PatternsAndTrends: React.FC = () => {
+interface PatternsAndTrendsProps {
+  /** En Transacciones va plegada: se abre con un toque y solo entonces carga. */
+  plegable?: boolean;
+}
+
+const PatternsAndTrends: React.FC<PatternsAndTrendsProps> = ({ plegable = false }) => {
+  const [abierto, setAbierto] = useState(!plegable);
   const [patternsData, setPatternsData] = useState<PatternsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,8 +50,20 @@ const PatternsAndTrends: React.FC = () => {
   const { refreshTrigger } = useDashboardStore();
 
   useEffect(() => {
-    loadPatternsData();
-  }, [refreshTrigger]);
+    if (abierto) loadPatternsData();
+  }, [refreshTrigger, abierto]);
+
+  // Reintento al volver a la pantalla, SOLO si la carga anterior FALLÓ. Mismo
+  // problema que tenía VibeCard: solo cargaba al montar y con `refreshTrigger`,
+  // así que una petición caída dejaba la sección rota hasta que el usuario
+  // editara algún dato.
+  useFocusEffect(
+    useCallback(() => {
+      if (abierto && !loading && error) {
+        loadPatternsData();
+      }
+    }, [abierto, loading, error])
+  );
 
   const loadPatternsData = async () => {
     try {
@@ -65,8 +84,14 @@ const PatternsAndTrends: React.FC = () => {
 
       const data = response.data;
 
+      // Sin `patterns` no hay nada que pintar. Antes no tenía `else` y la
+      // sección se quedaba en blanco sin marcar error, así que ni se reintentaba
+      // ni el usuario sabía que había fallado.
       if (data.patterns) {
         setPatternsData(data.patterns);
+      } else {
+        setError('No se pudieron cargar los patrones del mes');
+        setPatternsData(null);
       }
     } catch (error: any) {
       logger.error('Error loading patterns data:', error);
@@ -89,13 +114,35 @@ const PatternsAndTrends: React.FC = () => {
     return days[index];
   };
 
+  const cabecera = plegable ? (
+    <TouchableOpacity
+      style={[styles.titleRow, abierto && styles.header]}
+      onPress={() => setAbierto(!abierto)}
+      activeOpacity={0.7}
+      accessibilityRole="button"
+      accessibilityState={{ expanded: abierto }}
+    >
+      <View>
+        <Text style={styles.title}>Patrones y Tendencias</Text>
+        <Text style={styles.subtitle}>Mes actual</Text>
+      </View>
+      <Ionicons name={abierto ? 'chevron-up' : 'chevron-down'} size={20} color="#64748b" />
+    </TouchableOpacity>
+  ) : (
+    <View style={styles.header}>
+      <Text style={styles.title}>Patrones y Tendencias</Text>
+      <Text style={styles.subtitle}>Mes actual</Text>
+    </View>
+  );
+
+  if (!abierto) {
+    return <View style={styles.container}>{cabecera}</View>;
+  }
+
   if (loading) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Patrones y Tendencias</Text>
-          <Text style={styles.subtitle}>Mes actual</Text>
-        </View>
+        {cabecera}
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="small" color="#2563EB" />
           <Text style={styles.loadingText}>Analizando...</Text>
@@ -115,10 +162,7 @@ const PatternsAndTrends: React.FC = () => {
   if (error || !hasData) {
     return (
       <View style={styles.container}>
-        <View style={styles.header}>
-          <Text style={styles.title}>Patrones y Tendencias</Text>
-          <Text style={styles.subtitle}>Mes actual</Text>
-        </View>
+        {cabecera}
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={24} color="#94a3b8" />
           <Text style={styles.errorText}>No hay datos suficientes este mes</Text>
@@ -129,10 +173,7 @@ const PatternsAndTrends: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Patrones y Tendencias</Text>
-        <Text style={styles.subtitle}>Mes actual</Text>
-      </View>
+      {cabecera}
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
         {/* Día más activo */}

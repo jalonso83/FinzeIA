@@ -15,7 +15,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CalendarioEnLinea, { aTextoDeFecha } from '../common/CalendarioEnLinea';
 import { categoriesAPI, goalsAPI, Category } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useSubscriptionStore } from '../../stores/subscriptionStore';
@@ -171,6 +171,11 @@ const GoalForm: React.FC<GoalFormProps> = ({
     }
   }, [visible, editGoal]);
 
+  // Al cerrar la ventana el calendario se cierra con ella.
+  useEffect(() => {
+    if (!visible) setShowDatePicker(false);
+  }, [visible]);
+
   const loadCategories = async () => {
     try {
       setLoadingCategories(true);
@@ -293,14 +298,8 @@ const GoalForm: React.FC<GoalFormProps> = ({
   };
 
   // Handler para cambio de fecha desde DatePicker
-  const handleDateChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      const dd = String(selectedDate.getDate()).padStart(2, '0');
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = selectedDate.getFullYear();
-      setFormData({ ...formData, targetDate: `${dd}-${mm}-${yyyy}` });
-    }
+  const handleDateChange = (fecha: Date) => {
+    setFormData((prev) => ({ ...prev, targetDate: aTextoDeFecha(fecha) }));
   };
 
   const handleInputChange = (field: keyof FormData, value: string) => {
@@ -555,7 +554,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
               <Text style={styles.label}>Fecha objetivo (opcional)</Text>
               <TouchableOpacity
                 style={styles.dateContainer}
-                onPress={() => setShowDatePicker(true)}
+                onPress={() => setShowDatePicker((v) => !v)}
                 activeOpacity={0.7}
               >
                 <Ionicons name="calendar-outline" size={20} color="#2563EB" />
@@ -564,22 +563,20 @@ const GoalForm: React.FC<GoalFormProps> = ({
                 </Text>
                 {formData.targetDate && (
                   <TouchableOpacity
-                    onPress={() => setFormData({ ...formData, targetDate: '' })}
+                    onPress={() => { setShowDatePicker(false); setFormData({ ...formData, targetDate: '' }); }}
                     hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
                   >
                     <Ionicons name="close-circle" size={20} color="#9ca3af" />
                   </TouchableOpacity>
                 )}
               </TouchableOpacity>
-              {showDatePicker && (
-                <DateTimePicker
-                  value={formData.targetDate ? parseDisplayDateToDate(formData.targetDate) : new Date()}
-                  mode="date"
-                  display="default"
-                  onChange={handleDateChange}
-                  minimumDate={new Date()}
-                />
-              )}
+              <CalendarioEnLinea
+                visible={showDatePicker}
+                value={formData.targetDate ? parseDisplayDateToDate(formData.targetDate) : new Date()}
+                onChange={handleDateChange}
+                onListo={() => setShowDatePicker(false)}
+                minimumDate={new Date()}
+              />
             </View>
 
             {/* Prioridad - Solo visible para planes PLUS/PRO */}

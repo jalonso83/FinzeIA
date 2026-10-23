@@ -12,7 +12,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import ProfileForm from '../components/profile/ProfileForm';
 import ChangePasswordForm from '../components/ChangePasswordForm';
 import CustomModal from '../components/modals/CustomModal';
-import api, { configAPI } from '../utils/api';
+import api, { configAPI, sharedAPI } from '../utils/api';
 
 // Screens (las crearemos después)
 import DashboardScreen from '../screens/DashboardScreen';
@@ -34,6 +34,7 @@ import ReferralsScreen from '../screens/ReferralsScreen';
 import HelpCenterScreen from '../screens/HelpCenterScreen';
 import FeedbackScreen from '../screens/FeedbackScreen';
 import SubscriptionsScreen from '../screens/SubscriptionsScreen';
+import TrialExpiredScreen, { TrialExpiryState } from '../screens/TrialExpiredScreen';
 import PaymentHistoryScreen from '../screens/PaymentHistoryScreen';
 import EmailSyncScreen from '../screens/EmailSyncScreen';
 import NotificationSettingsScreen from '../screens/NotificationSettingsScreen';
@@ -54,6 +55,8 @@ import RePersonalizationScreen from '../screens/RePersonalizationScreen';
 import { useAuthStore } from '../stores/auth';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useDashboardStore } from '../stores/dashboard';
+import { useSharedStore } from '../stores/sharedStore';
+import AceptarInvitacionModal from '../components/shared/AceptarInvitacionModal';
 import { useNotificationStore } from '../stores/notificationStore';
 
 // Services
@@ -329,11 +332,91 @@ function MainTabNavigator({
 }
 
 // Wrapper del MainTabNavigator en un Stack para permitir navegación desde onboarding
-function MainNavigator({ route }: any) {
+function MainNavigator({ route, navigation }: any) {
   const [showUserMenu, setShowUserMenu] = React.useState(false);
   const [showProfileModal, setShowProfileModal] = React.useState(false);
   const [showChangePasswordModal, setShowChangePasswordModal] = React.useState(false);
   const [showSubscriptionsModal, setShowSubscriptionsModal] = React.useState(false);
+  // Por qué se abrió la pantalla de planes. Lo necesita el evento `ver_planes`
+  // para distinguir a quien vino buscando "Gastos en automático" de quien entró
+  // a mirar precios por su cuenta.
+  const [origenPlanes, setOrigenPlanes] = React.useState<undefined | 'gastos_automatico' | 'menu' | 'limite' | 'vencimiento'>(undefined);
+
+  // Cerrar la pantalla de planes SIEMPRE limpia el origen, y esto no es una
+  // formalidad: hay entradas que abren esa pantalla sin fijarlo (el chip de plan
+  // del header, los avisos Pro de notificaciones y reportes). Si el valor se
+  // quedara pegado, todas ellas heredarían el último. El caso feo es
+  // 'vencimiento': una sola apertura desde ahí dejaría marcada como venida del
+  // vencimiento el resto de la sesión — y ese número es justo el que dice si esa
+  // pantalla sirve. Un origen ausente es un dato honesto; uno heredado, no.
+  const cerrarPlanes = React.useCallback(() => {
+    setShowSubscriptionsModal(false);
+    setOrigenPlanes(undefined);
+  }, []);
+
+  // ─── Pantalla de vencimiento del trial (D6) ────────────────────────────────
+  //
+  // El servidor decide si toca mostrarla y qué dice. La app solo decide CUÁNDO,
+  // y ahí está toda la dificultad: en iOS no se puede abrir un <Modal> mientras
+  // hay otro abierto —el segundo no se pinta y deja la pantalla trabada— y esta
+  // consulta cae justo en el arranque, que es cuando pueden estar saliendo el
+  // aviso de Face ID, el centro de ayuda post-onboarding o la repersonalización.
+  //
+  // Por eso va en dos pasos: `vencimientoEnCola` guarda lo que dijo el servidor,
+  // y un segundo efecto la muestra recién cuando no hay ningún otro modal
+  // abierto. Si nunca se despeja, simplemente no se muestra hoy y se vuelve a
+  // intentar en el próximo arranque.
+  const [vencimientoEnCola, setVencimientoEnCola] = React.useState<TrialExpiryState | null>(null);
+  const [estadoVencimiento, setEstadoVencimiento] = React.useState<TrialExpiryState | null>(null);
+
+  // Espejo en ref para los temporizadores que arrancan con `[]` y no vuelven a
+  // ver el estado (el aviso diferido de biometría). Leer el estado desde ahí
+  // devolvería siempre el valor del primer render.
+  const vencimientoActivoRef = React.useRef(false);
+  React.useEffect(() => {
+    vencimientoActivoRef.current = vencimientoEnCola != null || estadoVencimiento != null;
+  }, [vencimientoEnCola, estadoVencimiento]);
+
+  React.useEffect(() => {
+    let vigente = true;
+
+    const revisarVencimiento = async () => {
+      try {
+        const { data } = await api.get('/subscriptions/trial-expiry');
+        if (!vigente || !data?.vencioElTrial) return;
+
+        const clave = `@finzen_vencimiento_visto_${data.trialEndedAt ?? 'sin_fecha'}`;
+        const yaLaVio = await AsyncStorage.getItem(clave);
+        if (yaLaVio === 'true' || !vigente) return;
+
+        // `data` llega de axios como `any`: la interfaz de TypeScript no valida
+        // nada en runtime. Y esto se pinta DENTRO de un pageSheet, así que un
+        // `undefined.map` no es un warning: es pantalla roja sin forma de salir
+        // más que matando la app. Basta con que un despliegue renombre un campo.
+        //
+        // El aterrizaje suave exige las dos piezas: sin `limitesFree` no hay con
+        // qué comparar, y tratarlo como cero haría pasar por regalo lo que todo
+        // el mundo ya tiene gratis.
+        const conserva = data.conserva ?? null;
+        const limitesFree = data.limitesFree ?? null;
+        setVencimientoEnCola({
+          vencioElTrial: true,
+          trialEndedAt: data.trialEndedAt ?? null,
+          transaccionesImportadas: Number(data.transaccionesImportadas) || 0,
+          seDetuvo: Array.isArray(data.seDetuvo) ? data.seDetuvo : [],
+          aterrizajeSuave: data.aterrizajeSuave === true && conserva != null && limitesFree != null,
+          conserva,
+          limitesFree: limitesFree ?? { budgets: 0, goals: 0, zenioQueries: 0 },
+        });
+      } catch (error) {
+        // Si falla, no pasa nada: no es una pantalla que valga la pena forzar.
+        logger.error('[Vencimiento] No se pudo consultar el estado:', error);
+      }
+    };
+
+    revisarVencimiento();
+    return () => { vigente = false; };
+  }, []);
   const [showPaymentHistory, setShowPaymentHistory] = React.useState(false);
   const [showHelpCenter, setShowHelpCenter] = React.useState(false);
   const [showLogoutModal, setShowLogoutModal] = React.useState(false);
@@ -359,7 +442,7 @@ function MainNavigator({ route }: any) {
   const [showWeeklyReports, setShowWeeklyReports] = React.useState(false);
   const [showRePersonalization, setShowRePersonalization] = React.useState(false);
   const { updateUser, logout, user, saveBiometricCredentials } = useAuthStore();
-  const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal } = useSubscriptionStore();
+  const { subscription, fetchSubscription, showPlansModal: storePlansModal, closePlansModal, trialConfig, showEmailSyncModal: storeEmailSync, closeEmailSyncModal } = useSubscriptionStore();
   const { onTransactionChange } = useDashboardStore();
   const { enable, refresh } = useBiometric();
   const insets = useSafeAreaInsets();
@@ -371,6 +454,128 @@ function MainNavigator({ route }: any) {
       closePlansModal();
     }
   }, [storePlansModal, closePlansModal]);
+
+  // Lo mismo para "Gastos en automático": una campaña del slot del dashboard
+  // puede pedir que se abra, y esa pantalla es un <Modal> de aquí, no una ruta.
+  React.useEffect(() => {
+    if (storeEmailSync) {
+      // Un usuario sin Pro no puede entrar: se le manda a planes, igual que
+      // desde el menú. Así la misma campaña sirve para los dos casos.
+      if (subscription?.plan === 'PRO') {
+        setShowEmailSync(true);
+      } else {
+        setOrigenPlanes('gastos_automatico');
+        setShowSubscriptionsModal(true);
+      }
+      closeEmailSyncModal();
+    }
+  }, [storeEmailSync, closeEmailSyncModal, subscription?.plan]);
+
+  // ─── Presupuestos y metas compartidos (2026-10) ─────────────────────────────
+  //
+  // La pantalla de aceptar invitación es una CAPA, no un <Modal>: puede abrirse
+  // desde un enlace con cualquier ventana abierta y no puede chocar con ninguna.
+  // La invitación pendiente se descarta recién cuando la persona la cierra o la
+  // acepta: si se descartara al leerla y la app se cerrara antes de mostrarla,
+  // se perdería.
+  const { invitacion, abrirInvitacion, cerrarInvitacion, setEnabled: setSharedEnabled, refrescarCompartidos } = useSharedStore();
+
+  React.useEffect(() => {
+    let vigente = true;
+    const revisarCompartidos = async () => {
+      try {
+        const { data } = await configAPI.getFeatures();
+        if (vigente) setSharedEnabled(!!data?.sharedEnabled);
+      } catch (e) {
+        if (vigente) setSharedEnabled(false);
+        logger.error('[Compartidos] No se pudo leer el flag:', e);
+      }
+      try {
+        // Código que llegó por enlace antes de iniciar sesión.
+        const guardado = await AsyncStorage.getItem('pendingInviteCode');
+        if (guardado) {
+          if (vigente) abrirInvitacion(guardado, true);
+          return;
+        }
+        // Código que escribió al registrarse (lo guarda el servidor).
+        const { data } = await sharedAPI.invitacionPendiente();
+        if (vigente && data?.invitacion?.code) {
+          abrirInvitacion(data.invitacion.code, true);
+        }
+      } catch (e) {
+        logger.error('[Compartidos] No se pudo revisar la invitación pendiente:', e);
+      }
+    };
+    revisarCompartidos();
+    return () => { vigente = false; };
+  }, []);
+
+  // Se ofrece una sola vez: cerrada o aceptada, no vuelve a salir sola (el código
+  // sigue sirviendo con "¿Te invitaron?").
+  const cerrarLaInvitacion = React.useCallback(() => {
+    if (invitacion?.automatica) {
+      AsyncStorage.removeItem('pendingInviteCode').catch(() => {});
+      sharedAPI.descartarInvitacionPendiente().catch(() => {});
+    }
+    cerrarInvitacion();
+  }, [cerrarInvitacion, invitacion]);
+
+  const alAceptarInvitacion = React.useCallback((kind: 'BUDGET' | 'GOAL') => {
+    cerrarLaInvitacion();
+    refrescarCompartidos();
+    onTransactionChange();
+    navigation?.navigate('MainScreen', { screen: 'Main', params: { screen: kind === 'GOAL' ? 'Goals' : 'Budgets' } });
+  }, [cerrarLaInvitacion, refrescarCompartidos, onTransactionChange, navigation]);
+
+  // ─── Segundo paso del vencimiento: mostrarla solo si la vía está libre ──────
+  //
+  // Va aquí abajo, y no junto al resto de la lógica de vencimiento, porque
+  // necesita leer TODAS las banderas de modales y varias se declaran después.
+  //
+  // Si añades un <Modal> nuevo a este componente, súmalo a esta lista. Que se
+  // olvide no rompe nada visible en el momento: lo que pasa es que un día, a un
+  // usuario, se le abre esta pantalla encima de otra y en iOS se le traba la app.
+  const hayOtroModalAbierto =
+    showUserMenu || showProfileModal || showChangePasswordModal || showSubscriptionsModal ||
+    showPaymentHistory || showHelpCenter || showLogoutModal || showPlansModal ||
+    showProfileSuccessModal || showFeedback || showFeedbackSuccessModal ||
+    showFeedbackErrorModal || showBiometricModal || showEmailSync || showNotifications ||
+    showNotificationSettings || showWeeklyReports || showRePersonalization ||
+    estadoVencimiento != null || !!invitacion;
+
+  React.useEffect(() => {
+    if (!vencimientoEnCola || estadoVencimiento || hayOtroModalAbierto) return;
+
+    // La vía tiene que estar libre de forma SOSTENIDA, no en un instante suelto.
+    //
+    // No basta con mirar las banderas una vez: este archivo encadena modales con
+    // "cierro este, abro el otro a los 300-500 ms" en cinco sitios, y durante ese
+    // hueco TODAS las banderas están en false. Mostrar ahí sería lo peor de los
+    // dos mundos: el modal siguiente se abriría encima del nuestro y en iOS
+    // dejaría la app trabada, y encima la pantalla quedaría marcada como vista.
+    //
+    // La espera resuelve las dos direcciones a la vez. Si cualquier modal se
+    // abre mientras corre, `hayOtroModalAbierto` cambia, el efecto se rearma y
+    // el cleanup cancela el temporizador — o sea que solo llega al final si de
+    // verdad no pasó nada en esos segundos. 3 s cubre con holgura el handoff más
+    // largo (500 ms) y el aviso diferido de biometría (1,5 s).
+    const temporizador = setTimeout(() => {
+      // La marca de "ya la vio" se escribe AQUÍ, cuando de verdad se muestra.
+      // Escribirla al consultarla la quemaría sin que nadie la hubiera visto.
+      //
+      // Lleva la fecha del vencimiento, no un booleano: si esta persona recibe
+      // una concesión más adelante y ese trial también termina, la pantalla
+      // vuelve a salir en vez de quedar muda para siempre.
+      const clave = `@finzen_vencimiento_visto_${vencimientoEnCola.trialEndedAt ?? 'sin_fecha'}`;
+      AsyncStorage.setItem(clave, 'true').catch((e) =>
+        logger.error('[Vencimiento] No se pudo marcar como vista:', e));
+
+      setEstadoVencimiento(vencimientoEnCola);
+      setVencimientoEnCola(null);
+    }, 3000);
+
+    return () => clearTimeout(temporizador);
+  }, [vencimientoEnCola, estadoVencimiento, hayOtroModalAbierto]);
 
   // Detectar si viene del onboarding y debe abrir HelpCenter
   React.useEffect(() => {
@@ -422,6 +627,18 @@ function MainNavigator({ route }: any) {
         // El flag pendingBiometricSetup se queda en AsyncStorage para la próxima sesión
         if (isPostOnboardingRef.current) {
           logger.log('🔐 Biometric: flujo post-onboarding activo — se mostrará en próxima sesión');
+          return;
+        }
+
+        // Misma idea que el guard de arriba, por la otra razón: aquí el flag se
+        // consulta a los 1500 ms fijos, y la pantalla de vencimiento puede estar
+        // ya presentada para entonces. Abrir este CustomModal encima de ese
+        // pageSheet traba la app en iOS.
+        //
+        // Se sale ANTES de borrar el flag, igual que en el caso post-onboarding:
+        // así el aviso no se pierde, reaparece en la próxima sesión.
+        if (vencimientoActivoRef.current) {
+          logger.log('🔐 Biometric: pantalla de vencimiento en curso — se mostrará en próxima sesión');
           return;
         }
 
@@ -638,6 +855,7 @@ function MainNavigator({ route }: any) {
               }}
               onPress={() => {
                 setShowUserMenu(false);
+                setOrigenPlanes('menu');
                 setShowSubscriptionsModal(true);
               }}
             >
@@ -657,6 +875,11 @@ function MainNavigator({ route }: any) {
                 if (subscription?.plan === 'PRO') {
                   setShowEmailSync(true);
                 } else {
+                  // El usuario FREE que toca aquí está pidiendo Gastos en
+                  // automático, no mirando precios. Se etiqueta para poder
+                  // contarlo aparte: es la señal más limpia de demanda por la
+                  // única función que justifica pagar.
+                  setOrigenPlanes('gastos_automatico');
                   setTimeout(() => {
                     setShowSubscriptionsModal(true);
                   }, 300);
@@ -664,16 +887,27 @@ function MainNavigator({ route }: any) {
               }}
             >
               <Ionicons name="mail-outline" size={20} color="#374151" style={{ marginRight: 12 }} />
-              <Text style={{ fontSize: 14, color: '#374151' }}>Email Bancario</Text>
+              <Text style={{ fontSize: 14, color: '#374151' }}>Gastos en automático</Text>
+              {/* La etiqueta invita o cierra la puerta, según lo que la persona
+                  pueda hacer HOY.
+                  - Le queda prueba → "GRATIS" en verde. Decir "PRO" aquí sería
+                    marcar como bloqueado algo que puede tener ahora mismo sin
+                    pagar, y esa píldora es lo último que lee antes de decidir
+                    si toca. Este es el único sitio donde un usuario gratis se
+                    entera de que la función existe.
+                  - Ya usó la prueba → "PRO" en morado. Ahí sí cuesta dinero y
+                    prometer "gratis" sería mentir. */}
               {subscription?.plan !== 'PRO' && (
                 <View style={{
-                  backgroundColor: '#6366F1',
+                  backgroundColor: subscription?.canUseTrial ? '#059669' : '#6366F1',
                   paddingHorizontal: 6,
                   paddingVertical: 2,
                   borderRadius: 4,
                   marginLeft: 8,
                 }}>
-                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>PRO</Text>
+                  <Text style={{ fontSize: 10, fontWeight: '700', color: '#fff' }}>
+                    {subscription?.canUseTrial ? 'GRATIS' : 'PRO'}
+                  </Text>
                 </View>
               )}
             </TouchableOpacity>
@@ -787,6 +1021,14 @@ function MainNavigator({ route }: any) {
       
       {/* Zenio Floating Button - Global */}
       <ZenioFloatingButton />
+
+      {/* Aceptar invitación a un presupuesto o meta compartida */}
+      <AceptarInvitacionModal
+        visible={!!invitacion}
+        codigoInicial={invitacion?.codigo ?? ''}
+        onClose={cerrarLaInvitacion}
+        onAceptada={alAceptarInvitacion}
+      />
       
       <UserMenuModal />
 
@@ -826,15 +1068,41 @@ function MainNavigator({ route }: any) {
         visible={showSubscriptionsModal}
         animationType="slide"
         presentationStyle="pageSheet"
-        onRequestClose={() => setShowSubscriptionsModal(false)}
+        onRequestClose={cerrarPlanes}
       >
         <SubscriptionsScreen
-          onClose={() => setShowSubscriptionsModal(false)}
+          origen={origenPlanes}
+          onClose={cerrarPlanes}
           onViewPayments={() => {
-            setShowSubscriptionsModal(false);
+            cerrarPlanes();
             setTimeout(() => setShowPaymentHistory(true), 500);
           }}
         />
+      </Modal>
+
+      {/* Vencimiento del trial (D6) */}
+      <Modal
+        visible={estadoVencimiento != null}
+        animationType="slide"
+        presentationStyle="pageSheet"
+        onRequestClose={() => setEstadoVencimiento(null)}
+      >
+        {estadoVencimiento && (
+          <TrialExpiredScreen
+            estado={estadoVencimiento}
+            onClose={() => setEstadoVencimiento(null)}
+            onRecuperar={() => {
+              setEstadoVencimiento(null);
+              // Etiqueta propia: sirve para saber cuánta gente llega a los
+              // planes DESDE el vencimiento, que es lo que mide si esta
+              // pantalla hace algo o solo estorba.
+              setOrigenPlanes('vencimiento');
+              // En iOS hay que esperar a que este modal cierre antes de abrir el
+              // siguiente: dos pageSheet a la vez no se llevan bien.
+              setTimeout(() => setShowSubscriptionsModal(true), 400);
+            }}
+          />
+        )}
       </Modal>
 
       {/* Payment History Modal */}
@@ -962,7 +1230,7 @@ function MainNavigator({ route }: any) {
         visible={showPlansModal}
         type="success"
         title="🎉 ¡Ahora que conoces FinZen AI!"
-        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Acceso a reportes\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n7 días gratis, cancela cuando quieras`}
+        message={`Acabas de ver todo lo que puedes hacer:\n\n✨ Zenio AI ilimitado\n📊 Acceso a reportes\n💰 Presupuestos y metas sin límites\n📈 Todas las calculadoras\n\n¿Quieres desbloquearlo TODO?\n${trialConfig?.durationDays ?? 7} días gratis, cancela cuando quieras`}
         buttonText="Ver Planes"
         showSecondaryButton={true}
         secondaryButtonText="Gratis"
@@ -1102,6 +1370,13 @@ export default function AppNavigator() {
     // no re-disparar el flag —y parpadear el loader— ante cambios no relacionados.
   }, [isAuthenticated, user?.id, user?.onboardingCompleted]);
 
+  // Al cerrar sesión no se arrastra nada de compartidos a la siguiente cuenta.
+  useEffect(() => {
+    if (!isAuthenticated) {
+      useSharedStore.setState({ enabled: false, invitacion: null });
+    }
+  }, [isAuthenticated]);
+
   // Manejar URLs entrantes (Universal Links)
   useEffect(() => {
     const handleDeepLink = async (event: { url: string }) => {
@@ -1138,6 +1413,20 @@ export default function AppNavigator() {
       else if (url.includes('/checkout/cancel')) {
         logger.log('❌ Checkout cancelado');
         setShowPaymentCancelModal(true);
+      }
+      // Invitación a un compartido: finzenai://invite/CODIGO
+      else if (/^finzenai:\/\/invite\/[A-Za-z0-9]{6}(?![A-Za-z0-9])/i.test(url) || /^https:\/\/(www\.)?finzenai\.com\/invite\/[A-Za-z0-9]{6}(?![A-Za-z0-9])/i.test(url)) {
+        const match = url.match(/invite\/([A-Za-z0-9]+)/);
+        const code = match ? match[1].toUpperCase() : '';
+        if (code) {
+          logger.log('🤝 Invitación a compartido recibida:', code);
+          if (useAuthStore.getState().isAuthenticated) {
+            useSharedStore.getState().abrirInvitacion(code);
+          } else {
+            // Sin sesión: se usa al registrarse y se abre al entrar.
+            await AsyncStorage.setItem('pendingInviteCode', code);
+          }
+        }
       }
       // Referral Deep Link - Guardar código para registro
       else if (url.includes('/referral') || url.includes('referral?code=')) {

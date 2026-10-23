@@ -223,7 +223,7 @@ export default function HelpCenterScreen({ onClose }: HelpCenterScreenProps) {
               <View style={styles.tipContent}>
                 <Text style={styles.tipTitle}>Alertas de presupuesto</Text>
                 <Text style={styles.tipDescription}>
-                  Recibe notificaciones cuando te acerques al límite de gasto
+                  Recibe notificaciones cuando te acerques al límite de un presupuesto de gastos (las metas de ingreso no alertan)
                 </Text>
               </View>
             </View>

@@ -37,6 +37,13 @@ const getNotificationIcon = (type: string): { name: keyof typeof Ionicons.glyphM
       return { name: 'bar-chart', color: '#6366f1' };
     case 'TIP':
       return { name: 'bulb', color: '#ec4899' };
+    // Presupuestos y metas compartidos
+    case 'SHARED_INVITE_ACCEPTED':
+      return { name: 'people', color: '#2563EB' };
+    case 'SHARED_ACTIVITY':
+      return { name: 'swap-horizontal', color: '#0891b2' };
+    case 'SHARED_STATUS':
+      return { name: 'people-circle', color: '#64748b' };
     case 'SYSTEM':
     default:
       return { name: 'notifications', color: '#64748b' };

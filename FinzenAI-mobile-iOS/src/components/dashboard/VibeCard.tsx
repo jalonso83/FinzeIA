@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -9,6 +9,7 @@ import {
   ScrollView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import { reportsAPI } from '../../utils/api';
 import { useCurrency } from '../../hooks/useCurrency';
 import { useDashboardStore } from '../../stores/dashboard';
@@ -49,6 +50,25 @@ const VibeCard: React.FC = () => {
   useEffect(() => {
     loadVibeData();
   }, [refreshTrigger]);
+
+  // Reintento al volver a la pantalla, SOLO si la carga anterior FALLÓ.
+  //
+  // Esta tarjeta solo cargaba al montarse y cuando cambia `refreshTrigger`, que
+  // se mueve únicamente al editar un dato o al cambiar el día. Si la petición
+  // del arranque fallaba (backend frío, red), la tarjeta se quedaba rota hasta
+  // que el usuario tocara otra cosa — de ahí el "solo aparece si le doy a
+  // Gestionar".
+  //
+  // Se condiciona a `error` a propósito: si el usuario simplemente no tiene
+  // transacciones este mes, no hay nada que reintentar y recargar en cada foco
+  // sería tráfico regalado.
+  useFocusEffect(
+    useCallback(() => {
+      if (!loading && error) {
+        loadVibeData();
+      }
+    }, [loading, error])
+  );
 
 
   const calculateVibeData = (volatility: number, burnRate: number, runway: number | null): VibeData => {
@@ -178,7 +198,17 @@ const VibeCard: React.FC = () => {
 
       const data = response.data;
 
-      if (data.metrics) {
+      // Sin `metrics` no se puede calcular nada. Antes esto no tenía `else`, así
+      // que la tarjeta caía al estado vacío y le decía al usuario "registra tu
+      // primer movimiento" AUNQUE tuviera cientos. Marcarlo como error permite
+      // distinguirlo y reintentarlo.
+      if (!data.metrics) {
+        setError('No se pudieron cargar los datos del vibe');
+        setVibeData(null);
+        return;
+      }
+
+      {
         if (data.metrics.totalTransactions === 0) {
           setHasData(false);
           setVibeData(null);
@@ -224,16 +254,17 @@ const VibeCard: React.FC = () => {
   }
 
   if (error) {
+    // Tocable: antes era un View muerto y el usuario no tenía forma de reintentar.
     return (
-      <View style={styles.container}>
+      <TouchableOpacity style={styles.container} onPress={loadVibeData} activeOpacity={0.7}>
         <View style={styles.header}>
           <Text style={styles.title}>Tu Vibe Financiero</Text>
         </View>
         <View style={styles.errorContainer}>
           <Ionicons name="alert-circle-outline" size={24} color="#dc2626" />
-          <Text style={styles.errorText}>No se pudieron cargar los datos</Text>
+          <Text style={styles.errorText}>No se pudieron cargar los datos. Toca para reintentar.</Text>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   }
 
@@ -296,7 +327,7 @@ const VibeCard: React.FC = () => {
           <View style={styles.metric}>
             <Text style={styles.metricEmoji}>{vibeData.burnRateEmoji}</Text>
             <Text style={styles.metricText}>Ritmo: {vibeData.burnRateText}</Text>
-            <Text style={styles.metricValue}>{formatCurrency(vibeData.burnRateValue)}/día</Text>
+            <Text style={styles.metricValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{formatCurrency(vibeData.burnRateValue)}/día</Text>
           </View>
           
           <View style={styles.metric}>

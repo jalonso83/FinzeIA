@@ -17,6 +17,12 @@ interface PlanCardProps {
   billingPeriod?: BillingPeriod;
   rcPriceString?: string;       // Precio formateado de App Store (e.g. "$4.99")
   rcYearlyPriceNum?: number;    // Precio numérico anual de RC (para calcular equivalente mensual)
+  /** Días de prueba, según el servidor. */
+  trialDays?: number;
+  /** Plan que concede el trial, si el servidor lo fija. Cuando está fijado, la
+   *  insignia de prueba solo se pone en ESE plan: anunciarla en los dos sería
+   *  ofrecer una prueba de Plus que el servidor no va a conceder. */
+  trialGrantedPlan?: SubscriptionPlan | null;
 }
 
 const PlanCard: React.FC<PlanCardProps> = ({
@@ -27,6 +33,8 @@ const PlanCard: React.FC<PlanCardProps> = ({
   billingPeriod = 'monthly',
   rcPriceString,
   rcYearlyPriceNum,
+  trialDays = 7,
+  trialGrantedPlan = null,
 }) => {
   // Defensive checks for plan data
   if (!plan || !plan.id) {
@@ -116,12 +124,13 @@ const PlanCard: React.FC<PlanCardProps> = ({
         </Text>
       )}
 
-      {/* Trial (solo para planes de pago) */}
-      {!isFree && (
+      {/* Trial. Si el servidor fija el plan que concede, la insignia va solo en
+          ese plan; si no fija ninguno, va en todos los de pago (lo de antes). */}
+      {!isFree && (trialGrantedPlan == null || trialGrantedPlan === plan.id) && (
         <View style={styles.trialContainer}>
           <Ionicons name="gift-outline" size={14} color={colors.primary} />
           <Text style={[styles.trialText, { color: colors.primary }]}>
-            7 días de prueba gratis
+            {trialDays} días de prueba gratis
           </Text>
         </View>
       )}

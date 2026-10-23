@@ -24,9 +24,13 @@ import { logger } from '../utils/logger';
 interface SubscriptionsScreenProps {
   onClose?: () => void;
   onViewPayments?: () => void;
+  /** Por qué se abrió esta pantalla. Viaja hasta el evento `ver_planes` para
+   *  poder separar la demanda concreta (tocó "Gastos en automático") de la
+   *  curiosidad (entró a mirar precios). */
+  origen?: 'gastos_automatico' | 'menu' | 'limite' | 'vencimiento';
 }
 
-const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onViewPayments }) => {
+const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onViewPayments, origen }) => {
   const {
     subscription,
     plans,
@@ -41,7 +45,14 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     getTrialDaysRemaining,
     purchaseWithRevenueCat,
     restoreRevenueCatPurchases,
+    trialConfig,
   } = useSubscriptionStore();
+
+  // Respaldo en 7 solo por si el backend todavía no manda `trial` (app nueva
+  // contra backend viejo). No es el valor "de verdad": el de verdad lo decide
+  // el servidor, y si esto se queda corto el usuario ve el número equivocado.
+  const diasDeTrial = trialConfig?.durationDays ?? 7;
+  const planDelTrial = trialConfig?.grantedPlan ?? null;
 
   const [showManageModal, setShowManageModal] = useState(false);
   const [processingPlan, setProcessingPlan] = useState<SubscriptionPlan | null>(null);
@@ -66,7 +77,7 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
   const loadData = async () => {
     await Promise.all([
       fetchSubscription(),
-      fetchPlans(),
+      fetchPlans(origen),
     ]);
   };
 
@@ -218,10 +229,16 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
     const canStartTrial = subscription?.canUseTrial && subscription?.plan === 'FREE';
 
     if (canStartTrial) {
-      // Mostrar confirmación de trial (sin Stripe)
+      // Los días y el plan salen del servidor. Cuando el servidor concede un
+      // plan fijo, la pantalla anuncia ESE plan y no el que el usuario tocó:
+      // celebrar "Plus" a alguien que va a recibir Pro es empezar mintiendo.
+      const nombrePlanTrial = planDelTrial
+        ? (planDelTrial === 'PRO' ? 'Pro' : 'Plus')
+        : selectedPlan.name;
+
       Alert.alert(
         'Iniciar Período de Prueba',
-        `¡Obtén 7 días GRATIS de ${selectedPlan.name}!\n\n• Acceso completo a todas las funciones\n• Sin necesidad de tarjeta de crédito\n• Cancela cuando quieras\n\nAl finalizar los 7 días, podrás decidir si quieres continuar.`,
+        `¡Obtén ${diasDeTrial} días GRATIS de ${nombrePlanTrial}!\n\n• Acceso completo a todas las funciones\n• Sin necesidad de tarjeta de crédito\n• Cancela cuando quieras\n\nAl finalizar los ${diasDeTrial} días, podrás decidir si quieres continuar.`,
         [
           { text: 'Cancelar', style: 'cancel' },
           { text: 'Iniciar', onPress: () => processStartTrial(planId) },
@@ -319,7 +336,8 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
 
       Alert.alert(
         '¡Felicidades! 🎉',
-        `Tu período de prueba de 7 días ha comenzado.\n\nAhora tienes acceso completo a todas las funciones de ${planId === 'PREMIUM' ? 'Plus' : 'Pro'}.\n\n¡Disfruta la experiencia!`,
+        // El plan concedido manda sobre el que se tocó, por lo mismo de arriba.
+        `Tu período de prueba de ${diasDeTrial} días ha comenzado.\n\nAhora tienes acceso completo a todas las funciones de ${(planDelTrial ?? planId) === 'PREMIUM' ? 'Plus' : 'Pro'}.\n\n¡Disfruta la experiencia!`,
         [{ text: 'Entendido', style: 'default' }]
       );
     } catch (error: any) {
@@ -534,6 +552,8 @@ const SubscriptionsScreen: React.FC<SubscriptionsScreenProps> = ({ onClose, onVi
                 billingPeriod={billingPeriod}
                 rcPriceString={rcPkg?.product.priceString || undefined}
                 rcYearlyPriceNum={isIOS && billingPeriod === 'yearly' ? (rcPkg?.product.price || undefined) : undefined}
+                trialDays={diasDeTrial}
+                trialGrantedPlan={planDelTrial}
               />
             );
           })}

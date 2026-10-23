@@ -81,7 +81,7 @@ export default function NotificationSettingsScreen({ onClose, onOpenPlans }: Not
     loadData();
   }, [loadData]);
 
-  const handleToggle = async (key: keyof NotificationPreferences, value: boolean) => {
+  const handleToggle = async (key: keyof NotificationPreferences, value: boolean | number) => {
     if (!preferences) return;
 
     const newPreferences = { ...preferences, [key]: value };
@@ -316,7 +316,7 @@ export default function NotificationSettingsScreen({ onClose, onOpenPlans }: Not
                 </View>
                 <Text style={[styles.settingDescription, !canUseBudgetAlerts && styles.settingDescriptionDisabled]}>
                   {canUseBudgetAlerts
-                    ? 'Cuando estás por exceder un presupuesto'
+                    ? 'Cuando estás por exceder un presupuesto de gastos'
                     : 'Disponible con plan PLUS o superior'}
                 </Text>
               </View>
@@ -597,7 +597,7 @@ export default function NotificationSettingsScreen({ onClose, onOpenPlans }: Not
           disabled={canUseBudgetAlerts}
         >
           <Text style={[styles.thresholdLabel, !canUseBudgetAlerts && styles.thresholdLabelDisabled]}>
-            Alertar cuando el presupuesto llegue al{' '}
+            Alertar cuando el presupuesto de gastos llegue al{' '}
             <Text style={[styles.thresholdValue, !canUseBudgetAlerts && styles.thresholdValueDisabled]}>
               {Math.round(preferences?.budgetAlertThreshold ?? 80)}%
             </Text>

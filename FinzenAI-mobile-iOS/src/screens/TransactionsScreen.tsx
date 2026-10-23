@@ -13,10 +13,11 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CalendarioEnLinea, { aTextoDeFecha } from '../components/common/CalendarioEnLinea';
 import { transactionsAPI, Transaction } from '../utils/api';
-import TransactionForm from '../components/forms/TransactionForm';
+import TransactionForm, { CorreccionComercio } from '../components/forms/TransactionForm';
 import RecurringPaymentsSheet from '../components/RecurringPaymentsSheet';
+import PatternsAndTrends from '../components/reports/PatternsAndTrends';
 import CategoryPicker, { CategorySelectSheet } from '../components/forms/CategoryPicker';
 import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
@@ -42,6 +43,10 @@ export default function TransactionsScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   // Success modal — TransactionForm envía mensaje en onSuccess y lo mostramos aquí.
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // Corrección en bloque de un comercio. Se guarda al editar y se pregunta
+  // DESPUÉS de que cierre el modal de éxito, no encima.
+  const [correccionPendiente, setCorreccionPendiente] = useState<CorreccionComercio | null>(null);
+  const [mostrarCorreccion, setMostrarCorreccion] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
   // Estados para filtros
@@ -75,6 +80,14 @@ export default function TransactionsScreen() {
   const [showExportOptions, setShowExportOptions] = useState(false);
   const [showStartDatePicker, setShowStartDatePicker] = useState(false);
   const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+
+  // Al cerrar los filtros los calendarios se cierran con ellos.
+  useEffect(() => {
+    if (!showFilters) {
+      setShowStartDatePicker(false);
+      setShowEndDatePicker(false);
+    }
+  }, [showFilters]);
 
   // Función para formatear fecha automáticamente (visual: DD-MM-YYYY)
   const formatDateDisplay = (value: string) => {
@@ -115,24 +128,41 @@ export default function TransactionsScreen() {
   };
 
   // Handler para cambio de fecha inicial desde DatePicker
-  const handleStartDateChange = (event: any, selectedDate?: Date) => {
-    setShowStartDatePicker(false);
-    if (selectedDate) {
-      const dd = String(selectedDate.getDate()).padStart(2, '0');
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = selectedDate.getFullYear();
-      setStartDate(`${dd}-${mm}-${yyyy}`);
-    }
+  const handleStartDateChange = (fecha: Date) => {
+    setStartDate(aTextoDeFecha(fecha));
   };
 
   // Handler para cambio de fecha final desde DatePicker
-  const handleEndDateChange = (event: any, selectedDate?: Date) => {
-    setShowEndDatePicker(false);
-    if (selectedDate) {
-      const dd = String(selectedDate.getDate()).padStart(2, '0');
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = selectedDate.getFullYear();
-      setEndDate(`${dd}-${mm}-${yyyy}`);
+  const handleEndDateChange = (fecha: Date) => {
+    setEndDate(aTextoDeFecha(fecha));
+  };
+
+  /** Aplica la categoría corregida al resto de transacciones del comercio. */
+  const aplicarCorreccionComercio = async () => {
+    if (!correccionPendiente) return;
+    const info = correccionPendiente;
+    setMostrarCorreccion(false);
+    setCorreccionPendiente(null);
+
+    try {
+      const { data } = await transactionsAPI.aplicarCategoriaAComercio({
+        comercio: info.comercio,
+        prefijo: info.prefijo,
+        categoriaAnterior: info.categoriaAnterior,
+        categoriaNueva: info.categoriaNueva,
+      });
+      await loadTransactions();
+      onTransactionChange();
+      setSuccessMessage(
+        `Listo. Cambiamos ${data.actualizadas} transacción(es) de "${info.comercio}".\n\nDe ahora en adelante las nuevas entran ya con esa categoría.`
+      );
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      // La corrección original ya se guardó; esto era el extra.
+      setErrorMessage(
+        error?.response?.data?.message || 'No se pudieron cambiar las demás transacciones.'
+      );
+      setShowErrorModal(true);
     }
   };
 
@@ -550,7 +580,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transacciones</Text>
+        <Text style={styles.title} numberOfLines={1}>Transacciones</Text>
         <View style={styles.headerButtons}>
           {/* Botón de exportar */}
           <TouchableOpacity
@@ -607,6 +637,11 @@ export default function TransactionsScreen() {
       )}
 
       <ScrollView style={styles.scrollView}>
+        {/* Patrones del mes, plegados: vivían al fondo del dashboard. */}
+        <View style={styles.patronesWrapper}>
+          <PatternsAndTrends plegable />
+        </View>
+
         {filteredTransactions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
@@ -752,7 +787,7 @@ export default function TransactionsScreen() {
                   <Text style={styles.dateInputLabel}>Fecha inicial</Text>
                   <TouchableOpacity
                     style={styles.dateInput}
-                    onPress={() => setShowStartDatePicker(true)}
+                    onPress={() => { setShowEndDatePicker(false); setShowStartDatePicker((v) => !v); }}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.dateInputText, !startDate && styles.datePlaceholder]}>
@@ -760,21 +795,12 @@ export default function TransactionsScreen() {
                     </Text>
                     <Ionicons name="calendar-outline" size={20} color="#2563EB" />
                   </TouchableOpacity>
-                  {showStartDatePicker && (
-                    <DateTimePicker
-                      value={startDate ? parseDisplayDateToDate(startDate) : new Date()}
-                      mode="date"
-                      display="default"
-                      onChange={handleStartDateChange}
-                      maximumDate={new Date()}
-                    />
-                  )}
                 </View>
                 <View style={styles.dateInputContainer}>
                   <Text style={styles.dateInputLabel}>Fecha final</Text>
                   <TouchableOpacity
                     style={styles.dateInput}
-                    onPress={() => setShowEndDatePicker(true)}
+                    onPress={() => { setShowStartDatePicker(false); setShowEndDatePicker((v) => !v); }}
                     activeOpacity={0.7}
                   >
                     <Text style={[styles.dateInputText, !endDate && styles.datePlaceholder]}>
@@ -782,17 +808,24 @@ export default function TransactionsScreen() {
                     </Text>
                     <Ionicons name="calendar-outline" size={20} color="#2563EB" />
                   </TouchableOpacity>
-                  {showEndDatePicker && (
-                    <DateTimePicker
-                      value={endDate ? parseDisplayDateToDate(endDate) : new Date()}
-                      mode="date"
-                      display="default"
-                      onChange={handleEndDateChange}
-                      maximumDate={new Date()}
-                    />
-                  )}
                 </View>
               </View>
+
+              {/* A todo lo ancho, debajo de las dos fechas: en media columna no cabe. */}
+              <CalendarioEnLinea
+                visible={showStartDatePicker}
+                value={startDate ? parseDisplayDateToDate(startDate) : new Date()}
+                onChange={handleStartDateChange}
+                onListo={() => setShowStartDatePicker(false)}
+                maximumDate={new Date()}
+              />
+              <CalendarioEnLinea
+                visible={showEndDatePicker}
+                value={endDate ? parseDisplayDateToDate(endDate) : new Date()}
+                onChange={handleEndDateChange}
+                onListo={() => setShowEndDatePicker(false)}
+                maximumDate={new Date()}
+              />
 
               {/* Botones de rango rápido */}
               <View style={styles.quickDateButtons}>
@@ -904,6 +937,7 @@ export default function TransactionsScreen() {
           setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
+        onCorregirComercio={setCorreccionPendiente}
       />
 
       {/* Pagos automáticos. View absoluto, NO <Modal>: iOS no soporta modales
@@ -948,7 +982,33 @@ export default function TransactionsScreen() {
         title="¡Éxito!"
         message={successMessage}
         buttonText="Continuar"
-        onClose={() => setShowSuccessModal(false)}
+        onClose={() => {
+          setShowSuccessModal(false);
+          // La pregunta del comercio se muestra AL CERRAR este, nunca encima:
+          // en iOS dos modales a la vez no se llevan bien. El estado ya está
+          // guardado, así que solo hay que dejar que este salga primero.
+          if (correccionPendiente) setMostrarCorreccion(true);
+        }}
+      />
+
+      {/* Corregir el resto de transacciones del mismo comercio */}
+      <CustomModal
+        visible={mostrarCorreccion && correccionPendiente != null}
+        type="info"
+        title="¿Arreglamos las demás?"
+        message={
+          correccionPendiente
+            ? `Tienes ${correccionPendiente.cantidad} transacción(es) más de "${correccionPendiente.comercio}" con la categoría anterior.\n\n¿Quieres cambiarlas todas también?`
+            : ''
+        }
+        buttonText={correccionPendiente ? `Sí, cambiar ${correccionPendiente.cantidad}` : 'Sí'}
+        showSecondaryButton={true}
+        secondaryButtonText="No, solo esta"
+        onSecondaryPress={() => {
+          setMostrarCorreccion(false);
+          setCorreccionPendiente(null);
+        }}
+        onClose={aplicarCorreccionComercio}
       />
 
       {/* Modal de upgrade para exportación CSV */}
@@ -1035,22 +1095,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
   title: {
-    fontSize: 24,
+    fontSize:  20,
     fontWeight: 'bold',
     color: '#1e293b',
+    // Encoge antes que empujar los botones fuera de pantalla: en un
+    // iPhone 11 el titulo + los 4 botones no caben a tamano completo.
+    flexShrink: 1,
   },
   addButton: {
     backgroundColor: '#2563EB',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    borderRadius: 22,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1086,6 +1149,9 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     marginTop: 8,
+  },
+  patronesWrapper: {
+    marginHorizontal: 20,
   },
   dateGroup: {
     marginBottom: 20,
@@ -1164,17 +1230,19 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f1f5f9',
+    // Mismo azul que exportar y recurrentes. Estaba en gris (#f1f5f9 con borde
+    // #e2e8f0) y en la fila de botones se leía como si estuviera desactivado.
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#bfdbfe',
   },
   filterButtonActive: {
     backgroundColor: '#2563EB',
@@ -1375,9 +1443,9 @@ const styles = StyleSheet.create({
   },
   // Estilos de exportación
   recurringHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1390,9 +1458,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   exportHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',

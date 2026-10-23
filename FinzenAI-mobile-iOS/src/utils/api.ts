@@ -128,6 +128,8 @@ export interface Transaction {
   // Si viene con valor, esta transacción la generó automáticamente una regla
   // de recurrencia (se le muestra el badge 🔄). null = la creó el usuario.
   recurringId?: string | null;
+  // Presupuestos compartidos: true = "este es personal", no cuenta en el compartido.
+  sharedOptOut?: boolean;
 }
 
 // Gastos / ingresos recurrentes
@@ -170,10 +172,18 @@ export interface Budget {
   type?: 'EXPENSE' | 'INCOME';
   category_id: string;
   category?: Category;
+  // Nota libre del usuario, igual que en las transacciones. Opcional: los
+  // presupuestos creados antes de 2026-08-10 no la tienen.
+  description?: string | null;
+  // 'weekly' | 'biweekly' | 'monthly' | 'yearly'. 'biweekly' son las QUINCENAS
+  // del calendario (1-15 y 16-fin de mes), NO "cada 15 días".
   period: string;
   start_date: string;
   end_date: string;
   is_active: boolean;
+  // Solo en los PROPIOS que están compartidos (GET /budgets). Los que otros
+  // comparten conmigo vienen aparte, en sharedAPI.presupuestosConmigo.
+  shared?: CompartidoInfo | null;
 }
 
 // APIs para transacciones
@@ -191,6 +201,16 @@ export const transactionsAPI = {
 
   delete: (id: string) =>
     api.delete(`/transactions/${id}`),
+
+  // Aplica una categoría a TODAS las transacciones ya registradas de un
+  // comercio. Se usa cuando el usuario corrige una y hay más iguales: un toque
+  // en vez de repetir la misma corrección ocho veces.
+  aplicarCategoriaAComercio: (data: {
+    comercio: string;
+    prefijo: string;
+    categoriaAnterior: string;
+    categoriaNueva: string;
+  }) => api.post<{ actualizadas: number }>('/transactions/aplicar-categoria-comercio', data),
 };
 
 // APIs para gastos/ingresos recurrentes.
@@ -256,6 +276,16 @@ export const authAPI = {
     occupation?: string;
     company?: string;
     referralCode?: string;
+    // Código de invitación a un compartido (llegó por enlace antes del registro).
+    inviteCode?: string;
+    // Candado anti-abuso del trial: una prueba por instalación. Desde que el
+    // trial arranca solo al registrarse, este es el ÚNICO momento en que el
+    // backend puede anotar el dispositivo — el endpoint manual de activación
+    // ya no lo alcanza nadie. Sin esto, borrar la cuenta y registrarse con
+    // otro correo da un trial nuevo, sin límite, en el mismo teléfono.
+    deviceId?: string;
+    devicePlatform?: string;
+    deviceName?: string;
   }) =>
     api.post('/auth/register', { ...userData, email: userData.email.toLowerCase().trim() }),
 
@@ -298,6 +328,8 @@ export const authAPI = {
     name?: string;
     lastName?: string;
     referralCode?: string;
+    // Código de invitación a un compartido (llegó por enlace antes del registro).
+    inviteCode?: string;
     deviceCountry?: string;
     deviceLocale?: string;
   }) =>
@@ -306,6 +338,8 @@ export const authAPI = {
   googleSignIn: (payload: {
     idToken: string;
     referralCode?: string;
+    // Código de invitación a un compartido (llegó por enlace antes del registro).
+    inviteCode?: string;
     deviceCountry?: string;
     deviceLocale?: string;
   }) =>
@@ -340,7 +374,7 @@ export const onboardingAPI = {
 // API de configuración / feature flags por usuario
 export const configAPI = {
   getFeatures: () =>
-    api.get<{ onboardingSkipEnabled: boolean; onboardingNonblockingEnabled: boolean }>('/config/features'),
+    api.get<{ onboardingSkipEnabled: boolean; onboardingNonblockingEnabled: boolean; sharedEnabled?: boolean }>('/config/features'),
   // Señal de entrada a la app (H10). Idempotente en el backend: marca firstAppEntryAt
   // para todos y, en la variante no-bloqueante, flipea onboardingCompleted='nonblocking'.
   markAppEntered: () => api.post<{ ok: boolean }>('/config/app-entered'),
@@ -438,9 +472,13 @@ export const reportsAPI = {
 
 // API de suscripciones
 export const subscriptionsAPI = {
-  // Obtener todos los planes disponibles (público)
-  getPlans: () =>
-    api.get('/subscriptions/plans'),
+  // Obtener todos los planes disponibles (público).
+  // `origen` no sirve para pedir los planes —siempre son los mismos— sino para
+  // que el servidor sepa por qué se abrió la pantalla. El usuario FREE que toca
+  // "Gastos en automático" y termina aquí no es lo mismo que el que entró a
+  // mirar precios por su cuenta, y sin la etiqueta los dos quedan iguales.
+  getPlans: (origen?: 'gastos_automatico' | 'menu' | 'limite' | 'vencimiento') =>
+    api.get('/subscriptions/plans', origen ? { params: { origen } } : undefined),
 
   // Obtener suscripción actual del usuario (requiere auth)
   getCurrent: () =>
@@ -777,6 +815,201 @@ export const exchangeRatesAPI = {
   // Obtener tasa de una moneda específica
   getRate: (currency: string) =>
     api.get<{ success: boolean; rate: { currency: string; rateToDop: number; rateToUsd: number; date: string; source: string } }>(`/exchange-rates/${currency}`),
+};
+
+// ─── Presupuestos y metas compartidos (2026-10) ─────────────────────────────
+// Rutas en /api/shared. Los errores esperados llegan como
+// `{ error: CODIGO, message: texto para mostrar, upgrade?: true }`.
+
+export type EstadoInvitacion = 'valida' | 'vencida' | 'usada' | 'revocada' | 'cerrada' | 'pausada' | 'llena';
+
+export interface CompartidoInfo {
+  groupId: string;
+  miembros: number;
+  pausado: boolean;
+}
+
+export interface InvitacionCreada {
+  code: string;
+  link: string;
+  expiresAt: string;
+  groupId: string;
+  mensaje: string;
+}
+
+export interface VistaInvitacion {
+  code: string;
+  kind: 'BUDGET' | 'GOAL';
+  estado: EstadoInvitacion;
+  esDueno: boolean;
+  yaEsMiembro: boolean;
+  dueno: string;
+  moneda?: string;
+  miembros: number;
+  maxMiembros: number;
+  expiresAt: string;
+  conflicto: string | null;
+  acuerdo: string;
+  presupuesto: { nombre: string; monto: number; periodo: string; categoria: { id: string; name: string; icon: string } } | null;
+  meta: { nombre: string; objetivo: number; ahorrado: number; fechaObjetivo: string; categoria: { id: string; name: string; icon: string } } | null;
+}
+
+export interface PresupuestoCompartidoConmigo {
+  pausado: boolean;
+  groupId: string;
+  dueno: string;
+  moneda?: string;
+  miembros?: number;
+  mensaje?: string;
+  budget: Budget | null;
+}
+
+export interface MiembroCompartido {
+  userId: string;
+  nombre: string;
+  rol: 'OWNER' | 'MEMBER';
+  desde: string;
+  aportado: number;
+}
+
+export interface GastoCompartido {
+  id: string;
+  userId: string;
+  miembro: string;
+  monto: number;
+  fecha: string;
+  descripcion: string | null;
+  porConfirmar: boolean;
+  mio: boolean;
+}
+
+export interface DetallePresupuestoCompartido {
+  pausado: boolean;
+  groupId: string;
+  mensaje?: string;
+  soyDueno?: boolean;
+  dueno?: { id: string; nombre: string };
+  moneda?: string;
+  budget?: {
+    id: string;
+    name: string;
+    amount: number;
+    spent: number;
+    period: string;
+    start_date: string;
+    end_date: string;
+    category: { id: string; name: string; icon: string };
+  };
+  miembros?: MiembroCompartido[];
+  gastos?: GastoCompartido[];
+}
+
+export interface GastoPorConfirmar {
+  id: string;
+  monto: number;
+  fecha: string;
+  descripcion: string;
+  presupuesto: { id: string; name: string; groupId: string };
+}
+
+export interface CompartidoDeCategoria {
+  groupId: string;
+  budgetId: string;
+  name: string;
+  // Solo si se pidió con `transactionId`: ese gasto propio sigue por confirmar.
+  gastoPorConfirmar?: boolean;
+}
+
+export interface MetaCompartida {
+  id: string;
+  name: string;
+  description?: string | null;
+  targetAmount: number;
+  currentAmount: number;
+  targetDate?: string | null;
+  categoryId: string;
+  priority: string;
+  isCompleted: boolean;
+  isActive: boolean;
+  contributionsCount: number;
+  lastContributionDate?: string | null;
+  createdAt: string;
+  updatedAt: string;
+  category: { id: string; name: string; icon: string; type: string };
+}
+
+export interface MetaCompartidaConmigo {
+  pausado: boolean;
+  groupId: string;
+  dueno: string;
+  moneda?: string;
+  miembros?: number;
+  miAporte?: number;
+  mensaje?: string;
+  goal: MetaCompartida | null;
+}
+
+export interface DetalleMetaCompartida {
+  pausado: boolean;
+  groupId: string;
+  mensaje?: string;
+  soyDueno?: boolean;
+  dueno?: { id: string; nombre: string };
+  moneda?: string;
+  goal?: MetaCompartida;
+  miembros?: MiembroCompartido[];
+  exMiembros?: { userId: string; nombre: string; aportado: number }[];
+  aportes?: { id: string; userId: string; nombre: string; monto: number; fecha: string; mio: boolean }[];
+}
+
+export interface AporteConvertible {
+  groupId: string;
+  meta: string;
+  aportado: number;
+}
+
+export const sharedAPI = {
+  // Invitaciones
+  invitarPresupuesto: (budgetId: string) => api.post<InvitacionCreada>(`/shared/budgets/${budgetId}/invite`),
+  invitarMeta: (goalId: string) => api.post<InvitacionCreada>(`/shared/goals/${goalId}/invite`),
+  verInvitacion: (code: string) => api.get<VistaInvitacion>(`/shared/invitations/${encodeURIComponent(code)}`),
+  aceptarInvitacion: (code: string) =>
+    api.post<{ groupId: string; kind: 'BUDGET' | 'GOAL'; budgetId: string | null; goalId: string | null; yaEraMiembro: boolean }>(
+      `/shared/invitations/${encodeURIComponent(code)}/accept`
+    ),
+  invitacionPendiente: () => api.get<{ invitacion: VistaInvitacion | null }>('/shared/invitations/pending'),
+  descartarInvitacionPendiente: () => api.delete('/shared/invitations/pending'),
+
+  // Presupuestos
+  presupuestosConmigo: () => api.get<{ compartidos: PresupuestoCompartidoConmigo[] }>('/shared/budgets'),
+  detallePresupuesto: (budgetId: string) => api.get<DetallePresupuestoCompartido>(`/shared/budgets/${budgetId}`),
+  compartidoDeCategoria: (categoryId: string, transactionId?: string) =>
+    api.get<{ compartido: CompartidoDeCategoria | null }>(`/shared/categories/${categoryId}`, {
+      params: transactionId ? { transactionId } : undefined,
+    }),
+
+  // Miembros
+  salir: (groupId: string) => api.post(`/shared/groups/${groupId}/leave`),
+  quitarMiembro: (groupId: string, userId: string) => api.delete(`/shared/groups/${groupId}/members/${userId}`),
+  dejarDeCompartir: (groupId: string) => api.delete(`/shared/groups/${groupId}`),
+
+  // Gastos automáticos por confirmar y "este es personal"
+  porConfirmar: () => api.get<{ gastos: GastoPorConfirmar[] }>('/shared/pending-confirmations'),
+  confirmarGasto: (transactionId: string) => api.post(`/shared/transactions/${transactionId}/confirm`),
+  sacarDelCompartido: (transactionId: string) => api.post(`/shared/transactions/${transactionId}/opt-out`),
+  volverAContar: (transactionId: string) => api.post(`/shared/transactions/${transactionId}/opt-in`),
+
+  // Lo que yo comparto y con quién (pantalla de vencimiento del trial)
+  resumenDeDueno: () =>
+    api.get<{ compartidos: { groupId: string; tipo: 'presupuesto' | 'meta'; nombre: string; pausado: boolean; miembros: string[] }[] }>('/shared/mine'),
+
+  // Metas (aportar sigue siendo goalsAPI.contribute → POST /goals/:id/contribute)
+  metasConmigo: () => api.get<{ compartidas: MetaCompartidaConmigo[] }>('/shared/goals'),
+  detalleMeta: (goalId: string) => api.get<DetalleMetaCompartida>(`/shared/goals/${goalId}`),
+  quitarAportesDeExMiembro: (goalId: string, userId: string) =>
+    api.post<{ quitado: number }>(`/shared/goals/${goalId}/members/${userId}/remove-contributions`),
+  aportesConvertibles: () => api.get<{ convertibles: AporteConvertible[] }>('/shared/goals/convertible'),
+  convertirAportes: (groupId: string) => api.post(`/shared/groups/${groupId}/convert-contributions`),
 };
 
 export default api;

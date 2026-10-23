@@ -49,7 +49,7 @@ const VARIANT_STYLES = {
 } as const;
 
 // Rutas a las que el slot sabe navegar. Whitelist explícita por seguridad.
-const KNOWN_ACTIONS = ['Transactions', 'Budgets', 'Goals', 'Dashboard', 'Subscriptions'];
+const KNOWN_ACTIONS = ['Transactions', 'Budgets', 'Goals', 'Dashboard', 'Subscriptions', 'EmailSync'];
 
 // Habilitar LayoutAnimation en Android (animación suave al expandir/colapsar).
 if (Platform.OS === 'android' && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -64,7 +64,7 @@ interface Props {
 
 export default function AnnouncementSlot({ messages = [] }: Props) {
   const navigation = useNavigation<any>();
-  const { openPlansModal } = useSubscriptionStore();
+  const { openPlansModal, openEmailSyncModal } = useSubscriptionStore();
   const [dismissed, setDismissed] = useState<string[]>([]);
   const [ready, setReady] = useState(false);
   const [serverMessages, setServerMessages] = useState<SlotMessage[]>([]);
@@ -154,10 +154,15 @@ export default function AnnouncementSlot({ messages = [] }: Props) {
       case 'Subscriptions':
         openPlansModal();
         break;
+      case 'EmailSync':
+        // "Gastos en automático" es un <Modal> que vive en AppNavigator, no una
+        // ruta de navegación: se abre por el store, igual que la de planes.
+        openEmailSyncModal();
+        break;
       default:
         break; // acción desconocida → no-op seguro
     }
-  }, [navigation, openPlansModal]);
+  }, [navigation, openPlansModal, openEmailSyncModal]);
 
   const isKnownAction = (action?: string) => !!action && KNOWN_ACTIONS.includes(action);
 

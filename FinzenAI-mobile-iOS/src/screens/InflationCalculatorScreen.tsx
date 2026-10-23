@@ -41,7 +41,7 @@ interface InflationResult {
 }
 
 const commonAmounts = [
-  { amount: 25000, label: 'Salario mínimo', description: '1 mes de salario mínimo' },
+  { amount: 30000, label: 'Salario mínimo', description: '1 mes de salario mínimo' },
   { amount: 50000, label: 'Salario promedio', description: '1 mes salario clase media' },
   { amount: 100000, label: 'Ahorro pequeño', description: 'Lo que muchos tienen ahorrado' },
   { amount: 500000, label: 'Ahorro considerable', description: 'Meta de ahorro anual' },
@@ -77,7 +77,7 @@ export default function InflationCalculatorScreen() {
       const response = await api.post('/investment/calculate-inflation', {
         currentAmount: amount,
         years: selectedYears,
-        inflationRate: 7 // Promedio histórico RD
+        // Sin tasa: la pone el servidor (BCRD), así se actualiza sin build nueva.
       });
 
       setResult(response.data);
@@ -198,7 +198,7 @@ export default function InflationCalculatorScreen() {
               <View style={styles.previewContainer}>
                 <Text style={styles.previewLabel}>Valdrá solo:</Text>
                 <Text style={styles.previewAmount}>
-                  ~{formatCurrency(Math.round(amount / Math.pow(1.07, option.years)))}
+                  ~{formatCurrency(Math.round(amount / Math.pow(1.05, option.years)))}
                 </Text>
               </View>
             </TouchableOpacity>

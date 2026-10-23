@@ -395,7 +395,7 @@ export default function ZenioScreen() {
         animationType="fade"
         onRequestClose={() => setShowTips(false)}
         statusBarTranslucent={false}
-        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : 'none'}
+        presentationStyle={Platform.OS === 'ios' ? 'overFullScreen' : undefined}
       >
       <TouchableOpacity
         style={styles.tipsModalContainer}

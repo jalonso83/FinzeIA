@@ -111,9 +111,9 @@ export const TUTORIALS: Tutorial[] = [
     icon: 'wallet',
     color: '#059669',
     screen: 'Budgets',
-    duration: 40,
-    lastUpdated: '2026-01-15',
-    tags: ['presupuestos', 'limites', 'control'],
+    duration: 55,
+    lastUpdated: '2026-08-10',
+    tags: ['presupuestos', 'limites', 'control', 'ingresos', 'quincenal'],
     slides: [
       {
         id: '1',
@@ -133,8 +133,32 @@ export const TUTORIALS: Tutorial[] = [
       },
       {
         id: '3',
+        title: 'Elige cada cuánto se renueva',
+        description: 'Semanal, quincenal, mensual o anual. El quincenal va del 1 al 15 y del 16 al último día del mes, ideal si cobras por quincenas',
+        icon: 'calendar',
+        backgroundColor: '#7C3AED',
+        gradientEnd: '#5B21B6',
+      },
+      {
+        id: '4',
+        title: 'También para tus ingresos',
+        description: 'Un presupuesto puede ser una meta de lo que esperas cobrar. Mira el tutorial "Presupuestos de Ingresos" para entender cómo se leen al revés',
+        icon: 'trending-up',
+        backgroundColor: '#0891B2',
+        gradientEnd: '#0E7490',
+      },
+      {
+        id: '5',
+        title: 'Ponle una nota',
+        description: 'Con la descripción puedes anotar qué incluye ese presupuesto, por ejemplo "el súper y la farmacia"',
+        icon: 'create',
+        backgroundColor: '#DB2777',
+        gradientEnd: '#9D174D',
+      },
+      {
+        id: '6',
         title: 'Recibe Alertas',
-        description: 'Con Plus o Pro, te avisamos cuando te acerques al umbral que configures',
+        description: 'Con Plus o Pro, te avisamos cuando te acerques al umbral que configures. Solo aplica a los presupuestos de gastos',
         icon: 'notifications',
         backgroundColor: '#F59E0B',
         gradientEnd: '#D97706',
@@ -236,7 +260,7 @@ export const TUTORIALS: Tutorial[] = [
 
   {
     id: 'email-sync-guide',
-    name: 'Sincroniza tu Banco',
+    name: 'Gastos en automático',
     category: 'Funcionalidades',
     icon: 'mail',
     color: '#0EA5E9',
@@ -318,7 +342,7 @@ export const TUTORIALS: Tutorial[] = [
       {
         id: '2',
         title: 'Alertas de Presupuesto',
-        description: 'Con Plus o Pro, recibe avisos cuando te acerques al límite de gasto de tus presupuestos',
+        description: 'Con Plus o Pro, recibe avisos cuando te acerques al límite de tus presupuestos de gastos',
         icon: 'warning',
         backgroundColor: '#DC2626',
         gradientEnd: '#B91C1C',
@@ -479,8 +503,11 @@ export const TUTORIALS: Tutorial[] = [
     slides: [
       {
         id: '1',
-        title: 'Prueba Gratis por 7 Días',
-        description: 'Elige Plus o Pro y pruébalo 7 días sin costo y sin tarjeta. Tú decides cuál',
+        // Sin número y sin "elige": este archivo es dato estático y no puede
+        // leer la configuración del servidor, así que cualquier cifra escrita
+        // aquí queda desactualizada el día que se mueva la duración.
+        title: 'Prueba Gratis, Sin Tarjeta',
+        description: 'Pruébalo sin costo y sin tarjeta. Al terminar decides si continúas',
         icon: 'gift',
         backgroundColor: '#10B981',
         gradientEnd: '#059669',

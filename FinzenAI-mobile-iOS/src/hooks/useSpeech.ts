@@ -243,7 +243,7 @@ export const useSpeech = () => {
         // Si no hay masculina, buscar Enhanced/Premium cualquier género
         const bestSpanishVoice = maleSpanishVoice || availableVoices.find(voice =>
           voice.language.startsWith('es') &&
-          (voice.quality === 'Enhanced' || voice.quality === 'Premium')
+          (voice.quality === Speech.VoiceQuality.Enhanced || String(voice.quality) === 'Premium')
         );
         const spanishVoice = bestSpanishVoice || availableVoices.find(voice =>
           voice.language.startsWith('es')

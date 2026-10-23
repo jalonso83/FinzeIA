@@ -17,8 +17,8 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { categoriesAPI, budgetsAPI, Category, Budget } from '../../utils/api';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
-import CustomModal from '../modals/CustomModal';
 import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
+import CustomModal from '../modals/CustomModal';
 
 import { logger } from '../../utils/logger';
 interface BudgetFormProps {
@@ -37,6 +37,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const [formData, setFormData] = useState({
     amount: '',
     categoryId: '',
+    description: '',
     period: 'monthly',
     type: 'EXPENSE' as 'EXPENSE' | 'INCOME',
   });
@@ -52,6 +53,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   const [originalFormData, setOriginalFormData] = useState({
     amount: '',
     categoryId: '',
+    description: '',
     period: 'monthly',
     type: 'EXPENSE' as 'EXPENSE' | 'INCOME',
   });
@@ -65,19 +67,32 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
 
+  // Etiqueta en español del período del presupuesto que ya existe. El backend
+  // manda el valor crudo ('monthly'), que antes se mostraba tal cual al usuario.
+  const formatPeriodo = (period?: string): string =>
+    ({ weekly: 'semanal', biweekly: 'quincenal', monthly: 'mensual', yearly: 'anual' } as Record<string, string>)[period || ''] || '';
+
   const periods = [
     { value: 'weekly', label: 'Semanal' },
+    { value: 'biweekly', label: 'Quincenal' },
     { value: 'monthly', label: 'Mensual' },
     { value: 'yearly', label: 'Anual' },
   ];
 
+  // Solo prepara el formulario. La carga de categorías NO va aquí: depende del
+  // tipo, y el tipo se acaba de fijar en este mismo bloque. Antes se llamaba
+  // aquí y otra vez en el efecto de abajo, y las dos peticiones salían a la vez
+  // —una pidiendo categorías de gasto y otra de ingreso— pisándose la una a la
+  // otra según cuál respondiera de última. Cuando ganaba la de gasto, al editar
+  // un presupuesto de INGRESO la categoría guardada no estaba en la lista y el
+  // formulario se abría con la categoría en blanco.
   useEffect(() => {
     if (visible) {
-      loadCategories();
       if (editBudget) {
         const initialData = {
           amount: editBudget.amount.toString(),
           categoryId: editBudget.category?.id || editBudget.category_id || '',
+          description: editBudget.description || '',
           period: editBudget.period,
           type: (editBudget.type ?? 'EXPENSE') as 'EXPENSE' | 'INCOME',
         };
@@ -88,6 +103,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         setOriginalFormData({
           amount: '',
           categoryId: '',
+          description: '',
           period: 'monthly',
           type: 'EXPENSE',
         });
@@ -95,28 +111,42 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     }
   }, [visible, editBudget]);
 
-  // Al cambiar de tipo hay que traer el otro conjunto de categorías.
+  // Único punto de carga: al abrirse y cada vez que cambia el tipo.
   useEffect(() => {
-    if (visible) loadCategories();
-  }, [formData.type]);
+    if (!visible) return;
 
-  const loadCategories = async () => {
+    // Descarta la respuesta si para cuando llega el tipo ya cambió otra vez
+    // (cambiar rápido entre Gasto e Ingreso deja peticiones en vuelo).
+    let vigente = true;
+    loadCategories(formData.type, () => vigente);
+    return () => { vigente = false; };
+  }, [visible, formData.type]);
+
+  // El tipo se recibe por parámetro y no se lee de `formData`: leerlo de la
+  // clausura era lo que hacía que la primera llamada usara el valor viejo.
+  const loadCategories = async (
+    tipo: 'EXPENSE' | 'INCOME',
+    sigueVigente: () => boolean = () => true,
+  ) => {
     try {
       setLoadingCategories(true);
       const response = await categoriesAPI.getAll();
+      if (!sigueVigente()) return;
       // Las categorías ofrecidas dependen del TIPO de presupuesto. Antes esto
       // filtraba siempre a 'EXPENSE', y ese filtro era la única razón por la que
       // no existían presupuestos de ingreso: el backend ni siquiera lo validaba.
       const delTipo = response.data.filter(
-        (cat: Category) => cat.type === formData.type
+        (cat: Category) => cat.type === tipo
       );
       setCategories(delTipo);
     } catch (error) {
       logger.error('Error loading categories:', error);
-      setErrorMessage('No se pudieron cargar las categorías');
-      setShowErrorModal(true);
+      if (sigueVigente()) {
+        setErrorMessage('No se pudieron cargar las categorías');
+        setShowErrorModal(true);
+      }
     } finally {
-      setLoadingCategories(false);
+      if (sigueVigente()) setLoadingCategories(false);
     }
   };
 
@@ -125,6 +155,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       amount: '',
       type: 'EXPENSE',
       categoryId: '',
+      description: '',
       period: 'monthly',
     });
   };
@@ -135,12 +166,15 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     return (
       formData.amount !== originalFormData.amount ||
       formData.categoryId !== originalFormData.categoryId ||
+      formData.description !== originalFormData.description ||
       formData.period !== originalFormData.period
     );
   };
 
   const handleSubmit = async () => {
     // Validaciones (replicando la web)
+    // Validaciones: mismo comportamiento que transacciones y metas — se avisa y
+    // el formulario SE QUEDA ABIERTO con lo que la persona ya escribió.
     if (!formData.categoryId) {
       setErrorMessage('Selecciona una categoría');
       setShowErrorModal(true);
@@ -156,7 +190,12 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
     try {
       setLoading(true);
       
-      // Calcular las fechas según el período (replicando la web)
+      // Las fechas SOLO se recalculan al crear o al cambiar de período. Antes
+      // se recalculaban en todo update: editar la descripción de un presupuesto
+      // quincenal el día 16 lo movía de la ventana 1-15 a la 16-fin de mes y el
+      // backend le recalculaba el `spent` con las transacciones de la otra
+      // quincena. Tocar una nota no debe reescribir el histórico.
+      const periodChanged = !editBudget || editBudget.period !== formData.period;
       const { start, end } = getPeriodDates(formData.period);
       
       // Obtener el nombre de la categoría seleccionada (replicando la web)
@@ -167,6 +206,7 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
         name: categoryName,
         category_id: formData.categoryId,
         amount: Number(formData.amount),
+        description: formData.description.trim(),
         period: formData.period,
         type: formData.type,
         start_date: start,
@@ -176,7 +216,10 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
 
       let message = '';
       if (editBudget) {
-        await budgetsAPI.update(editBudget.id, budgetData);
+        // Si el período no cambió, se omiten las fechas para no mover la
+        // ventana del presupuesto (ver nota de `periodChanged` arriba).
+        const { start_date, end_date, ...sinFechas } = budgetData;
+        await budgetsAPI.update(editBudget.id, periodChanged ? budgetData : sinFechas);
         message = 'Presupuesto actualizado correctamente';
       } else {
         await budgetsAPI.create(budgetData);
@@ -257,6 +300,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
       end = new Date(start);
       end.setDate(start.getDate() + 6);
       end.setHours(23, 59, 59, 999);
+    } else if (period === 'biweekly') {
+      // Quincena del CALENDARIO en curso: 1-15 o 16-fin de mes. NO son "15
+      // días corridos": así el presupuesto nunca se desfasa del mes.
+      if (now.getDate() <= 15) {
+        start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth(), 15, 23, 59, 59, 999);
+      } else {
+        start = new Date(now.getFullYear(), now.getMonth(), 16, 0, 0, 0, 0);
+        end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+      }
     } else if (period === 'monthly') {
       start = new Date(now.getFullYear(), now.getMonth(), 1, 0, 0, 0, 0);
       end = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
@@ -402,6 +455,20 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
             </View>
           </View>
 
+          {/* Descripción (opcional) */}
+          <View style={styles.section}>
+            <Text style={styles.label}>Descripción (opcional)</Text>
+            <TextInput
+              style={styles.descriptionInput}
+              value={formData.description}
+              onChangeText={(text) => setFormData({ ...formData, description: text })}
+              placeholder="Ej: incluye el súper de la quincena"
+              placeholderTextColor="#9ca3af"
+              maxLength={200}
+              multiline
+            />
+          </View>
+
           {/* Período */}
           <View style={styles.section}>
             <Text style={styles.label}>Período</Text>
@@ -490,37 +557,39 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           onSelect={(categoryId) => { setFormData({ ...formData, categoryId }); setShowCategorySheet(false); }}
           onClose={() => setShowCategorySheet(false)}
         />
+
+        {/* Avisos DENTRO del pageSheet, igual que en TransactionForm y GoalForm,
+            que es donde está comprobado que funcionan en iPhone. Estaban FUERA,
+            como hermanos del pageSheet: así iOS no los pintaba y el formulario
+            quedaba congelado — pasaba al chocar con un presupuesto duplicado.
+            Dentro, el formulario se queda abierto y el aviso se ve. */}
+        <CustomModal
+          visible={showErrorModal}
+          type="error"
+          title="Error"
+          message={errorMessage}
+          buttonText="Entendido"
+          onClose={() => setShowErrorModal(false)}
+        />
+
+        {duplicateInfo && (
+          <CustomModal
+            visible={showDuplicateModal}
+            type="warning"
+            title="Presupuesto ya existe"
+            message={`Ya existe un presupuesto ${formatPeriodo(duplicateInfo.existingBudget?.period)} de "${duplicateInfo.existingBudget?.category?.name}" en estas fechas.\n\n${duplicateInfo.existingBudget?.type === 'INCOME' ? 'Previsto' : 'Presupuesto'} actual: ${formatCurrency(duplicateInfo.existingBudget?.amount || 0)}\n${duplicateInfo.existingBudget?.type === 'INCOME' ? 'Recibido' : 'Gastado'}: ${formatCurrency(duplicateInfo.existingBudget?.spent || 0)}\n\nCada categoría admite un solo presupuesto a la vez: si creas otro, los dos contarían los mismos movimientos y las cifras te saldrían dobles.\n\n¿Quieres actualizar el monto del que ya tienes?`}
+            buttonText="Actualizar monto"
+            showSecondaryButton={true}
+            secondaryButtonText="Cancelar"
+            onSecondaryPress={() => {
+              setShowDuplicateModal(false);
+              setDuplicateInfo(null);
+            }}
+            onClose={handleUpdateExisting}
+          />
+        )}
       </SafeAreaView>
       </Modal>
-
-      {/* Modal de error - FUERA del Modal pageSheet (iOS no soporta sibling/nested Modals).
-         Antes estaba DENTRO del Modal pageSheet → riesgo de freeze al disparar errores. */}
-      <CustomModal
-        visible={showErrorModal}
-        type="error"
-        title="Error"
-        message={errorMessage}
-        buttonText="Entendido"
-        onClose={() => setShowErrorModal(false)}
-      />
-
-      {/* Modal de presupuesto duplicado - FUERA del Modal pageSheet */}
-      {duplicateInfo && (
-        <CustomModal
-          visible={showDuplicateModal}
-          type="warning"
-          title="Presupuesto ya existe"
-          message={`Ya existe un presupuesto activo para "${duplicateInfo.existingBudget?.category?.name}" (${duplicateInfo.existingBudget?.period}).\n\nPresupuesto actual: ${formatCurrency(duplicateInfo.existingBudget?.amount || 0)}\nGastado: ${formatCurrency(duplicateInfo.existingBudget?.spent || 0)}\n\n¿Deseas actualizar el monto del presupuesto existente?`}
-          buttonText="Actualizar monto"
-          showSecondaryButton={true}
-          secondaryButtonText="Cancelar"
-          onSecondaryPress={() => {
-            setShowDuplicateModal(false);
-            setDuplicateInfo(null);
-          }}
-          onClose={handleUpdateExisting}
-        />
-      )}
     </>
   );
 };
@@ -602,6 +671,18 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     color: '#1e293b',
+  },
+  descriptionInput: {
+    backgroundColor: 'white',
+    borderWidth: 1,
+    borderColor: '#e5e7eb',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    color: '#1e293b',
+    minHeight: 44,
+    textAlignVertical: 'top',
   },
   periodsContainer: {
     flexDirection: 'row',

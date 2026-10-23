@@ -18,6 +18,8 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import * as Device from 'expo-device';
+import { getDeviceId } from '../utils/deviceId';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/native';
 import { authAPI, referralsAPI } from '../utils/api';
@@ -163,6 +165,20 @@ export default function RegisterScreen() {
       // Preparar datos para el backend.
       // Solo enviamos los campos que el formulario simplificado captura.
       // Backend acepta los demás campos como nullable y aplica defaults.
+      // El dispositivo viaja con el registro para el candado del trial: desde
+      // que la prueba arranca sola al crear la cuenta, este es el único momento
+      // en que el backend puede anotarlo. Es el MISMO id que usa la activación
+      // manual (util compartido), si no el candado no cuadraría.
+      //
+      // Best-effort: si falla, el registro sigue igual. Vale más dejar pasar un
+      // trial que impedirle a alguien crear su cuenta.
+      let deviceId: string | undefined;
+      try {
+        deviceId = await getDeviceId();
+      } catch {
+        deviceId = undefined;
+      }
+
       const registerData = {
         name: form.name,
         lastName: form.lastName,
@@ -172,6 +188,12 @@ export default function RegisterScreen() {
         country: form.country,
         currency: form.currency,
         referralCode: form.referralCode && referralValidation.valid ? form.referralCode : undefined,
+        // Invitación a un compartido que llegó por enlace: el servidor la guarda y
+        // la app la ofrece al entrar.
+        inviteCode: (await AsyncStorage.getItem('pendingInviteCode').catch(() => null)) || undefined,
+        deviceId,
+        devicePlatform: Platform.OS,
+        deviceName: Device.modelName || Device.deviceName || undefined,
       };
 
       await authAPI.register(registerData);

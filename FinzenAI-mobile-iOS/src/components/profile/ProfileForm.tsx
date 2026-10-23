@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { View, Text, StyleSheet, Modal, ScrollView, TouchableOpacity, TextInput, KeyboardAvoidingView, Platform, Switch, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
-import DateTimePicker from '@react-native-community/datetimepicker';
+import CalendarioEnLinea, { aTextoDeFecha } from '../common/CalendarioEnLinea';
 import api, { authAPI } from '../../utils/api';
 import CustomModal from '../modals/CustomModal';
 import { useBiometric } from '../../hooks/useBiometric';
@@ -79,6 +79,11 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   const [showBiometricConfirmModal, setShowBiometricConfirmModal] = useState(false);
   const [biometricMessage, setBiometricMessage] = useState('');
   const [showDatePicker, setShowDatePicker] = useState(false);
+
+  // Al cerrar la ventana el calendario se cierra con ella.
+  useEffect(() => {
+    if (!visible) setShowDatePicker(false);
+  }, [visible]);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [showDeletePassword, setShowDeletePassword] = useState(false);
   const [deletePassword, setDeletePassword] = useState('');
@@ -159,17 +164,11 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
   minBirthDate.setFullYear(minBirthDate.getFullYear() - 100); // Máximo 100 años
 
   // Handler para cambio de fecha desde DatePicker
-  const handleDatePickerChange = (event: any, selectedDate?: Date) => {
-    setShowDatePicker(false);
-    if (selectedDate) {
-      const dd = String(selectedDate.getDate()).padStart(2, '0');
-      const mm = String(selectedDate.getMonth() + 1).padStart(2, '0');
-      const yyyy = selectedDate.getFullYear();
-      setForm({ ...form, birthDate: `${dd}-${mm}-${yyyy}` });
-      // Limpiar error si existe
-      if (errors.birthDate) {
-        setErrors({ ...errors, birthDate: '' });
-      }
+  const handleDatePickerChange = (fecha: Date) => {
+    setForm((prev) => ({ ...prev, birthDate: aTextoDeFecha(fecha) }));
+    // Limpiar error si existe
+    if (errors.birthDate) {
+      setErrors({ ...errors, birthDate: '' });
     }
   };
 
@@ -482,7 +481,7 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                   <Text style={styles.label}>Fecha de Nacimiento *</Text>
                   <TouchableOpacity
                     style={[styles.dateInput, errors.birthDate && styles.inputError]}
-                    onPress={() => setShowDatePicker(true)}
+                    onPress={() => setShowDatePicker((v) => !v)}
                     activeOpacity={0.7}
                   >
                     <Ionicons name="calendar-outline" size={20} color="#2563EB" />
@@ -490,16 +489,14 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                       {form.birthDate || 'Seleccionar fecha'}
                     </Text>
                   </TouchableOpacity>
-                  {showDatePicker && (
-                    <DateTimePicker
-                      value={form.birthDate ? parseDisplayDateToDate(form.birthDate) : maxBirthDate}
-                      mode="date"
-                      display="default"
-                      onChange={handleDatePickerChange}
-                      maximumDate={maxBirthDate}
-                      minimumDate={minBirthDate}
-                    />
-                  )}
+                  <CalendarioEnLinea
+                    visible={showDatePicker}
+                    value={form.birthDate ? parseDisplayDateToDate(form.birthDate) : maxBirthDate}
+                    onChange={handleDatePickerChange}
+                    onListo={() => setShowDatePicker(false)}
+                    maximumDate={maxBirthDate}
+                    minimumDate={minBirthDate}
+                  />
                   {errors.birthDate && <Text style={styles.inputErrorText}>{errors.birthDate}</Text>}
                 </View>
               </View>
