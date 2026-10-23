@@ -8,8 +8,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import FinScoreProgressBar from '../components/gamification/FinScoreProgressBar';
 import StreakCounterFinZen, { StreakCompact } from '../components/gamification/StreakCounter';
-import PatternsAndTrends from '../components/reports/PatternsAndTrends';
 import VibeCard from '../components/dashboard/VibeCard';
+import { useCompartidosConmigo, PresupuestosCompartidosConmigo, MetasCompartidasConmigo } from '../components/dashboard/CompartidosCard';
 import AnnouncementSlot, { SlotMessage } from '../components/dashboard/AnnouncementSlot';
 import ExpensesPieChart from '../components/dashboard/ExpensesPieChart';
 import { transactionsAPI, budgetsAPI, gamificationAPI, goalsAPI, categoriesAPI, configAPI } from '../utils/api';
@@ -52,6 +52,12 @@ interface DashboardData {
   totalBudget: number;
   totalSpent: number;
   remainingBudget: number;
+  // Ingresos esperados (presupuestos type=INCOME). Van aparte de los de gasto:
+  // son un PISO, no un techo, y su análisis es distinto.
+  incomeBudgets: any[];
+  totalIncomeTarget: number;
+  totalIncomeReceived: number;
+  incomeRemaining: number;
   goals: any[];
   totalGoalTarget: number;
   totalGoalSaved: number;
@@ -70,6 +76,9 @@ export default function DashboardScreen() {
 
   // Hook para moneda del usuario
   const { formatCurrency } = useCurrency();
+  // Presupuestos y metas que OTROS comparten conmigo: van dentro de su
+  // tarjeta, en un bloque aparte, y no suman a los totales personales.
+  const compartidosConmigo = useCompartidosConmigo();
 
   // Hook para suscripción
   const { subscription, fetchSubscription } = useSubscriptionStore();
@@ -251,18 +260,41 @@ export default function DashboardScreen() {
       let totalBudget = 0;
       let totalSpent = 0;
       let remainingBudget = 0;
+      let incomeBudgets: any[] = [];
+      let totalIncomeTarget = 0;
+      let totalIncomeReceived = 0;
+      let incomeRemaining = 0;
 
       if (budgetsResponse.status === 'fulfilled') {
         budgets = budgetsResponse.value.data.budgets || budgetsResponse.value.data || [];
 
-        // Filtrar presupuestos activos (como en la web)
-        const activeBudgetsList = budgets.filter((budget: any) => budget.is_active);
-        activeBudgets = activeBudgetsList.length;
+        // Presupuestos de GASTO. Los de INGRESO se agregan aparte, más abajo:
+        // sumarlos aquí daba un "Presupuesto Total" sin sentido (mezcla un techo
+        // de gasto con una meta de facturación) y metía lo COBRADO dentro de lo
+        // "Gastado".
+        const activeBudgetsList = budgets.filter(
+          (budget: any) => budget.is_active && (budget.type ?? 'EXPENSE') === 'EXPENSE'
+        );
+        // Para el CUPO DEL PLAN se cuentan TODOS los activos, de gasto y de
+        // ingreso, porque asi los cuenta el backend (`checkBudgetLimit`).
+        // Contando solo los de gasto, un usuario FREE con 2 de gasto y 2 de
+        // ingreso leia "2/4" en la tarjeta del plan y al pulsar "+" le saltaba
+        // el aviso de limite alcanzado: dos cifras que se contradecian.
+        activeBudgets = budgets.filter((budget: any) => budget.is_active).length;
 
-        // Calcular totales (como en la web)
         totalBudget = activeBudgetsList.reduce((sum, b) => sum + (b.amount || 0), 0);
         totalSpent = activeBudgetsList.reduce((sum, b) => sum + (b.spent || 0), 0);
         remainingBudget = totalBudget - totalSpent;
+
+        // ── Ingresos esperados ────────────────────────────────────────────
+        // Es un PISO, no un techo: quedarse corto es lo malo. Por eso van
+        // separados y con su propio análisis (progreso contra tiempo).
+        incomeBudgets = budgets.filter(
+          (budget: any) => budget.is_active && budget.type === 'INCOME'
+        );
+        totalIncomeTarget = incomeBudgets.reduce((sum, b) => sum + (b.amount || 0), 0);
+        totalIncomeReceived = incomeBudgets.reduce((sum, b) => sum + (b.spent || 0), 0);
+        incomeRemaining = Math.max(0, totalIncomeTarget - totalIncomeReceived);
       }
 
       // Procesar metas activas - FILTRAR POR !isCompleted COMO EN LA WEB
@@ -295,7 +327,7 @@ export default function DashboardScreen() {
         ? (transactionsResponse.value.data.transactions || transactionsResponse.value.data || [])
         : [];
 
-      // Calcular transacciones recientes (últimas 10) igual que en la web
+      // Calcular transacciones recientes (últimas 7)
       const recentTransactions = [...transactions]
         .sort((a, b) => {
           // Crear fechas seguras para comparar
@@ -303,7 +335,7 @@ export default function DashboardScreen() {
           const dateB = b.date.includes('T') ? new Date(b.date) : new Date(b.date + 'T12:00:00');
           return dateB.getTime() - dateA.getTime();
         })
-        .slice(0, 10);
+        .slice(0, 7);
 
       const dashboardData: DashboardData = {
         totalBalance,
@@ -331,6 +363,10 @@ export default function DashboardScreen() {
         totalBudget,
         totalSpent,
         remainingBudget,
+        incomeBudgets,
+        totalIncomeTarget,
+        totalIncomeReceived,
+        incomeRemaining,
         goals,
         totalGoalTarget,
         totalGoalSaved,
@@ -383,6 +419,10 @@ export default function DashboardScreen() {
         totalBudget: 0,
         totalSpent: 0,
         remainingBudget: 0,
+        incomeBudgets: [],
+        totalIncomeTarget: 0,
+        totalIncomeReceived: 0,
+        incomeRemaining: 0,
         goals: [],
         totalGoalTarget: 0,
         totalGoalSaved: 0,
@@ -505,6 +545,15 @@ export default function DashboardScreen() {
   // lo que además evita el bug de mostrarlo ante errores de red (transacciones vacías).
   const slotMessages: SlotMessage[] = [];
 
+  // Los topes salen de la suscripción, no quemados en la vista. Quien baja de un
+  // plan de pago a Gratis CONSERVA lo que ya tenía —solo se le bloquea crear más—
+  // así que aquí aparecen cosas como "13/4", que es la verdad. Lo que sí se topa
+  // es el porcentaje: sin esto la tarjeta anunciaba "325%".
+  const limiteBudgets = subscription?.limits?.budgets ?? 4;
+  const limiteGoals = subscription?.limits?.goals ?? 2;
+  const porcentajeDeUso = (usado: number, limite: number) =>
+    limite > 0 ? Math.min(100, Math.round((usado / limite) * 100)) : 0;
+
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView style={styles.scrollView} contentContainerStyle={styles.scrollContent}>
@@ -532,9 +581,9 @@ export default function DashboardScreen() {
               {/* Budgets */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="wallet" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/4</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeBudgets}/{limiteBudgets}</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeBudgets / 4) * 100)}%
+                  {porcentajeDeUso(dashboardData.activeBudgets, limiteBudgets)}%
                 </Text>
               </View>
 
@@ -543,9 +592,9 @@ export default function DashboardScreen() {
               {/* Goals */}
               <View style={styles.limitCompactItem}>
                 <Ionicons name="trophy" size={18} color="#6B7280" />
-                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/2</Text>
+                <Text style={styles.limitCompactText}>{dashboardData.activeGoals}/{limiteGoals}</Text>
                 <Text style={styles.limitCompactPercentage}>
-                  {Math.round((dashboardData.activeGoals / 2) * 100)}%
+                  {porcentajeDeUso(dashboardData.activeGoals, limiteGoals)}%
                 </Text>
               </View>
             </View>
@@ -564,7 +613,7 @@ export default function DashboardScreen() {
                 <Ionicons name="trending-up" size={16} color="#059669" />
                 <Text style={styles.balanceItemLabel}>Ingresos</Text>
               </View>
-              <Text style={[styles.balanceItemText, { color: '#059669' }]}>
+              <Text style={[styles.balanceItemText, { color: '#059669' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 {formatCurrency(dashboardData.monthlyIncome)}
               </Text>
             </View>
@@ -573,7 +622,7 @@ export default function DashboardScreen() {
                 <Ionicons name="trending-down" size={16} color="#dc2626" />
                 <Text style={styles.balanceItemLabel}>Gastos</Text>
               </View>
-              <Text style={[styles.balanceItemText, { color: '#dc2626' }]}>
+              <Text style={[styles.balanceItemText, { color: '#dc2626' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 {formatCurrency(dashboardData.monthlyExpenses)}
               </Text>
             </View>
@@ -581,7 +630,7 @@ export default function DashboardScreen() {
           
           <View style={styles.saldoTotalContainer}>
             <Text style={styles.saldoTotalLabel}>Saldo Total del Mes</Text>
-            <Text style={styles.saldoTotalAmount}>
+            <Text style={styles.saldoTotalAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {formatCurrency(dashboardData.monthlyBalance)}
             </Text>
           </View>
@@ -597,7 +646,7 @@ export default function DashboardScreen() {
                 <Ionicons name="trending-up" size={16} color="#059669" />
                 <Text style={styles.comprehensiveBalanceItemLabel}>Ingresos</Text>
               </View>
-              <Text style={[styles.comprehensiveBalanceItemText, { color: '#059669' }]}>
+              <Text style={[styles.comprehensiveBalanceItemText, { color: '#059669' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 {formatCurrency(dashboardData.monthlyIncome + dashboardData.previousMonthsIncome)}
               </Text>
             </View>
@@ -606,7 +655,7 @@ export default function DashboardScreen() {
                 <Ionicons name="trending-down" size={16} color="#dc2626" />
                 <Text style={styles.comprehensiveBalanceItemLabel}>Gastos</Text>
               </View>
-              <Text style={[styles.comprehensiveBalanceItemText, { color: '#dc2626' }]}>
+              <Text style={[styles.comprehensiveBalanceItemText, { color: '#dc2626' }]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                 {formatCurrency(dashboardData.monthlyExpenses + dashboardData.previousMonthsExpenses)}
               </Text>
             </View>
@@ -614,7 +663,7 @@ export default function DashboardScreen() {
           
           <View style={styles.comprehensiveSaldoContainer}>
             <Text style={styles.comprehensiveSaldoLabel}>Saldo Total Acumulado</Text>
-            <Text style={styles.comprehensiveSaldoAmount}>
+            <Text style={styles.comprehensiveSaldoAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
               {formatCurrency(dashboardData.cumulativeBalance)}
             </Text>
           </View>
@@ -712,7 +761,7 @@ export default function DashboardScreen() {
                     <Text style={[
                       styles.transactionAmount,
                       isIncome ? styles.incomeAmount : styles.expenseAmount
-                    ]}>
+                    ]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                       {isIncome ? '+' : '−'}{formatCurrency(transaction.amount)}
                     </Text>
                   </View>
@@ -764,7 +813,8 @@ export default function DashboardScreen() {
               <ActivityIndicator size="small" color="#4f46e5" />
               <Text style={styles.loadingText}>Cargando...</Text>
             </View>
-          ) : dashboardData?.budgets.filter(b => b.is_active).length === 0 ? (
+          ) : dashboardData?.budgets.filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE').length === 0 &&
+            compartidosConmigo.presupuestos.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>💰</Text>
               <Text style={styles.emptyTitle}>No tienes presupuestos configurados</Text>
@@ -777,6 +827,19 @@ export default function DashboardScreen() {
                 <Text style={styles.createBudgetText}>Crear mi primer presupuesto</Text>
               </TouchableOpacity>
             </View>
+          ) : dashboardData?.budgets.filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE').length === 0 ? (
+            // Sin presupuestos propios pero con compartidos: sin resumen en cero.
+            <View>
+              <PresupuestosCompartidosConmigo items={compartidosConmigo.presupuestos} separado={false} />
+              <TouchableOpacity
+                style={styles.viewAllBudgetsButton}
+                onPress={() => navigation.navigate('Budgets')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllBudgetsText}>Crear un presupuesto propio</Text>
+                <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.budgetContent}>
               {/* Resumen general - Layout mejorado */}
@@ -784,7 +847,7 @@ export default function DashboardScreen() {
                 {/* Presupuesto Total - Fila completa */}
                 <View style={styles.budgetTotalRow}>
                   <Text style={styles.budgetSummaryLabel}>Presupuesto Total</Text>
-                  <Text style={[styles.budgetSummaryAmount, styles.totalAmount]}>
+                  <Text style={[styles.budgetSummaryAmount, styles.totalAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                     {formatCurrency(dashboardData?.totalBudget || 0)}
                   </Text>
                 </View>
@@ -793,7 +856,7 @@ export default function DashboardScreen() {
                 <View style={styles.budgetBottomRow}>
                   <View style={styles.budgetBottomItem}>
                     <Text style={styles.budgetSummaryLabel}>Gastado</Text>
-                    <Text style={[styles.budgetSummaryAmount, styles.spentAmount]}>
+                    <Text style={[styles.budgetSummaryAmount, styles.spentAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                       {formatCurrency(dashboardData?.totalSpent || 0)}
                     </Text>
                   </View>
@@ -810,13 +873,15 @@ export default function DashboardScreen() {
               </View>
 
               {/* Análisis de rendimiento Gen Z */}
-              {dashboardData?.budgets.filter(b => b.is_active).length > 0 && (
+              {dashboardData?.budgets.filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE').length > 0 && (
                 <View style={styles.performanceSection}>
                   <Text style={styles.performanceTitle}>🏆 Tu Rendimiento</Text>
                   <View style={styles.performanceCards}>
                     {(() => {
-                      const activeBudgets = dashboardData?.budgets.filter(b => b.is_active) || [];
-                      
+                      // Solo GASTO: "control excelente" significa haber gastado poco,
+                      // lectura que no aplica a una meta de ingresos.
+                      const activeBudgets = dashboardData?.budgets.filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE') || [];
+
                       // Encontrar mejor presupuesto con nueva lógica
                       const budgetAnalysis = activeBudgets
                         .filter(b => b.amount > 0)
@@ -857,7 +922,10 @@ export default function DashboardScreen() {
 
                       // Control general
                       const averageUsage = activeBudgets.reduce((sum, b) => {
-                        return sum + (b.amount > 0 ? Math.min(100, (b.spent / b.amount) * 100) : 0);
+                        // Sin topar cada presupuesto al 100 antes de promediar:
+                        // con el tope, alguien con dos presupuestos al 20% y uno
+                        // reventado al 300% salía como "53% bajo control ✅".
+                        return sum + (b.amount > 0 ? (b.spent / b.amount) * 100 : 0);
                       }, 0) / activeBudgets.length;
 
                       let controlStatus = "Sin presupuestos";
@@ -913,7 +981,8 @@ export default function DashboardScreen() {
 
               {/* Alertas de proyección */}
               {(() => {
-                const activeBudgets = dashboardData?.budgets.filter(b => b.is_active) || [];
+                // Solo GASTO: "puede excederse" no tiene sentido en un ingreso.
+                const activeBudgets = dashboardData?.budgets.filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE') || [];
                 const now = new Date();
                 const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate();
                 const currentDay = now.getDate();
@@ -954,7 +1023,7 @@ export default function DashboardScreen() {
               {/* Lista de presupuestos */}
               <View style={styles.budgetList}>
                 {dashboardData?.budgets
-                  .filter(b => b.is_active)
+                  .filter(b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE')
                   .sort((a, b) => {
                     // Ordenar por nivel de gasto: más crítico primero
                     const percentageA = a.amount > 0 ? ((a.spent || 0) / a.amount) * 100 : 0;
@@ -965,7 +1034,12 @@ export default function DashboardScreen() {
                   .map((budget, index) => {
                     const spent = budget.spent || 0;
                     const amount = budget.amount || 0;
-                    const percentage = amount > 0 ? Math.min((spent / amount) * 100, 100) : 0;
+                    // Porcentaje REAL, sin topar — igual que en la pantalla de
+                    // Presupuestos. Topado, quien gastó el triple leía "100%"
+                    // exactamente igual que quien lo clavó. El tope se aplica
+                    // solo al ANCHO de la barra.
+                    const percentage = amount > 0 ? (spent / amount) * 100 : 0;
+                    const anchoBarra = Math.max(0, Math.min(percentage, 100));
                     const progressColor = percentage < 70 ? '#4CAF50' : percentage < 80 ? '#FFC107' : '#F44336';
 
                     return (
@@ -975,22 +1049,24 @@ export default function DashboardScreen() {
                           <View style={styles.budgetItemHeader}>
                             <Text style={styles.budgetItemName}>
                               {budget.category?.name || 'Sin categoría'}
+                              {/* Mío y compartido con otros */}
+                              {budget.shared ? <Text>{'  '}<Ionicons name="people" size={13} color="#2563EB" /></Text> : null}
                             </Text>
-                            <Text style={styles.budgetItemPercentage}>
+                            <Text style={[styles.budgetItemPercentage, percentage > 100 && { color: "#dc2626", fontWeight: "700" }]}>
                               {percentage.toFixed(0)}%
                             </Text>
                           </View>
                           <View style={styles.progressBarContainer}>
                             <View style={[styles.progressBarFill, { 
-                              width: `${percentage}%`, 
+                              width: `${anchoBarra}%`, 
                               backgroundColor: progressColor 
                             }]} />
                           </View>
                           <View style={styles.budgetItemAmounts}>
-                            <Text style={styles.budgetItemSpent}>
+                            <Text style={styles.budgetItemSpent} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                               {formatCurrency(spent)}
                             </Text>
-                            <Text style={styles.budgetItemTotal}>
+                            <Text style={styles.budgetItemTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                               {formatCurrency(amount)}
                             </Text>
                           </View>
@@ -1000,6 +1076,8 @@ export default function DashboardScreen() {
                   })}
               </View>
 
+              <PresupuestosCompartidosConmigo items={compartidosConmigo.presupuestos} separado />
+
               {/* Botón para ver todos los presupuestos */}
               <TouchableOpacity
                 style={styles.viewAllBudgetsButton}
@@ -1007,16 +1085,153 @@ export default function DashboardScreen() {
                 activeOpacity={0.7}
               >
                 <Text style={styles.viewAllBudgetsText}>
-                  {(dashboardData?.budgets.filter(b => b.is_active).length > 3) 
-                    ? `Ver todos los presupuestos (${dashboardData?.activeBudgets})`
-                    : 'Gestionar presupuestos'
-                  }
+                  {/* El conteo tiene que ser el de esta MISMA tarjeta (solo
+                      gastos). `activeBudgets` cuenta también las metas de
+                      ingreso, para cuadrar con el cupo del plan, y ponerlo aquí
+                      hacía que el enlace dijera "(6)" en una tarjeta que lista
+                      cuatro. */}
+                  {(() => {
+                    const gastosActivos = dashboardData?.budgets.filter(
+                      b => b.is_active && (b.type ?? 'EXPENSE') === 'EXPENSE'
+                    ).length || 0;
+                    return gastosActivos > 3
+                      ? `Ver todos los presupuestos (${gastosActivos})`
+                      : 'Gestionar presupuestos';
+                  })()}
                 </Text>
                 <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
               </TouchableOpacity>
             </View>
           )}
         </View>
+
+        {/* ── Ingresos esperados ──────────────────────────────────────────
+            Card aparte de los presupuestos de gasto a propósito: un presupuesto
+            de ingreso es un PISO (quedarse corto es lo malo), no un techo, así
+            que su resumen y su análisis se leen al revés. Mezclarlos daba un
+            "Presupuesto Total" sin sentido y clasificaba como "control
+            excelente" a quien apenas había facturado.
+
+            Solo aparece si el usuario tiene alguno: para la mayoría, que solo
+            usa presupuestos de gasto, el dashboard queda igual que siempre. */}
+        {(dashboardData?.incomeBudgets?.length ?? 0) > 0 && (
+          <View style={styles.budgetStatusCard}>
+            <Text style={styles.cardTitle}>Ingresos esperados</Text>
+            <View style={styles.budgetContent}>
+              <View style={styles.budgetSummaryContainer}>
+                <View style={styles.budgetTotalRow}>
+                  <Text style={styles.budgetSummaryLabel}>Meta del período</Text>
+                  <Text style={[styles.budgetSummaryAmount, styles.totalAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                    {formatCurrency(dashboardData?.totalIncomeTarget || 0)}
+                  </Text>
+                </View>
+
+                <View style={styles.budgetBottomRow}>
+                  <View style={styles.budgetBottomItem}>
+                    <Text style={styles.budgetSummaryLabel}>Recibido</Text>
+                    <Text style={[styles.budgetSummaryAmount, styles.remainingPositive]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                      {formatCurrency(dashboardData?.totalIncomeReceived || 0)}
+                    </Text>
+                  </View>
+                  <View style={styles.budgetBottomItem}>
+                    <Text style={styles.budgetSummaryLabel}>
+                      {(dashboardData?.incomeRemaining || 0) > 0 ? 'Te falta' : 'Logrado'}
+                    </Text>
+                    <Text style={[
+                      styles.budgetSummaryAmount,
+                      (dashboardData?.incomeRemaining || 0) > 0 ? styles.remainingNegative : styles.remainingPositive,
+                    ]}>
+                      {(dashboardData?.incomeRemaining || 0) > 0
+                        ? formatCurrency(dashboardData?.incomeRemaining || 0)
+                        : 'Meta cumplida'}
+                    </Text>
+                  </View>
+                </View>
+              </View>
+
+              {/* Análisis PROGRESO vs TIEMPO.
+                  En un gasto, ir bajo es bueno siempre. En un ingreso no: llevar
+                  el 40% el día 5 va volando y el 40% el día 28 es un problema.
+                  Por eso se compara contra cuánto del período ya transcurrió. */}
+              <View style={styles.budgetList}>
+                {dashboardData?.incomeBudgets
+                  .slice()
+                  .sort((a, b) => {
+                    const pa = a.amount > 0 ? (a.spent || 0) / a.amount : 0;
+                    const pb = b.amount > 0 ? (b.spent || 0) / b.amount : 0;
+                    return pa - pb; // el que va más corto, primero
+                  })
+                  .slice(0, 3)
+                  .map((budget, index) => {
+                    const recibido = budget.spent || 0;
+                    const meta = budget.amount || 0;
+                    // Sin topar, igual que en la pantalla de Presupuestos:
+                    // facturar por encima de lo previsto es una buena noticia y
+                    // esconderla detrás de un "100%" la desperdicia.
+                    const pctMeta = meta > 0 ? (recibido / meta) * 100 : 0;
+                    const anchoMeta = Math.max(0, Math.min(pctMeta, 100));
+
+                    const inicio = new Date(budget.start_date).getTime();
+                    const fin = new Date(budget.end_date).getTime();
+                    const ahora = Date.now();
+                    const duracion = Math.max(1, fin - inicio);
+                    const pctTiempo = Math.min(100, Math.max(0, ((ahora - inicio) / duracion) * 100));
+                    const diasRestantes = Math.max(0, Math.ceil((fin - ahora) / 86400000));
+                    const falta = Math.max(0, meta - recibido);
+
+                    // 10 puntos de holgura para no alarmar por diferencias normales.
+                    let estado: string;
+                    let color: string;
+                    if (pctMeta >= 100) { estado = 'Meta cumplida'; color = '#059669'; }
+                    else if (pctMeta >= pctTiempo + 10) { estado = 'Vas adelantado'; color = '#059669'; }
+                    else if (pctMeta >= pctTiempo - 10) { estado = 'Vas al ritmo'; color = '#d97706'; }
+                    else { estado = 'Vas atrasado'; color = '#dc2626'; }
+
+                    // Lo accionable: cuánto por día para llegar.
+                    const porDia = diasRestantes > 0 && falta > 0 ? falta / diasRestantes : 0;
+
+                    return (
+                      <View key={budget.id || index} style={styles.budgetItem}>
+                        <Text style={styles.budgetIcon}>{budget.category?.icon || '📈'}</Text>
+                        <View style={styles.budgetItemContent}>
+                          <View style={styles.budgetItemHeader}>
+                            <Text style={styles.budgetItemName}>
+                              {budget.category?.name || budget.name}
+                            </Text>
+                            <Text style={[styles.budgetItemPercentage, { color }]}>
+                              {pctMeta.toFixed(0)}%
+                            </Text>
+                          </View>
+
+                          <View style={styles.progressBarContainer}>
+                            <View style={[styles.progressBarFill, {
+                              width: `${anchoMeta}%`,
+                              backgroundColor: color,
+                            }]} />
+                          </View>
+
+                          <View style={styles.budgetItemAmounts}>
+                            <Text style={[styles.budgetItemSpent, { color }]}>{estado}</Text>
+                            <Text style={styles.budgetItemTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                              {formatCurrency(recibido)} de {formatCurrency(meta)}
+                            </Text>
+                          </View>
+
+                          <Text style={styles.budgetItemTotal} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
+                            {diasRestantes > 0
+                              ? (porDia > 0
+                                  ? `Quedan ${diasRestantes} días · necesitas ${formatCurrency(porDia)} por día`
+                                  : `Quedan ${diasRestantes} días`)
+                              : 'Período cerrado'}
+                          </Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* Metas de Ahorro */}
         <View style={styles.goalsCard}>
@@ -1026,7 +1241,8 @@ export default function DashboardScreen() {
               <ActivityIndicator size="small" color="#4f46e5" />
               <Text style={styles.loadingText}>Cargando...</Text>
             </View>
-          ) : !dashboardData?.goals || dashboardData.goals.filter(g => !g.isCompleted).length === 0 ? (
+          ) : (!dashboardData?.goals || dashboardData.goals.filter(g => !g.isCompleted).length === 0) &&
+            compartidosConmigo.metas.length === 0 ? (
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyIcon}>🎯</Text>
               <Text style={styles.emptyTitle}>No tienes metas de ahorro configuradas</Text>
@@ -1039,6 +1255,19 @@ export default function DashboardScreen() {
                 <Text style={styles.createGoalText}>Crear mi primera meta</Text>
               </TouchableOpacity>
             </View>
+          ) : !dashboardData?.goals || dashboardData.goals.filter(g => !g.isCompleted).length === 0 ? (
+            // Sin metas propias pero con compartidas: sin resumen en cero.
+            <View>
+              <MetasCompartidasConmigo items={compartidosConmigo.metas} separado={false} />
+              <TouchableOpacity
+                style={styles.viewAllGoalsButton}
+                onPress={() => navigation.navigate('Goals')}
+                activeOpacity={0.7}
+              >
+                <Text style={styles.viewAllGoalsText}>Crear una meta propia</Text>
+                <Ionicons name="chevron-forward" size={16} color="#4f46e5" />
+              </TouchableOpacity>
+            </View>
           ) : (
             <View style={styles.goalsContent}>
               {/* Resumen general - Layout mejorado */}
@@ -1046,7 +1275,7 @@ export default function DashboardScreen() {
                 {/* Meta Total - Fila completa */}
                 <View style={styles.goalsTotalRow}>
                   <Text style={styles.goalsSummaryLabel}>Meta Total</Text>
-                  <Text style={[styles.goalsSummaryAmount, styles.goalTotalAmount]}>
+                  <Text style={[styles.goalsSummaryAmount, styles.goalTotalAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                     {formatCurrency(dashboardData?.totalGoalTarget || 0)}
                   </Text>
                 </View>
@@ -1055,13 +1284,13 @@ export default function DashboardScreen() {
                 <View style={styles.goalsBottomRow}>
                   <View style={styles.goalsBottomItem}>
                     <Text style={styles.goalsSummaryLabel}>Ahorrado</Text>
-                    <Text style={[styles.goalsSummaryAmount, styles.goalSavedAmount]}>
+                    <Text style={[styles.goalsSummaryAmount, styles.goalSavedAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                       {formatCurrency(dashboardData?.totalGoalSaved || 0)}
                     </Text>
                   </View>
                   <View style={styles.goalsBottomItem}>
                     <Text style={styles.goalsSummaryLabel}>Por Ahorrar</Text>
-                    <Text style={[styles.goalsSummaryAmount, styles.goalRemainingAmount]}>
+                    <Text style={[styles.goalsSummaryAmount, styles.goalRemainingAmount]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                       {formatCurrency(dashboardData?.totalGoalRemaining || 0)}
                     </Text>
                   </View>
@@ -1086,6 +1315,7 @@ export default function DashboardScreen() {
                           <View style={styles.goalItemHeader}>
                             <Text style={styles.goalItemName}>
                               {goal.name || 'Meta sin nombre'}
+                              {goal.shared ? <Text>{'  '}<Ionicons name="people" size={13} color="#2563EB" /></Text> : null}
                             </Text>
                             <Text style={styles.goalItemPercentage}>
                               {percentage.toFixed(0)}%
@@ -1098,10 +1328,10 @@ export default function DashboardScreen() {
                             }]} />
                           </View>
                           <View style={styles.goalItemAmounts}>
-                            <Text style={styles.goalItemCurrent}>
+                            <Text style={styles.goalItemCurrent} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                               {formatCurrency(current)}
                             </Text>
-                            <Text style={styles.goalItemTarget}>
+                            <Text style={styles.goalItemTarget} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
                               {formatCurrency(target)}
                             </Text>
                           </View>
@@ -1110,6 +1340,8 @@ export default function DashboardScreen() {
                     );
                   })}
               </View>
+
+              <MetasCompartidasConmigo items={compartidosConmigo.metas} separado />
 
               {/* Botón para ver todas las metas */}
               <TouchableOpacity
@@ -1132,8 +1364,6 @@ export default function DashboardScreen() {
         {/* Tu Vibe Financiero - Gen Z friendly */}
         <VibeCard />
 
-        {/* Patrones y Tendencias del mes actual */}
-        <PatternsAndTrends />
 
         {/* Mensaje de bienvenida para usuarios nuevos */}
         {dashboardData.totalBalance === 0 && dashboardData.monthlyIncome === 0 && dashboardData.monthlyExpenses === 0 && (

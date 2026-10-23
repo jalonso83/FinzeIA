@@ -21,7 +21,9 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
   onClose,
   limitType,
 }) => {
-  const { openPlansModal } = useSubscriptionStore();
+  // La duración sale del servidor: este modal aparece al topar un límite y es
+  // uno de los sitios donde el número tiene que cuadrar con lo que se concede.
+  const { openPlansModal, trialConfig } = useSubscriptionStore();
 
   // Ocultar teclado cuando el modal se hace visible
   useEffect(() => {
@@ -147,7 +149,7 @@ const UpgradeModal: React.FC<UpgradeModalProps> = ({
           {/* Trial Badge */}
           <View style={styles.trialBadge}>
             <Ionicons name="gift" size={16} color="#059669" />
-            <Text style={styles.trialText}>7 días de prueba gratis</Text>
+            <Text style={styles.trialText}>{trialConfig?.durationDays ?? 7} días de prueba gratis</Text>
           </View>
 
           {/* View Plans Button */}

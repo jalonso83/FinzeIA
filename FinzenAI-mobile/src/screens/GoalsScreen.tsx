@@ -12,13 +12,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import GoalForm from '../components/forms/GoalForm';
 import ContributionForm from '../components/forms/ContributionForm';
-import { goalsAPI } from '../utils/api';
+import { goalsAPI, sharedAPI, CompartidoInfo, MetaCompartidaConmigo, AporteConvertible } from '../utils/api';
 import { useDashboardStore } from '../stores/dashboard';
 import { useSubscriptionStore } from '../stores/subscriptionStore';
 import { useCurrency } from '../hooks/useCurrency';
 import CustomModal from '../components/modals/CustomModal';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
 import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
+import { useSharedStore } from '../stores/sharedStore';
+import MetaCompartidaModal from '../components/shared/MetaCompartidaModal';
+import { montoEn, mensajeDeError, pideMejorarPlan } from '../components/shared/sharedUi';
 
 import { logger } from '../utils/logger';
 interface Goal {
@@ -44,6 +47,8 @@ interface Goal {
     icon: string;
     type: string;
   };
+  // Solo en las PROPIAS que están compartidas (GET /goals).
+  shared?: CompartidoInfo | null;
 }
 
 export default function GoalsScreen() {
@@ -61,6 +66,15 @@ export default function GoalsScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
+  // ─── Compartidas (2026-10) ───
+  const { enabled: puedeCompartir, version: versionCompartidos, abrirInvitacion, refrescarCompartidos } = useSharedStore();
+  const [conmigo, setConmigo] = useState<MetaCompartidaConmigo[]>([]);
+  const [convertibles, setConvertibles] = useState<AporteConvertible[]>([]);
+  const [convirtiendo, setConvirtiendo] = useState<string | null>(null);
+  const [hojaMeta, setHojaMeta] = useState<{
+    goal: Goal | null; goalId: string; nombre: string; soyDueno: boolean; sinCompartir: boolean;
+  } | null>(null);
+
   // Export states
   const [isExporting, setIsExporting] = useState(false);
   const [showExportOptions, setShowExportOptions] = useState(false);
@@ -71,37 +85,102 @@ export default function GoalsScreen() {
   const { onGoalChange, goalChangeTrigger} = useDashboardStore();
 
   // Subscription store para validar límites
-  const { canCreateGoal, canExportData, canExportPdf, fetchSubscription, currentPlan, openPlansModal } = useSubscriptionStore();
+  const { canCreateGoal, canExportData, canExportPdf, fetchSubscription, isFreePlan, openPlansModal } = useSubscriptionStore();
 
   // Memoizado: Carga de metas
+  // Solo la PRIMERA carga muestra el cargador: las recargas son silenciosas para
+  // no desmontar la hoja de meta compartida que esté abierta.
+  const primeraCargaRef = React.useRef(true);
   const loadGoals = useCallback(async () => {
+    const esPrimera = primeraCargaRef.current;
     try {
-      setLoading(true);
+      if (esPrimera) setLoading(true);
       const response = await goalsAPI.getAll();
       const goalsData = response.data.goals || response.data || [];
       logger.log('Goals loaded:', goalsData);
       setGoals(goalsData);
     } catch (error) {
       logger.error('Error loading goals:', error);
+      // Sin modal de error en recargas: podría haber una hoja abierta (iOS).
+      if (!esPrimera) return;
       setErrorMessage('No se pudieron cargar las metas');
       setShowErrorModal(true);
     } finally {
+      primeraCargaRef.current = false;
       setLoading(false);
     }
   }, []);
 
+  // Lo compartido va aparte de GET /goals. Si falla, la pantalla sigue con lo propio.
+  const loadCompartidas = useCallback(async () => {
+    const [c, v] = await Promise.allSettled([sharedAPI.metasConmigo(), sharedAPI.aportesConvertibles()]);
+    if (c.status === 'fulfilled') setConmigo(c.value.data.compartidas || []);
+    else logger.error('Error cargando metas compartidas conmigo:', c.reason);
+    if (v.status === 'fulfilled') setConvertibles(v.value.data.convertibles || []);
+    else logger.error('Error cargando aportes convertibles:', v.reason);
+  }, []);
+
   useEffect(() => {
     loadGoals();
+    loadCompartidas();
     fetchSubscription();
-  }, [loadGoals, fetchSubscription]);
+  }, [loadGoals, loadCompartidas, fetchSubscription]);
+
+  useEffect(() => {
+    if (versionCompartidos > 0) {
+      loadGoals();
+      loadCompartidas();
+    }
+  }, [versionCompartidos, loadGoals, loadCompartidas]);
 
   // Listener para cambios de metas desde Zenio
   useEffect(() => {
     if (goalChangeTrigger > 0) {
       logger.log('[GoalsScreen] Goal change detected, reloading...');
       loadGoals();
+      loadCompartidas();
     }
-  }, [goalChangeTrigger, loadGoals]);
+  }, [goalChangeTrigger, loadGoals, loadCompartidas]);
+
+  // iOS: nunca dos <Modal> a la vez. Se cierra la hoja y después se abre lo otro.
+  const mejorarPlanDesdeMeta = useCallback(() => {
+    setHojaMeta(null);
+    setTimeout(() => openPlansModal(), 500);
+  }, [openPlansModal]);
+
+  const aportarDesdeHoja = useCallback(() => {
+    const goal = hojaMeta?.goal;
+    setHojaMeta(null);
+    if (goal) {
+      setTimeout(() => {
+        setSelectedGoal(goal);
+        setShowContributionForm(true);
+      }, 500);
+    }
+  }, [hojaMeta]);
+
+  // Quien salió de una meta compartida pasa lo que aportó a una meta suya.
+  const convertir = useCallback(async (c: AporteConvertible) => {
+    setConvirtiendo(c.groupId);
+    try {
+      await sharedAPI.convertirAportes(c.groupId);
+      loadGoals();
+      loadCompartidas();
+      onGoalChange();
+      setSuccessMessage(`Listo: "${c.meta}" ya es una meta tuya con lo que aportaste.`);
+      setShowSuccessModal(true);
+    } catch (e: any) {
+      logger.error('Error convirtiendo aportes:', e);
+      if (pideMejorarPlan(e)) {
+        setShowUpgradeModal(true);
+      } else {
+        setErrorMessage(mensajeDeError(e, 'No pudimos crear la meta.'));
+        setShowErrorModal(true);
+      }
+    } finally {
+      setConvirtiendo(null);
+    }
+  }, [loadGoals, loadCompartidas, onGoalChange]);
 
   // Memoizado: Función para validar límites antes de crear meta
   const handleCreateGoal = useCallback(() => {
@@ -295,7 +374,7 @@ export default function GoalsScreen() {
           title: 'Metas de Ahorro',
           subtitle: `Reporte generado el ${getCurrentDate()}`,
           filename: `metas_ahorro_${new Date().toISOString().split('T')[0]}`,
-          format: format === 'PDF' ? 'pdf' : 'csv',
+          format,
         },
         {
           columns,
@@ -311,7 +390,7 @@ export default function GoalsScreen() {
         return;
       }
 
-      setSuccessMessage(`Metas exportadas correctamente en formato ${format}`);
+      setSuccessMessage(`Metas exportadas correctamente en formato ${format.toUpperCase()}`);
       setShowSuccessModal(true);
     } catch (error) {
       logger.error('Error exporting goals:', error);
@@ -349,7 +428,7 @@ export default function GoalsScreen() {
             ) : (
               <>
                 <Ionicons name="download-outline" size={20} color="#2563EB" />
-                {currentPlan === 'FREE' && (
+                {isFreePlan() && (
                   <View style={styles.plusBadge}>
                     <Text style={styles.plusBadgeText}>PLUS</Text>
                   </View>
@@ -474,12 +553,23 @@ export default function GoalsScreen() {
                         <Text style={styles.goalName} numberOfLines={1}>{goal.name}</Text>
                       </View>
                     </View>
-                    <TouchableOpacity
-                      style={styles.deleteButton}
-                      onPress={() => handleDeleteGoal(goal)}
-                    >
-                      <Ionicons name="trash-outline" size={20} color="#ef4444" />
-                    </TouchableOpacity>
+                    <View style={styles.goalActions}>
+                      {(!!goal.shared || puedeCompartir) && (
+                        <TouchableOpacity
+                          style={styles.shareButton}
+                          onPress={() => setHojaMeta({ goal, goalId: goal.id, nombre: goal.name, soyDueno: true, sinCompartir: !goal.shared })}
+                          accessibilityLabel={goal.shared ? 'Ver meta compartida' : 'Compartir meta'}
+                        >
+                          <Ionicons name={goal.shared ? 'people' : 'person-add-outline'} size={20} color="#2563EB" />
+                        </TouchableOpacity>
+                      )}
+                      <TouchableOpacity
+                        style={styles.deleteButton}
+                        onPress={() => handleDeleteGoal(goal)}
+                      >
+                        <Ionicons name="trash-outline" size={20} color="#ef4444" />
+                      </TouchableOpacity>
+                    </View>
                   </View>
 
                   {/* Prioridad y Estado */}
@@ -491,6 +581,15 @@ export default function GoalsScreen() {
                       <View style={styles.completedBadge}>
                         <Text style={styles.completedBadgeText}>Completada</Text>
                       </View>
+                    )}
+                    {goal.shared && (
+                      <Text style={[styles.sharedBadge, goal.shared.pausado && styles.sharedBadgePausa]}>
+                        {goal.shared.pausado
+                          ? '⏸ En pausa'
+                          : goal.shared.miembros > 1
+                            ? `👥 ${goal.shared.miembros} personas`
+                            : '👥 Invitación enviada'}
+                      </Text>
                     )}
                   </View>
 
@@ -558,7 +657,105 @@ export default function GoalsScreen() {
             })}
           </View>
         )}
+
+        {/* Salió de una meta compartida y puede quedarse con lo que aportó */}
+        {convertibles.map((c) => (
+          <View key={c.groupId} style={styles.convertibleCard}>
+            <Text style={styles.convertibleTexto}>
+              Aportaste {formatCurrency(c.aportado)} a «{c.meta}». ¿Lo pasas a una meta tuya?
+            </Text>
+            <TouchableOpacity style={styles.convertibleBoton} onPress={() => convertir(c)} disabled={!!convirtiendo}>
+              {convirtiendo === c.groupId
+                ? <ActivityIndicator color="white" />
+                : <Text style={styles.convertibleBotonTexto}>Crear mi meta</Text>}
+            </TouchableOpacity>
+          </View>
+        ))}
+
+        {conmigo.length > 0 && (
+          <View style={styles.conmigoSection}>
+            <Text style={styles.conmigoTitle}>Compartidas conmigo</Text>
+            <View style={styles.goalsList}>
+              {conmigo.map((c) => {
+                if (c.pausado || !c.goal) {
+                  return (
+                    <View key={c.groupId} style={[styles.goalCard, styles.conmigoPausado]}>
+                      <Text style={styles.goalName}>⏸ Meta de {c.dueno}</Text>
+                      <Text style={styles.conmigoPausadoTexto}>{c.mensaje}</Text>
+                    </View>
+                  );
+                }
+                const g = c.goal as unknown as Goal;
+                const progress = calculateProgress(g.currentAmount, g.targetAmount);
+                const m = (n: number) => montoEn(n, c.moneda, formatCurrency);
+                return (
+                  <TouchableOpacity
+                    key={c.groupId}
+                    style={styles.goalCard}
+                    activeOpacity={0.7}
+                    onPress={() => setHojaMeta({ goal: g, goalId: g.id, nombre: g.name, soyDueno: false, sinCompartir: false })}
+                  >
+                    <View style={styles.goalHeader}>
+                      <View style={styles.goalInfo}>
+                        <View style={styles.goalTitleRow}>
+                          <Text style={styles.categoryIcon}>{g.category?.icon}</Text>
+                          <Text style={styles.goalName} numberOfLines={1}>{g.name}</Text>
+                        </View>
+                      </View>
+                      <Ionicons name="chevron-forward" size={20} color="#94a3b8" />
+                    </View>
+                    <Text style={styles.conmigoDe}>De {c.dueno} · {c.miembros ?? 2} personas · tu aporte {m(c.miAporte ?? 0)}</Text>
+                    <View style={styles.progressContainer}>
+                      <View style={styles.progressBar}>
+                        <View style={[styles.progressFill, { width: `${progress}%`, backgroundColor: getProgressColor(progress) }]} />
+                      </View>
+                    </View>
+                    <View style={styles.amountsContainer}>
+                      <View style={styles.amountRow}>
+                        <Text style={styles.amountLabel}>Ahorrado vs meta</Text>
+                        <Text style={styles.amountValue} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.7}>
+                          {m(g.currentAmount)} / {m(g.targetAmount)}
+                        </Text>
+                      </View>
+                    </View>
+                    {!g.isCompleted && (
+                      <TouchableOpacity
+                        style={styles.contributeButton}
+                        onPress={(e) => {
+                          e.stopPropagation();
+                          handleAddContribution(g);
+                        }}
+                      >
+                        <Text style={styles.contributeButtonText}>Aportar</Text>
+                      </TouchableOpacity>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </View>
+        )}
+
+        {(puedeCompartir || conmigo.length > 0) && (
+          <TouchableOpacity style={styles.tengoCodigo} onPress={() => abrirInvitacion('')}>
+            <Ionicons name="key-outline" size={18} color="#2563EB" />
+            <Text style={styles.tengoCodigoTexto}>¿Te invitaron? Escribe tu código</Text>
+          </TouchableOpacity>
+        )}
       </ScrollView>
+
+      {/* Meta compartida: invitar, quiénes aportaron, salir */}
+      <MetaCompartidaModal
+        visible={!!hojaMeta}
+        goalId={hojaMeta?.goalId ?? null}
+        nombre={hojaMeta?.nombre ?? ''}
+        soyDueno={!!hojaMeta?.soyDueno}
+        sinCompartir={!!hojaMeta?.sinCompartir}
+        onClose={() => setHojaMeta(null)}
+        onCambio={refrescarCompartidos}
+        onMejorarPlan={mejorarPlanDesdeMeta}
+        onAportar={aportarDesdeHoja}
+      />
 
       {/* Formulario de Meta */}
       <GoalForm
@@ -601,7 +798,11 @@ export default function GoalsScreen() {
         visible={showDeleteConfirmModal}
         type="warning"
         title="Eliminar Meta"
-        message={`¿Estás seguro de que quieres eliminar "${goalToDelete?.name}"?`}
+        message={
+          goalToDelete?.shared
+            ? `¿Eliminar "${goalToDelete?.name}"? Está compartida: las demás personas dejarán de verla.`
+            : `¿Estás seguro de que quieres eliminar "${goalToDelete?.name}"?`
+        }
         buttonText="Eliminar"
         showSecondaryButton={true}
         secondaryButtonText="Cancelar"
@@ -682,7 +883,7 @@ export default function GoalsScreen() {
             <View style={styles.exportOptionsContainer}>
               <TouchableOpacity
                 style={styles.exportOptionButton}
-                onPress={() => handleExport('PDF')}
+                onPress={() => handleExport('pdf')}
               >
                 <View style={styles.exportOptionIconContainer}>
                   <Ionicons name="document-text" size={32} color="#dc2626" />
@@ -698,7 +899,7 @@ export default function GoalsScreen() {
 
               <TouchableOpacity
                 style={styles.exportOptionButton}
-                onPress={() => handleExport('CSV')}
+                onPress={() => handleExport('csv')}
               >
                 <Ionicons name="grid" size={32} color="#059669" />
                 <Text style={styles.exportOptionText}>CSV</Text>
@@ -740,9 +941,9 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#2563EB',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    borderRadius: 22,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -911,6 +1112,82 @@ const styles = StyleSheet.create({
   deleteButton: {
     padding: 4,
   },
+  goalActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  shareButton: {
+    padding: 4,
+  },
+  sharedBadge: {
+    fontSize: 12,
+    color: '#1d4ed8',
+    fontWeight: '600',
+  },
+  sharedBadgePausa: {
+    color: '#b45309',
+  },
+  conmigoSection: {
+    marginTop: 24,
+  },
+  conmigoTitle: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#1e293b',
+    marginBottom: 12,
+  },
+  conmigoDe: {
+    fontSize: 13,
+    color: '#64748b',
+    marginBottom: 10,
+  },
+  conmigoPausado: {
+    backgroundColor: '#f8fafc',
+  },
+  conmigoPausadoTexto: {
+    fontSize: 14,
+    color: '#64748b',
+    marginTop: 6,
+    lineHeight: 20,
+  },
+  convertibleCard: {
+    backgroundColor: '#f0fdf4',
+    borderWidth: 1,
+    borderColor: '#bbf7d0',
+    borderRadius: 12,
+    padding: 14,
+    marginTop: 16,
+    gap: 10,
+  },
+  convertibleTexto: {
+    fontSize: 14,
+    color: '#166534',
+    lineHeight: 20,
+  },
+  convertibleBoton: {
+    backgroundColor: '#16a34a',
+    borderRadius: 10,
+    paddingVertical: 10,
+    alignItems: 'center',
+  },
+  convertibleBotonTexto: {
+    color: 'white',
+    fontWeight: '600',
+    fontSize: 14,
+  },
+  tengoCodigo: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 18,
+  },
+  tengoCodigoTexto: {
+    color: '#2563EB',
+    fontSize: 14,
+    fontWeight: '600',
+  },
   badgesContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1009,10 +1286,14 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   exportButton: {
-    backgroundColor: '#EFF6FF',
-    borderRadius: 20,
-    width: 40,
-    height: 40,
+    backgroundColor: '#eff6ff',
+    // Mismo círculo con borde azul que los de Transacciones y Presupuestos.
+    // Sin el borde, este botón se veía plano al lado de los demás.
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    borderRadius: 19,
+    width: 38,
+    height: 38,
     justifyContent: 'center',
     alignItems: 'center',
     position: 'relative',

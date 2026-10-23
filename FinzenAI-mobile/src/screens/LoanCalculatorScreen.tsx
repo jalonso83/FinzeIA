@@ -36,7 +36,8 @@ export default function LoanCalculatorScreen() {
 
   const [loanAmount, setLoanAmount] = useState('');
   const [loanType, setLoanType] = useState('hipotecario');
-  const [interestRate, setInterestRate] = useState('5.5');
+  // Tasa de partida realista en RD (BCRD jul-2026: consumo ~18.6%, hipotecario ~11.7%).
+  const [interestRate, setInterestRate] = useState('18');
   const [term, setTerm] = useState('');
   const [termUnit, setTermUnit] = useState('años');
   const [monthlyPayment, setMonthlyPayment] = useState<number | null>(null);

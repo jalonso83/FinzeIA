@@ -4,9 +4,9 @@
 import { create } from 'zustand';
 import { Platform } from 'react-native';
 import * as Device from 'expo-device';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { subscriptionsAPI } from '../utils/api';
 import { logger } from '../utils/logger';
+import { getDeviceId } from '../utils/deviceId';
 import {
   Subscription,
   Plan,
@@ -18,22 +18,6 @@ import {
   ZenioUsage,
 } from '../types/subscription';
 
-// Helper para obtener o generar un ID único del dispositivo
-const getDeviceId = async (): Promise<string> => {
-  const DEVICE_ID_KEY = '@finzen_device_id';
-  try {
-    let deviceId = await AsyncStorage.getItem(DEVICE_ID_KEY);
-    if (!deviceId) {
-      // Generar un ID único basado en timestamp + random
-      deviceId = `${Platform.OS}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-      await AsyncStorage.setItem(DEVICE_ID_KEY, deviceId);
-    }
-    return deviceId;
-  } catch (error) {
-    // Fallback si AsyncStorage falla
-    return `${Platform.OS}_${Date.now()}_${Math.random().toString(36).substring(2, 15)}`;
-  }
-};
 
 interface SubscriptionState {
   // Estado
@@ -42,10 +26,15 @@ interface SubscriptionState {
   payments: Payment[];
   loading: boolean;
   error: string | null;
+  /** Cómo es el trial HOY, según el servidor. La app no lo decide: si trajera
+   *  la duración y el plan escritos por dentro, cambiarlos en el backend la
+   *  dejaría prometiendo en pantalla algo distinto de lo que el usuario recibe.
+   *  `grantedPlan: null` = el usuario elige (comportamiento viejo). */
+  trialConfig: { durationDays: number; grantedPlan: 'PREMIUM' | 'PRO' | null } | null;
 
   // Acciones
   fetchSubscription: () => Promise<void>;
-  fetchPlans: () => Promise<void>;
+  fetchPlans: (origen?: 'gastos_automatico' | 'menu' | 'limite' | 'vencimiento') => Promise<void>;
   fetchPayments: (limit?: number) => Promise<void>;
   createCheckout: (plan: 'PREMIUM' | 'PRO', billingPeriod?: BillingPeriod) => Promise<CheckoutSessionResponse>;
   startTrial: (plan: 'PREMIUM' | 'PRO') => Promise<void>;
@@ -64,6 +53,7 @@ interface SubscriptionState {
   canExportPdf: () => boolean;
   canUseTextToSpeech: () => boolean;
   hasBudgetAlerts: () => boolean;
+  canUseProNotifications: () => boolean;
   getRemindersLimit: () => number;
   hasAdvancedCalculators: () => boolean;
 
@@ -84,6 +74,13 @@ interface SubscriptionState {
   openPlansModal: () => void;
   closePlansModal: () => void;
 
+  // Mismo patron que el modal de planes: una campana del slot del dashboard no
+  // puede abrir "Gastos en automatico" por navegacion, porque esa pantalla es un
+  // <Modal> que vive en AppNavigator. El store hace de puente.
+  showEmailSyncModal: boolean;
+  openEmailSyncModal: () => void;
+  closeEmailSyncModal: () => void;
+
   // Reset
   reset: () => void;
 }
@@ -92,10 +89,12 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   // Estado inicial
   subscription: null,
   plans: [],
+  trialConfig: null,
   payments: [],
   loading: false,
   error: null,
   showPlansModal: false,
+  showEmailSyncModal: false,
 
   // Obtener suscripción actual del usuario
   fetchSubscription: async () => {
@@ -113,11 +112,17 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   },
 
   // Obtener todos los planes disponibles
-  fetchPlans: async () => {
+  fetchPlans: async (origen) => {
     set({ loading: true, error: null });
     try {
-      const response = await subscriptionsAPI.getPlans();
-      set({ plans: response.data.plans, loading: false });
+      const response = await subscriptionsAPI.getPlans(origen);
+      set({
+        plans: response.data.plans,
+        // Si el backend todavía no manda `trial` (app nueva contra backend
+        // viejo), se queda en null y la pantalla usa su respaldo.
+        trialConfig: response.data.trial ?? null,
+        loading: false,
+      });
     } catch (error: any) {
       logger.error('Error fetching plans:', error);
       set({
@@ -275,7 +280,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   // Validar si puede crear presupuesto
   canCreateBudget: (currentCount: number): boolean => {
     const subscription = get().subscription;
-    if (!subscription) return currentCount < 2; // Default FREE limits
+    // Respaldo mientras la suscripción no ha cargado. Tiene que coincidir con
+    // los límites reales de FREE (config/stripe.ts del backend): decían 2 y 1
+    // cuando el plan permite 4 y 2, así que en el primer render se le bloqueaba
+    // el botón a quien sí tenía cupo.
+    if (!subscription) return currentCount < 4;
 
     const limit = subscription.limits.budgets;
     if (limit === -1) return true; // Unlimited
@@ -285,7 +294,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
   // Validar si puede crear meta
   canCreateGoal: (currentCount: number): boolean => {
     const subscription = get().subscription;
-    if (!subscription) return currentCount < 1; // Default FREE limits
+    if (!subscription) return currentCount < 2; // FREE permite 2 metas
 
     const limit = subscription.limits.goals;
     if (limit === -1) return true; // Unlimited
@@ -447,6 +456,14 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     set({ showPlansModal: true });
   },
 
+  openEmailSyncModal: () => {
+    set({ showEmailSyncModal: true });
+  },
+
+  closeEmailSyncModal: () => {
+    set({ showEmailSyncModal: false });
+  },
+
   closePlansModal: () => {
     set({ showPlansModal: false });
   },
@@ -456,6 +473,7 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     set({
       subscription: null,
       plans: [],
+      trialConfig: null,
       payments: [],
       loading: false,
       error: null,

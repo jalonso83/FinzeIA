@@ -44,7 +44,7 @@ const MODULE_OPTIONS: ModuleOption[] = [
   { value: 'zenio', label: 'Zenio (Asistente IA)' },
   { value: 'tools', label: 'Calculadoras y Herramientas' },
   { value: 'subscriptions', label: 'Suscripciones y Pagos' },
-  { value: 'email_sync', label: 'Email Bancario' },
+  { value: 'email_sync', label: 'Gastos en automático' },
   { value: 'notifications', label: 'Notificaciones y Recordatorios' },
   { value: 'gamification', label: 'Gamificación' },
   { value: 'auth', label: 'Login / Registro' },

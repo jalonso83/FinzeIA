@@ -291,7 +291,7 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
       {/* Total en una línea */}
       <View style={styles.summaryRow}>
         <Text style={styles.summaryText}>Total de {isIncome ? 'Ingresos' : 'Gastos'}: </Text>
-        <Text style={[styles.summaryAmount, isIncome ? styles.incomeColor : styles.expenseColor]}>
+        <Text style={[styles.summaryAmount, isIncome ? styles.incomeColor : styles.expenseColor]} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>
           {formatCurrency(totalAmount)}
         </Text>
       </View>
@@ -318,7 +318,7 @@ const ExpensesPieChart: React.FC<ExpensesPieChartProps> = ({ transactions, categ
             <View style={[styles.categoryColor, { backgroundColor: item.color }]} />
             <Text style={styles.categoryIcon}>{item.icon}</Text>
             <Text style={styles.categoryName}>{item.name}</Text>
-            <Text style={styles.categoryAmount}>{formatCurrency(item.total)}</Text>
+            <Text style={styles.categoryAmount} numberOfLines={1} adjustsFontSizeToFit minimumFontScale={0.75}>{formatCurrency(item.total)}</Text>
             <Text style={styles.categoryPercent}>({item.percentage.toFixed(1)}%)</Text>
           </View>
         ))}

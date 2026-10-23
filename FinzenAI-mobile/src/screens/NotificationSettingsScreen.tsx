@@ -317,7 +317,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
                 </View>
                 <Text style={[styles.settingDescription, !canUseBudgetAlerts && styles.settingDescriptionDisabled]}>
                   {canUseBudgetAlerts
-                    ? 'Cuando estás por exceder un presupuesto'
+                    ? 'Cuando estás por exceder un presupuesto de gastos'
                     : 'Disponible con plan PLUS o superior'}
                 </Text>
               </View>
@@ -596,7 +596,7 @@ export default function NotificationSettingsScreen({ onClose }: NotificationSett
           disabled={canUseBudgetAlerts}
         >
           <Text style={[styles.thresholdLabel, !canUseBudgetAlerts && styles.thresholdLabelDisabled]}>
-            Alertar cuando el presupuesto llegue al{' '}
+            Alertar cuando el presupuesto de gastos llegue al{' '}
             <Text style={[styles.thresholdValue, !canUseBudgetAlerts && styles.thresholdValueDisabled]}>
               {Math.round(preferences?.budgetAlertThreshold ?? 80)}%
             </Text>

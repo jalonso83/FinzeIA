@@ -15,8 +15,9 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { transactionsAPI, Transaction } from '../utils/api';
-import TransactionForm from '../components/forms/TransactionForm';
+import TransactionForm, { CorreccionComercio } from '../components/forms/TransactionForm';
 import RecurringPaymentsSheet from '../components/RecurringPaymentsSheet';
+import PatternsAndTrends from '../components/reports/PatternsAndTrends';
 import CategoryPicker, { CategorySelectSheet } from '../components/forms/CategoryPicker';
 import { useCurrency } from '../hooks/useCurrency';
 import { countryToLocale } from '../utils/currency';
@@ -42,6 +43,10 @@ export default function TransactionsScreen() {
   const [errorMessage, setErrorMessage] = useState('');
   // Success modal — patrón Screen-level unificado iOS/Android.
   const [showSuccessModal, setShowSuccessModal] = useState(false);
+  // Corrección en bloque de un comercio. Se guarda al editar y se pregunta
+  // DESPUÉS de que cierre el modal de éxito, no encima.
+  const [correccionPendiente, setCorreccionPendiente] = useState<CorreccionComercio | null>(null);
+  const [mostrarCorreccion, setMostrarCorreccion] = useState(false);
   const [successMessage, setSuccessMessage] = useState('');
 
   // Estados para filtros
@@ -137,6 +142,35 @@ export default function TransactionsScreen() {
   };
 
   // Memoizado: Carga de transacciones (debe definirse ANTES de los useEffects que lo usan)
+  /** Aplica la categoría corregida al resto de transacciones del comercio. */
+  const aplicarCorreccionComercio = async () => {
+    if (!correccionPendiente) return;
+    const info = correccionPendiente;
+    setMostrarCorreccion(false);
+    setCorreccionPendiente(null);
+
+    try {
+      const { data } = await transactionsAPI.aplicarCategoriaAComercio({
+        comercio: info.comercio,
+        prefijo: info.prefijo,
+        categoriaAnterior: info.categoriaAnterior,
+        categoriaNueva: info.categoriaNueva,
+      });
+      await loadTransactions();
+      onTransactionChange();
+      setSuccessMessage(
+        `Listo. Cambiamos ${data.actualizadas} transacción(es) de "${info.comercio}".\n\nDe ahora en adelante las nuevas entran ya con esa categoría.`
+      );
+      setShowSuccessModal(true);
+    } catch (error: any) {
+      // La corrección original ya se guardó; esto era el extra.
+      setErrorMessage(
+        error?.response?.data?.message || 'No se pudieron cambiar las demás transacciones.'
+      );
+      setShowErrorModal(true);
+    }
+  };
+
   const loadTransactions = useCallback(async () => {
     try {
       setLoading(true);
@@ -552,7 +586,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Transacciones</Text>
+        <Text style={styles.title} numberOfLines={1}>Transacciones</Text>
         <View style={styles.headerButtons}>
           {/* Botón de exportar */}
           <TouchableOpacity
@@ -609,6 +643,11 @@ export default function TransactionsScreen() {
       )}
 
       <ScrollView style={styles.scrollView}>
+        {/* Patrones del mes, plegados: vivían al fondo del dashboard. */}
+        <View style={styles.patronesWrapper}>
+          <PatternsAndTrends plegable />
+        </View>
+
         {filteredTransactions.length === 0 ? (
           <View style={styles.emptyContainer}>
             <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
@@ -902,6 +941,7 @@ export default function TransactionsScreen() {
           setShowSuccessModal(true);
         }}
         editTransaction={editingTransaction}
+        onCorregirComercio={setCorreccionPendiente}
       />
 
       {/* Pagos automáticos. View absoluto, no <Modal>: mismo componente que iOS,
@@ -945,7 +985,33 @@ export default function TransactionsScreen() {
         title="¡Éxito!"
         message={successMessage}
         buttonText="Continuar"
-        onClose={() => setShowSuccessModal(false)}
+        onClose={() => {
+          setShowSuccessModal(false);
+          // La pregunta del comercio se muestra AL CERRAR este, nunca encima:
+          // dos CustomModal a la vez no se llevan bien en iOS. El estado ya
+          // está guardado, así que solo hay que dejar que este salga primero.
+          if (correccionPendiente) setMostrarCorreccion(true);
+        }}
+      />
+
+      {/* Corregir el resto de transacciones del mismo comercio */}
+      <CustomModal
+        visible={mostrarCorreccion && correccionPendiente != null}
+        type="info"
+        title="¿Arreglamos las demás?"
+        message={
+          correccionPendiente
+            ? `Tienes ${correccionPendiente.cantidad} transacción(es) más de "${correccionPendiente.comercio}" con la categoría anterior.\n\n¿Quieres cambiarlas todas también?`
+            : ''
+        }
+        buttonText={correccionPendiente ? `Sí, cambiar ${correccionPendiente.cantidad}` : 'Sí'}
+        showSecondaryButton={true}
+        secondaryButtonText="No, solo esta"
+        onSecondaryPress={() => {
+          setMostrarCorreccion(false);
+          setCorreccionPendiente(null);
+        }}
+        onClose={aplicarCorreccionComercio}
       />
 
       {/* Modal de upgrade para exportación CSV */}
@@ -1042,9 +1108,9 @@ const styles = StyleSheet.create({
   },
   addButton: {
     backgroundColor: '#2563EB',
-    borderRadius: 25,
-    width: 50,
-    height: 50,
+    borderRadius: 22,
+    width: 44,
+    height: 44,
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -1080,6 +1146,9 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
     textAlign: 'center',
     marginTop: 8,
+  },
+  patronesWrapper: {
+    marginHorizontal: 20,
   },
   dateGroup: {
     marginBottom: 20,
@@ -1161,14 +1230,16 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   filterButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: '#f1f5f9',
+    // Mismo azul que exportar y recurrentes. Estaba en gris (#f1f5f9 con borde
+    // #e2e8f0) y en la fila de botones se leía como si estuviera desactivado.
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#e2e8f0',
+    borderColor: '#bfdbfe',
   },
   filterButtonActive: {
     backgroundColor: '#2563EB',
@@ -1369,9 +1440,9 @@ const styles = StyleSheet.create({
   },
   // Estilos de exportación
   recurringHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',
@@ -1384,9 +1455,9 @@ const styles = StyleSheet.create({
     gap: 5,
   },
   exportHeaderButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
     backgroundColor: '#eff6ff',
     justifyContent: 'center',
     alignItems: 'center',

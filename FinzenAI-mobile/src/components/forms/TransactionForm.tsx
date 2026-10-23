@@ -12,13 +12,14 @@ import {
   Dimensions,
   KeyboardAvoidingView,
   Platform,
+  Switch,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import { categoriesAPI, transactionsAPI, exchangeRatesAPI, recurringAPI, Category, Transaction, RecurrenceFrequency } from '../../utils/api';
+import { categoriesAPI, transactionsAPI, exchangeRatesAPI, recurringAPI, sharedAPI, Category, Transaction, RecurrenceFrequency, CompartidoDeCategoria } from '../../utils/api';
 import RecurrenceSelector from './RecurrenceSelector';
 import { useDashboardStore } from '../../stores/dashboard';
 import { useCurrency } from '../../hooks/useCurrency';
@@ -26,11 +27,25 @@ import CustomModal from '../modals/CustomModal';
 import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 
 import { logger } from '../../utils/logger';
+/** Aviso de que hay más transacciones del mismo comercio por corregir. */
+export interface CorreccionComercio {
+  comercio: string;
+  /** Texto con el que el backend busca las demás. Viaja tal cual llegó: la app
+   *  no lo calcula ni lo interpreta. */
+  prefijo: string;
+  cantidad: number;
+  categoriaAnterior: string;
+  categoriaNueva: string;
+}
+
 interface TransactionFormProps {
   visible: boolean;
   onClose: () => void;
   onSuccess: (message: string) => void;
   editTransaction?: Transaction | null;
+  /** Lo maneja la Screen, no el formulario: el form se cierra al guardar y la
+   *  pregunta tiene que sobrevivir a ese cierre. */
+  onCorregirComercio?: (info: CorreccionComercio) => void;
 }
 
 const TransactionForm: React.FC<TransactionFormProps> = ({
@@ -38,6 +53,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   onClose,
   onSuccess,
   editTransaction,
+  onCorregirComercio,
 }) => {
   const [formData, setFormData] = useState({
     description: '',
@@ -98,6 +114,16 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   const [isRecurring, setIsRecurring] = useState(false);
   const [frequency, setFrequency] = useState<RecurrenceFrequency>('MONTHLY');
   const [stoppingRecurring, setStoppingRecurring] = useState(false);
+
+  // Presupuesto compartido de la categoría elegida (si hay). Un gasto ahí cuenta
+  // para todos por defecto; la persona puede marcarlo como personal.
+  const [compartido, setCompartido] = useState<CompartidoDeCategoria | null>(null);
+  const [contarEnCompartido, setContarEnCompartido] = useState(true);
+  // Gasto automático propio aún sin confirmar: en vez del interruptor (que lo
+  // mostraba "prendido" como si ya estuviera confirmado) se pregunta. La
+  // respuesta se aplica al guardar, como el resto del formulario.
+  const [porConfirmarCompartido, setPorConfirmarCompartido] = useState(false);
+  const [respuestaCompartido, setRespuestaCompartido] = useState<'compartido' | 'personal' | null>(null);
 
   // Dashboard store para notificar cambios
   const { onTransactionChange } = useDashboardStore();
@@ -180,7 +206,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         const displayDate = convertToDisplayFormat(backendDate); // DD-MM-YYYY
 
         setFormData({
-          description: editTransaction.description,
+          description: editTransaction.description || '',
           amount: editTransaction.amount.toString(),
           type: editTransaction.type,
           categoryId: categoryId,
@@ -191,6 +217,34 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       }
     }
   }, [visible, editTransaction]);
+
+  // ¿La categoría elegida está en un presupuesto compartido? Solo gastos.
+  const editId = editTransaction?.id;
+  const editOptOut = !!editTransaction?.sharedOptOut;
+  useEffect(() => {
+    // Al cambiar de categoría se oculta el interruptor hasta saber la respuesta:
+    // así nunca se guarda "personal" para una categoría que no es la del compartido.
+    setCompartido(null);
+    setPorConfirmarCompartido(false);
+    setRespuestaCompartido(null);
+    if (!visible || formData.type !== 'EXPENSE' || !formData.categoryId) {
+      return;
+    }
+    let vigente = true;
+    sharedAPI.compartidoDeCategoria(formData.categoryId, editId)
+      .then(({ data }) => {
+        if (!vigente) return;
+        setCompartido(data?.compartido ?? null);
+        setPorConfirmarCompartido(!!data?.compartido?.gastoPorConfirmar);
+        // Al editar se respeta lo que ya tenía; al crear, cuenta por defecto.
+        setContarEnCompartido(editId ? !editOptOut : true);
+      })
+      .catch((e) => {
+        if (vigente) setCompartido(null);
+        logger.error('Error consultando compartido de la categoría:', e);
+      });
+    return () => { vigente = false; };
+  }, [visible, formData.type, formData.categoryId, editId, editOptOut]);
 
   // Effect to calculate conversion when values change (replicando la web)
   useEffect(() => {
@@ -439,13 +493,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
 
   const handleSubmit = async () => {
-    // Validaciones
-    if (!formData.description.trim()) {
-      setErrorMessage('La descripción es requerida');
-      setShowErrorModal(true);
-      return;
-    }
-
+    // Validaciones (la descripción es opcional)
     if (!formData.amount || isNaN(Number(formData.amount)) || Number(formData.amount) <= 0) {
       setErrorMessage('Ingresa un monto válido');
       setShowErrorModal(true);
@@ -464,8 +512,11 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
       // Convertir fecha de DD-MM-YYYY a YYYY-MM-DD para el backend
       const backendDate = convertToBackendFormat(formData.date);
 
+      // Sin descripción, se guarda con el nombre de la categoría para que la
+      // lista, los reportes y Zenio siempre tengan un texto que mostrar.
+      const nombreCategoria = categories.find(cat => cat.id === formData.categoryId)?.name || '';
       const transactionData = {
-        description: formData.description.trim(),
+        description: formData.description.trim() || nombreCategoria,
         amount: Number(formData.amount),
         type: formData.type,
         category_id: formData.categoryId,
@@ -474,18 +525,57 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
       let message = '';
       if (editTransaction) {
-        await transactionsAPI.update(editTransaction.id, transactionData);
+        const res = await transactionsAPI.update(editTransaction.id, transactionData);
         message = 'Transacción actualizada correctamente';
+
+        // "Este es personal" / "vuelve a contar" va por su propia ruta.
+        if (compartido && porConfirmarCompartido) {
+          // Sin respuesta, sigue por confirmar.
+          if (respuestaCompartido === 'compartido') await sharedAPI.confirmarGasto(editTransaction.id);
+          else if (respuestaCompartido === 'personal') await sharedAPI.sacarDelCompartido(editTransaction.id);
+        } else if (compartido) {
+          const quierePersonal = !contarEnCompartido;
+          if (quierePersonal !== !!editTransaction.sharedOptOut) {
+            if (quierePersonal) await sharedAPI.sacarDelCompartido(editTransaction.id);
+            else await sharedAPI.volverAContar(editTransaction.id);
+          }
+        }
+
+        // Si el backend encontró más transacciones del mismo comercio con la
+        // categoría vieja, se ofrece arreglarlas todas de una.
+        //
+        // Importa sobre todo la primera vez que alguien conecta su correo: entran
+        // 90 días de golpe y un comercio mal categorizado aparece repetido ocho
+        // veces. Sin esto hay que corregir ocho veces lo mismo, que es justo
+        // cuando la función deja de parecer mágica y empieza a parecer trabajo.
+        const similares = (res?.data as any)?.similares;
+        if (similares?.cantidad > 0) {
+          onCorregirComercio?.({
+            comercio: similares.comercio,
+            prefijo: similares.prefijo,
+            cantidad: similares.cantidad,
+            categoriaAnterior: editTransaction.category_id,
+            categoriaNueva: formData.categoryId,
+          });
+        }
       } else {
         // Si marcó "repetir", el backend crea la transacción de hoy Y la regla.
         // La primera repetición generada será la SIGUIENTE, no otra hoy.
-        await transactionsAPI.create({
+        const res = await transactionsAPI.create({
           ...transactionData,
           ...(isRecurring ? { recurrence: { frequency } } : {}),
+          ...(compartido && !contarEnCompartido ? { sharedOptOut: true } : {}),
         });
         message = isRecurring
           ? 'Transacción creada. Se repetirá automáticamente.'
           : 'Transacción creada correctamente';
+
+        // Micro-insight del Reto de la Primera Semana (H13). El backend lo
+        // devuelve en `h13Insight` solo si el usuario está en el brazo del reto
+        // y su ventana sigue abierta; para todos los demás viene vacío. Es el
+        // refuerzo más frecuente del reto: sale con CADA registro.
+        const insight = (res?.data as any)?.h13Insight;
+        if (insight) message = `${message}\n\n${insight}`;
       }
 
       // Ejecutar callbacks. El Screen recibe el mensaje y maneja el modal de éxito
@@ -614,7 +704,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
           {/* Descripción */}
           <View style={styles.section}>
-            <Text style={styles.label}>Descripción</Text>
+            <Text style={styles.label}>Descripción (opcional)</Text>
             <TextInput
               style={styles.input}
               value={formData.description}
@@ -698,6 +788,68 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 type={formData.type}
                 disabled={loading}
               />
+            </View>
+          )}
+
+          {/* Presupuesto compartido: el gasto cuenta para todos salvo que sea personal. */}
+          {compartido && formData.type === 'EXPENSE' && porConfirmarCompartido && (
+            <View style={styles.section}>
+              <View style={styles.sharedToggle}>
+                <View style={styles.sharedToggleTextos}>
+                  <Text style={styles.sharedToggleTitle}>Por confirmar en «{compartido.name}»</Text>
+                  <Text style={styles.sharedToggleText}>
+                    {respuestaCompartido === 'compartido'
+                      ? 'Al guardar se confirma: los demás verán el comercio.'
+                      : respuestaCompartido === 'personal'
+                        ? 'Al guardar sale del compartido y queda solo para ti.'
+                        : 'Entró de tu correo. Los demás solo ven el monto hasta que lo confirmes.'}
+                  </Text>
+                  <View style={styles.sharedDecision}>
+                    <TouchableOpacity
+                      style={[styles.sharedDecisionBoton, respuestaCompartido === 'compartido' && styles.sharedDecisionActiva]}
+                      onPress={() => setRespuestaCompartido(respuestaCompartido === 'compartido' ? null : 'compartido')}
+                      disabled={loading}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.sharedDecisionTexto, respuestaCompartido === 'compartido' && styles.sharedDecisionTextoActiva]}>
+                        Sí, es compartido
+                      </Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={[styles.sharedDecisionBoton, respuestaCompartido === 'personal' && styles.sharedDecisionActiva]}
+                      onPress={() => setRespuestaCompartido(respuestaCompartido === 'personal' ? null : 'personal')}
+                      disabled={loading}
+                      activeOpacity={0.7}
+                    >
+                      <Text style={[styles.sharedDecisionTexto, respuestaCompartido === 'personal' && styles.sharedDecisionTextoActiva]}>
+                        Es personal
+                      </Text>
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              </View>
+            </View>
+          )}
+
+          {compartido && formData.type === 'EXPENSE' && !porConfirmarCompartido && (
+            <View style={styles.section}>
+              <View style={styles.sharedToggle}>
+                <View style={styles.sharedToggleTextos}>
+                  <Text style={styles.sharedToggleTitle}>Contar en «{compartido.name}»</Text>
+                  <Text style={styles.sharedToggleText}>
+                    {contarEnCompartido
+                      ? 'Es compartido: suma ahí y los demás lo ven.'
+                      : 'Es personal: no suma en el compartido.'}
+                  </Text>
+                </View>
+                <Switch
+                  value={contarEnCompartido}
+                  onValueChange={setContarEnCompartido}
+                  disabled={loading}
+                  trackColor={{ false: '#cbd5e1', true: '#93c5fd' }}
+                  thumbColor={contarEnCompartido ? '#2563EB' : '#f1f5f9'}
+                />
+              </View>
             </View>
           )}
 
@@ -1040,6 +1192,54 @@ const styles = StyleSheet.create({
   },
   section: {
     marginTop: 20,
+  },
+  sharedToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#eff6ff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#bfdbfe',
+    padding: 14,
+  },
+  sharedToggleTextos: {
+    flex: 1,
+  },
+  sharedToggleTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  sharedToggleText: {
+    fontSize: 13,
+    color: '#475569',
+    marginTop: 2,
+  },
+  sharedDecision: {
+    flexDirection: 'row',
+    gap: 8,
+    marginTop: 10,
+  },
+  sharedDecisionBoton: {
+    paddingHorizontal: 14,
+    paddingVertical: 8,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#93c5fd',
+    backgroundColor: 'white',
+  },
+  sharedDecisionActiva: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  sharedDecisionTexto: {
+    color: '#1e40af',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  sharedDecisionTextoActiva: {
+    color: 'white',
   },
   // Aviso al editar una transacción generada por una regla de recurrencia
   recurringNotice: {

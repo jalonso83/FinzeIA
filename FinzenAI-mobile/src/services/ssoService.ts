@@ -43,6 +43,16 @@ async function getPendingReferralCode(): Promise<string | undefined> {
   }
 }
 
+/** Código de invitación a un compartido que llegó por enlace. No se borra aquí:
+ * al entrar, la app lo abre y lo borra ella. */
+async function getPendingInviteCode(): Promise<string | undefined> {
+  try {
+    return (await AsyncStorage.getItem('pendingInviteCode')) || undefined;
+  } catch {
+    return undefined;
+  }
+}
+
 async function clearPendingReferralCode(): Promise<void> {
   try {
     await AsyncStorage.removeItem('pendingReferralCode');
@@ -104,6 +114,7 @@ export async function signInWithGoogle(): Promise<SSOAuthResponse> {
   const { data } = await authAPI.googleSignIn({
     idToken,
     referralCode,
+    inviteCode: await getPendingInviteCode(),
     ...getDeviceLocaleHints(),
   });
 
