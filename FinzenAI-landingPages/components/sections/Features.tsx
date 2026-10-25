@@ -25,8 +25,12 @@ import { useInView } from '@/hooks/useInView';
 //            del plan PRO y como una FAQ que preguntaba si era segura, o sea que
 //            la página se defendía de una objeción sobre algo que nunca había
 //            propuesto.
+//            Zenio va segundo para presentarlo antes de que "Reportes con IA"
+//            lo mencione (punto 5 de las mejoras del 23/10/2026).
 //   Fila 2 — las herramientas del día a día.
 //   Fila 3 — lo que sostiene el hábito.
+//
+// El color sigue a la fila, no a la tarjeta: verde, azul, verde.
 //
 // Son 9 a propósito: llenan 3×3 exacto en escritorio. Con 7 quedaba una suelta
 // abajo. Si se agrega o quita una, hay que volver a cuadrar en múltiplos de 3.
@@ -40,11 +44,11 @@ const features = [
       'Conecta tu correo y FinZen registra tus compras solo, leyendo las notificaciones que ya te manda tu banco. Ni una transacción a mano.',
   },
   {
-    icon: BellRing,
+    icon: MessageCircle,
     color: 'text-finzen-green',
-    title: 'Recordatorios de pago',
+    title: 'Zenio AI, tu copiloto financiero',
     description:
-      'Dile cuándo vence la luz, el alquiler o la tarjeta y FinZen te avisa antes. No más recargos por olvido.',
+      'Habla con Zenio como si fuera un amigo. Dile "Gasté 500 en comida" y listo, se registra solo. Pregúntale lo que quieras sobre finanzas, te responde sin juzgarte.',
   },
   {
     icon: FileText,
@@ -56,11 +60,11 @@ const features = [
 
   // ─── Fila 2 · las herramientas ───────────────────────────────────────────
   {
-    icon: MessageCircle,
+    icon: BellRing,
     color: 'text-finzen-blue',
-    title: 'Zenio AI, tu copiloto financiero',
+    title: 'Recordatorios de pago',
     description:
-      'Habla con Zenio como si fuera un amigo. Dile "Gasté 500 en comida" y listo, se registra solo. Pregúntale lo que quieras sobre finanzas, te responde sin juzgarte.',
+      'Dile cuándo vence la luz, el alquiler o la tarjeta y FinZen te avisa antes. No más recargos por olvido.',
   },
   {
     icon: LayoutDashboard,
