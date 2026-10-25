@@ -31,6 +31,16 @@ const cases = [
       'Manejar el dinero por separado genera conflictos. Con FinZen AI, ambos pueden ver sus gastos en tiempo real, definir metas juntos y ahorrar para ese viaje o apartamento que tanto quieren.',
     highlight: 'Metas de ahorro compartidas',
   },
+  {
+    // Los otros tres perfiles son jóvenes, y buena parte de quien paga hoy
+    // tiene 30 años o más (punto 8 de las mejoras del 23/10/2026).
+    name: 'Adulto con responsabilidades',
+    age: '',
+    role: 'Siempre surge algo el día de cobro',
+    story:
+      'Llega la quincena y, antes de que termine el día, ya se fue: el niño amaneció con fiebre, en el trabajo pasaron el serrucho y el carro volvió a sonar raro. No es que gastes de más, es que nunca hubo un colchón. Con FinZen AI ves a dónde va cada peso y vas armando un fondo para cuando "siempre pasa algo".',
+    highlight: 'Un fondo para los imprevistos',
+  },
 ];
 
 export default function UseCases() {
@@ -55,22 +65,26 @@ export default function UseCases() {
           isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >
-        {/* Desktop: 3 cards */}
-        <div className="hidden md:grid md:grid-cols-3 gap-6">
+        {/* Tablet: 2×2. Escritorio: las 4 en una fila. Para que no queden tan
+            altas, la fila se sale del margen del contenido la mitad del espacio
+            libre a cada lado, y las tarjetas usan relleno y letra más compactos.
+            El título baja un tamaño hasta 1360px para que "Adulto con
+            responsabilidades" quepa en una línea. */}
+        <div className="hidden md:grid md:grid-cols-2 lg:grid-cols-4 gap-6 lg:gap-4 lg:relative lg:left-1/2 lg:-translate-x-1/2 lg:w-[calc((min(100vw,80rem)-4rem+100vw)/2)]">
           {cases.map((c, i) => (
-            <Card key={i} className="h-full flex flex-col">
-              <div className="mb-4">
-                <h3 className="font-rubik font-semibold text-lg text-finzen-black">
+            <Card key={i} className="h-full flex flex-col lg:!px-5 lg:!py-6">
+              <div className="mb-4 lg:mb-3">
+                <h3 className="font-rubik font-semibold text-lg lg:text-base min-[1360px]:text-lg text-finzen-black">
                   {c.name}
                 </h3>
                 <p className="text-finzen-gray text-sm">
                   {c.role}
                 </p>
               </div>
-              <p className="text-finzen-black text-base leading-relaxed flex-grow">
+              <p className="text-finzen-black text-base lg:text-sm leading-relaxed flex-grow">
                 {c.story}
               </p>
-              <div className="mt-4 pt-4 border-t border-finzen-gray/20">
+              <div className="mt-4 pt-4 lg:mt-3 lg:pt-3 border-t border-finzen-gray/20">
                 <p className="text-finzen-green font-semibold text-sm">
                   {c.highlight}
                 </p>
