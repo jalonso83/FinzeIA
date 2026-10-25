@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Image from 'next/image';
-import Link from 'next/link';
-import { Menu, X, LogIn } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import { useScrollSpy } from '@/hooks/useScrollSpy';
 import { NAV_LINKS, SECTION_IDS } from '@/lib/constants';
@@ -80,19 +79,9 @@ export default function Navbar() {
           })}
         </div>
 
-        {/* Desktop CTA */}
+        {/* Desktop CTA. Sin enlace a /login: llevaba al panel interno, no a una
+            cuenta de usuario, y dejaba a la vista la entrada al sistema. */}
         <div className="hidden md:flex items-center gap-3">
-          <Link
-            href="/login"
-            className={`flex items-center gap-1.5 text-sm font-medium transition-all duration-200 hover:scale-105 ${
-              scrolled
-                ? 'text-finzen-gray hover:text-finzen-blue'
-                : 'text-white/70 hover:text-white'
-            }`}
-          >
-            <LogIn size={16} className="transition-transform duration-200 hover:rotate-12" />
-            Iniciar Sesión
-          </Link>
           <a
             href="#final-cta"
             className="inline-flex items-center justify-center whitespace-nowrap bg-finzen-green text-white rounded-xl font-rubik font-semibold hover:opacity-90 transition-all duration-300 px-4 py-2 text-sm"
@@ -139,14 +128,6 @@ export default function Navbar() {
           >
             Descargar Gratis
           </a>
-          <Link
-            href="/login"
-            className="inline-flex items-center justify-center gap-2 text-finzen-gray hover:text-finzen-blue transition-colors text-base font-medium"
-            onClick={() => setMenuOpen(false)}
-          >
-            <LogIn size={18} />
-            Iniciar Sesión
-          </Link>
         </div>
       </div>
     </nav>
