@@ -20,7 +20,7 @@ const steps = [
     icon: Mail,
     title: 'Conecta tu correo',
     description:
-      'FinZen lee las notificaciones que ya te manda tu banco y registra tus gastos solo. Sin teclear nada.',
+      'FinZen AI lee las notificaciones que ya te manda tu banco y registra tus gastos e ingresos solo. Sin teclear nada.',
   },
   {
     icon: TrendingUp,
