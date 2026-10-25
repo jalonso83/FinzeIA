@@ -8,6 +8,7 @@ import HowItWorks from '@/components/sections/HowItWorks';
 import Pricing from '@/components/sections/Pricing';
 import UseCases from '@/components/sections/UseCases';
 import FAQ from '@/components/sections/FAQ';
+import Contact from '@/components/sections/Contact';
 import FinalCTA from '@/components/sections/FinalCTA';
 import Footer from '@/components/sections/Footer';
 import BackToTop from '@/components/ui/BackToTop';
@@ -25,6 +26,7 @@ export default function Home() {
       <Pricing />
       <UseCases />
       <FAQ />
+      <Contact />
       <FinalCTA />
       <Footer />
       <BackToTop />
