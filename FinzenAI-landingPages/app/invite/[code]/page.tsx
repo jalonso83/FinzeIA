@@ -57,7 +57,7 @@ function problema(inv: VistaInvitacion): { titulo: string; texto: string } | nul
     case 'usada':
       return {
         titulo: 'Esta invitación ya se usó',
-        texto: `Si fuiste tú, abre FinZen: ya estás dentro. Si no, pídele a ${inv.dueno} una invitación nueva.`,
+        texto: `Si fuiste tú, abre FinZen AI: ya estás dentro. Si no, pídele a ${inv.dueno} una invitación nueva.`,
       };
     case 'revocada':
       return { titulo: 'Esta invitación se canceló', texto: `${inv.dueno} la canceló. Si fue un error, pídele una nueva.` };
@@ -75,7 +75,7 @@ function problema(inv: VistaInvitacion): { titulo: string; texto: string } | nul
 export async function generateMetadata({ params }: { params: { code: string } }): Promise<Metadata> {
   const code = normalizar(params.code);
   const r = await cargar(code);
-  const titulo = r.ok && r.inv.estado === 'valida' ? `${frase(r.inv)} en FinZen` : 'Invitación a FinZen AI';
+  const titulo = r.ok && r.inv.estado === 'valida' ? `${frase(r.inv)} en FinZen AI` : 'Invitación a FinZen AI';
   const descripcion = 'Lleven juntos sus gastos y metas en FinZen AI. Toca para ver la invitación.';
   return {
     title: titulo,

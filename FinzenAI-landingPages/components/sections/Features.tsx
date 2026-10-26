@@ -41,7 +41,7 @@ const features = [
     color: 'text-finzen-green',
     title: 'Gastos en automático',
     description:
-      'Conecta tu correo y FinZen registra tus compras solo, leyendo las notificaciones que ya te manda tu banco. Ni una transacción a mano.',
+      'Conecta tu correo y FinZen AI registra tus compras solo, leyendo las notificaciones que ya te manda tu banco. Ni una transacción a mano.',
   },
   {
     icon: MessageCircle,
@@ -64,7 +64,7 @@ const features = [
     color: 'text-finzen-blue',
     title: 'Recordatorios de pago',
     description:
-      'Dile cuándo vence la luz, el alquiler o la tarjeta y FinZen te avisa antes. No más recargos por olvido.',
+      'Dile cuándo vence la luz, el alquiler o la tarjeta y FinZen AI te avisa antes. No más recargos por olvido.',
   },
   {
     icon: LayoutDashboard,

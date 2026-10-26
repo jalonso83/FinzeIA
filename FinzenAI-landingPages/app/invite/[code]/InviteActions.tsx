@@ -59,7 +59,7 @@ export default function InviteActions({ code }: { code: string }) {
       </button>
       <p className="text-xs text-finzen-gray mb-6">Lo vas a necesitar dentro de la app.</p>
 
-      <p className="text-sm font-semibold text-finzen-black mb-2">¿Todavía no tienes FinZen?</p>
+      <p className="text-sm font-semibold text-finzen-black mb-2">¿Todavía no tienes FinZen AI?</p>
       <ol className="text-sm text-finzen-gray list-decimal pl-5 space-y-1 mb-4">
         <li>Descárgala gratis.</li>
         <li>Crea tu cuenta.</li>
@@ -75,7 +75,7 @@ export default function InviteActions({ code }: { code: string }) {
         href={`finzenai://invite/${code}`}
         className="block w-full text-center py-3 rounded-xl text-finzen-blue font-semibold text-sm hover:underline"
       >
-        Ya tengo FinZen: abrir la app
+        Ya tengo FinZen AI: abrir la app
       </a>
     </div>
   );
