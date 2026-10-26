@@ -26,6 +26,7 @@ export default function Navbar() {
   }, [menuOpen]);
 
   return (
+    <>
     <nav
       className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
         scrolled
@@ -114,8 +115,12 @@ export default function Navbar() {
           )}
         </button>
       </div>
+    </nav>
 
-      {/* Mobile slide-in panel */}
+      {/* Mobile slide-in panel. Va FUERA de la <nav>: al bajar, la barra usa
+          backdrop-blur, y ese filtro hace que un hijo `fixed` se posicione
+          respecto a la barra (64px) en vez de la pantalla; el fondo blanco se
+          quedaba sin altura y el menú se encimaba sobre la página. */}
       <div
         className={`md:hidden fixed inset-0 top-16 bg-white z-40 transition-transform duration-300 ${
           menuOpen ? 'translate-x-0' : 'translate-x-full'
@@ -149,6 +154,6 @@ export default function Navbar() {
           </Link>
         </div>
       </div>
-    </nav>
+    </>
   );
 }
