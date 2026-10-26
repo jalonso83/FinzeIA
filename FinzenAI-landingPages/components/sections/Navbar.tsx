@@ -46,15 +46,23 @@ export default function Navbar() {
               priority
             />
           </div>
-          {/* Mobile: icon logo */}
-          <div className="block md:hidden relative w-8 h-8">
-            <Image
-              src="/logo-finzen-icon.png"
-              alt="FinZen AI"
-              fill
-              className="object-contain"
-              priority
-            />
+          {/* Mobile: icon logo. Sobre la portada azul el logo azul se perdía (solo
+              se veía el punto verde): mientras se está arriba va dentro de un
+              círculo blanco; al bajar, con la barra blanca, se quita el círculo. */}
+          <div
+            className={`block md:hidden transition-all duration-300 ${
+              scrolled ? 'w-8 h-8' : 'w-11 h-11 rounded-full bg-white shadow-md p-1.5'
+            }`}
+          >
+            <div className="relative w-full h-full">
+              <Image
+                src="/logo-finzen-icon.png"
+                alt="FinZen AI"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
           </div>
         </a>
 
