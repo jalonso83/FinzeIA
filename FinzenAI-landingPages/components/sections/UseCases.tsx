@@ -38,7 +38,7 @@ const cases = [
     age: '',
     role: 'Siempre surge algo el día de cobro',
     story:
-      'Llega la quincena y, antes de que termine el día, ya se fue: el niño amaneció con fiebre, en el trabajo pasaron el serrucho y el carro volvió a sonar raro. No es que gastes de más, es que nunca hubo un colchón. Con FinZen AI ves a dónde va cada peso y vas armando un fondo para cuando "siempre pasa algo".',
+      'Llega la quincena y, antes de que termine el día, ya se fue: el niño amaneció con fiebre, en la oficina pasaron el serrucho y el carro volvió a sonar raro. No es que gastes de más, es que nunca hubo un colchón. Con FinZen AI ves a dónde va cada peso y vas armando un fondo para cuando "siempre pasa algo".',
     highlight: 'Un fondo para los imprevistos',
   },
 ];
