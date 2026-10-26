@@ -40,8 +40,9 @@ export default function Hero() {
               transacción.
             </p>
 
-            {/* CTAs conditioned by device */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-start mb-4 animate-bounce-gentle">
+            {/* Botones de descarga. En móvil van uno al lado del otro (dos
+                columnas iguales); desde sm, en fila con su ancho mínimo. */}
+            <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:gap-4 justify-center md:justify-start items-start mb-4 animate-bounce-gentle">
               <Button
                 variant="primary"
                 size="md"
@@ -49,7 +50,7 @@ export default function Hero() {
                 icon={<AppleLogo size={18} />}
                 onClick={() => trackDownloadIOS('hero')}
                 target="_blank"
-                className="min-w-[200px] h-[52px] transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
+                className="w-full sm:w-auto min-w-0 sm:min-w-[200px] h-[52px] !px-3 sm:!px-6 transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
               >
                 App Store
               </Button>
@@ -60,7 +61,7 @@ export default function Hero() {
                 icon={<Play size={18} />}
                 onClick={() => trackDownloadAndroid('hero')}
                 target="_blank"
-                className="min-w-[200px] h-[52px] transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
+                className="w-full sm:w-auto min-w-0 sm:min-w-[200px] h-[52px] !px-3 sm:!px-6 transform hover:scale-105 transition-all duration-300 hover:shadow-lg animate-glow"
               >
                 Google Play
               </Button>
