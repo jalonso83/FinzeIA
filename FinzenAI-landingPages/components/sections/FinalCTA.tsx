@@ -41,7 +41,7 @@ export default function FinalCTA() {
             target="_blank"
             className="min-w-[180px]"
           >
-            Da el primer paso
+            App Store
           </Button>
           <Button
             variant="primary"
