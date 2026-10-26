@@ -31,7 +31,9 @@ export default function FinalCTA() {
           hoy.
         </p>
 
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+        {/* En móvil, uno al lado del otro (dos columnas iguales), igual que en la
+            portada; desde sm, en fila con su ancho mínimo. */}
+        <div className="grid grid-cols-2 gap-3 sm:flex sm:flex-row sm:gap-4 justify-center">
           <Button
             variant="primary"
             size="md"
@@ -39,7 +41,7 @@ export default function FinalCTA() {
             icon={<AppleLogo size={18} />}
             onClick={() => trackDownloadIOS('footer_cta')}
             target="_blank"
-            className="min-w-[180px]"
+            className="w-full sm:w-auto min-w-0 sm:min-w-[180px] !px-3 sm:!px-6"
           >
             App Store
           </Button>
@@ -50,7 +52,7 @@ export default function FinalCTA() {
             icon={<Play size={18} />}
             onClick={() => trackDownloadAndroid('footer_cta')}
             target="_blank"
-            className="min-w-[180px]"
+            className="w-full sm:w-auto min-w-0 sm:min-w-[180px] !px-3 sm:!px-6"
           >
             Google Play
           </Button>
