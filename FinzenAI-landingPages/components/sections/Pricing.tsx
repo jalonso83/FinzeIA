@@ -68,6 +68,10 @@ const plans: PricingPlan[] = [
       { text: 'Todo de Gratis +' },
       { text: 'Presupuestos ilimitados' },
       { text: 'Metas ilimitadas' },
+      // Compartir presupuestos y metas llegó en la actualización 2.2 y está en
+      // Plus y Pro (PRO lo hereda por "Todo de Plus +"). Invitas hasta 3
+      // personas: 4 en total, contándote.
+      { text: 'Presupuestos y metas compartidos hasta 4 personas (Quien invitas entra gratis)' },
       { text: 'Zenio ilimitado' },
       { text: 'Alertas configurables' },
       { text: 'Zenio con voz' },
@@ -110,6 +114,14 @@ const plans: PricingPlan[] = [
     planId: 'pro',
   },
 ];
+
+// Los beneficios de cada plan se muestran de lo más corto a lo más largo. Si el
+// primero es "Todo de Gratis +" / "Todo de Plus +", se queda arriba.
+function ordenarBeneficios(features: PlanFeature[]): PlanFeature[] {
+  const fijo = features[0]?.text.startsWith('Todo de') ? features.slice(0, 1) : [];
+  const resto = features.slice(fijo.length).sort((a, b) => a.text.length - b.text.length);
+  return [...fijo, ...resto];
+}
 
 function BillingToggle({
   isAnnual,
@@ -206,7 +218,7 @@ function PricingCard({
         </div>
 
         <ul className="space-y-3 mb-8 flex-grow">
-          {plan.features.map((feature, i) => (
+          {ordenarBeneficios(plan.features).map((feature, i) => (
             <li key={i} className="flex items-start gap-3 group hover:transform hover:translate-x-1 transition-all duration-200">
               <div className="mt-0.5 shrink-0">
                 <Icon 
