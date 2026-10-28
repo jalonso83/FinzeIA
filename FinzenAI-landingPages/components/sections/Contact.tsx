@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { Instagram, Mail, MessageCircle } from 'lucide-react';
 import Card from '@/components/ui/Card';
 import Icon from '@/components/ui/Icon';
@@ -47,7 +48,17 @@ export default function Contact() {
   return (
     <section id="contacto" className="bg-white">
       <div className="px-4 md:px-8 pb-16 md:pb-24 -mt-8 md:-mt-12 max-w-4xl mx-auto">
-        <div className="rounded-2xl bg-finzen-white border border-finzen-gray/20 px-4 py-8 md:px-8 text-center">
+        <div className="relative rounded-2xl bg-finzen-white border border-finzen-gray/20 px-4 py-8 md:px-8 text-center">
+          {/* Zenio (punto 12), señalando hacia el contacto. Hasta xl va centrado
+              arriba del título; desde xl, afuera del recuadro, en la zona blanca
+              de la izquierda. */}
+          <Image
+            src="/zenio-senalando.png"
+            alt="Zenio, el copiloto financiero de FinZen AI"
+            width={420}
+            height={696}
+            className="mx-auto mb-3 w-16 md:w-20 h-auto drop-shadow-md xl:absolute xl:mb-0 xl:-left-40 xl:bottom-4 xl:w-32"
+          />
           <h3 className="font-rubik font-semibold text-xl md:text-2xl text-finzen-black mb-1">
             ¿No encontraste tu respuesta? Escríbenos
           </h3>
