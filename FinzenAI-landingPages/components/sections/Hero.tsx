@@ -73,7 +73,11 @@ export default function Hero() {
 
           {/* Hero 3D mockup */}
           <div className="flex justify-center md:justify-end animate-float">
-            <div className="relative w-[340px] h-[620px] md:w-[420px] md:h-[750px] lg:w-[460px] lg:h-[820px] transform hover:scale-105 transition-all duration-500">
+            {/* Solo en pantallas de menos de 356px (donde 340px + el margen ya no
+                caben y la página se desbordaba hacia el costado) el teléfono se
+                achica al ancho disponible, manteniendo la proporción. Desde 356px
+                queda exactamente igual que siempre. */}
+            <div className="relative w-[340px] h-[620px] max-[355px]:w-[calc(100vw-2rem)] max-[355px]:h-auto max-[355px]:aspect-[340/620] md:w-[420px] md:h-[750px] lg:w-[460px] lg:h-[820px] transform hover:scale-105 transition-all duration-500">
               <Image
                 src="/zenio-screenshot.png"
                 alt="Zenio - Tu copiloto financiero con IA"
