@@ -31,6 +31,16 @@ const cases = [
       'Manejar el dinero por separado genera conflictos. Con FinZen AI, ambos pueden ver sus gastos en tiempo real, definir metas juntos y ahorrar para ese viaje o apartamento que tanto quieren.',
     highlight: 'Metas de ahorro compartidas',
   },
+  {
+    // Los otros tres perfiles son jóvenes, y buena parte de quien paga hoy
+    // tiene 30 años o más (punto 8 de las mejoras del 23/10/2026).
+    name: 'Adulto con responsabilidades',
+    age: '',
+    role: 'Siempre surge algo el día de cobro',
+    story:
+      'Llega la quincena y, antes de que termine el día, ya se fue: el niño amaneció con fiebre, en la oficina pasaron el serrucho y el carro volvió a sonar raro. No es que gastes de más, es que nunca hubo un colchón. Con FinZen AI ves a dónde va cada peso y vas armando un fondo para cuando "siempre pasa algo".',
+    highlight: 'Un fondo para los imprevistos',
+  },
 ];
 
 export default function UseCases() {
@@ -55,8 +65,8 @@ export default function UseCases() {
           isInView ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-5'
         }`}
       >
-        {/* Desktop: 3 cards */}
-        <div className="hidden md:grid md:grid-cols-3 gap-6">
+        {/* Desktop: 4 cards en 2×2 (en 3 columnas la cuarta quedaba suelta) */}
+        <div className="hidden md:grid md:grid-cols-2 gap-6 max-w-5xl mx-auto">
           {cases.map((c, i) => (
             <Card key={i} className="h-full flex flex-col">
               <div className="mb-4">
