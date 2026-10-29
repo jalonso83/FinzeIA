@@ -146,7 +146,7 @@ export default function Features() {
     <SectionWrapper id="features" background="white">
       <h2 className="font-rubik font-bold italic text-3xl md:text-4xl text-finzen-black text-center mb-4 tracking-tight leading-tight animate-fade-in-down"
           style={{textShadow: '0 2px 4px rgba(0,0,0,0.1)'}}>
-        Esto es lo que Zenio hace por ti
+        Esto es lo que FinZen AI hace por ti
       </h2>
       <p className="text-finzen-gray text-center mb-12 max-w-2xl mx-auto leading-relaxed font-normal tracking-wide animate-fade-in-up">
         Todo lo que necesitas para tomar el control de tus finanzas, en un solo
