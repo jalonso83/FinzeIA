@@ -27,9 +27,11 @@ const cases = [
     name: 'Pareja joven',
     age: '',
     role: 'Comparten gastos',
+    // Presupuestos y metas compartidos ya están disponibles en la app (punto 9
+    // de las mejoras del 23/10/2026): hasta 4 personas por presupuesto o meta.
     story:
-      'Manejar el dinero por separado genera conflictos. Con FinZen AI, ambos pueden ver sus gastos en tiempo real, definir metas juntos y ahorrar para ese viaje o apartamento que tanto quieren.',
-    highlight: 'Metas de ahorro compartidas',
+      'Manejar el dinero por separado genera conflictos. Con FinZen AI comparten un presupuesto o una meta: los gastos de cada uno suman en el mismo lugar y los dos ven cuánto queda. También sirve con la familia o los roomies, hasta 4 personas.',
+    highlight: 'Presupuestos y metas compartidos',
   },
   {
     // Los otros tres perfiles son jóvenes, y buena parte de quien paga hoy
