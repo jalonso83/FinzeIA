@@ -24,6 +24,7 @@ export const SECTION_IDS = [
   'pricing',
   'use-cases',
   'faq',
+  'contacto',
   'final-cta',
 ] as const;
 
@@ -39,6 +40,10 @@ export const NAV_LINKS = [
 // ─── Contact & Social ───────────────────────────────────────────
 
 export const CONTACT_EMAIL = 'info@finzenai.com';
+// WhatsApp Business de FinZen AI (nunca un número personal: así se puede
+// delegar quién responde sin tocar la landing).
+export const WHATSAPP_NUMBER = '809-754-2325';
+export const WHATSAPP_URL = `https://wa.me/18097542325?text=${encodeURIComponent('Hola, tengo una pregunta sobre FinZen AI')}`;
 export const INSTAGRAM_HANDLE = '@finzenaiapp';
 export const INSTAGRAM_URL = 'https://www.instagram.com/finzenaiapp?igsh=a3lvMzk4ZTR6aGNy';
 export const TIKTOK_HANDLE = '@finzen.ai';
