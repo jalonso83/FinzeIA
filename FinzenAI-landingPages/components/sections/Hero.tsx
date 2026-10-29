@@ -1,7 +1,7 @@
 'use client';
 
 import Image from 'next/image';
-import { Play } from 'lucide-react';
+import { Gift, Play } from 'lucide-react';
 import Button from '@/components/ui/Button';
 import AppleLogo from '@/components/ui/AppleLogo';
 import { useDeviceDetect } from '@/hooks/useDeviceDetect';
@@ -41,7 +41,7 @@ export default function Hero() {
             </p>
 
             {/* CTAs conditioned by device */}
-            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-start mb-8 animate-bounce-gentle">
+            <div className="flex flex-col sm:flex-row gap-4 justify-center md:justify-start items-start mb-4 animate-bounce-gentle">
               <Button
                 variant="primary"
                 size="md"
@@ -65,6 +65,12 @@ export default function Hero() {
                 Google Play
               </Button>
             </div>
+
+            {/* La prueba de PRO también se anuncia aquí, no solo en Precios. */}
+            <p className="flex items-center justify-center md:justify-start gap-2 text-white text-sm md:text-base font-rubik font-medium mb-8">
+              <Gift size={18} className="text-finzen-green shrink-0" />
+              21 días de PRO gratis, sin tarjeta
+            </p>
 
             <p className="text-white/50 text-sm font-rubik font-light tracking-wide animate-pulse-soft">
               Una nueva generación está cambiando su relación con el dinero.

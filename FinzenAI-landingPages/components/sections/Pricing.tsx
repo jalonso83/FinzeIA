@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Check } from 'lucide-react';
+import { Check, Gift } from 'lucide-react';
 import SectionWrapper from '@/components/ui/SectionWrapper';
 import Card from '@/components/ui/Card';
 import Badge from '@/components/ui/Badge';
@@ -204,6 +204,12 @@ function PricingCard({
           <Badge variant={plan.badgeVariant}>{plan.badge}</Badge>
         </div>
 
+        {/* El nombre del plan no se mostraba: la tarjeta de US$99.99 solo decía
+            "Automatización total" y no se sabía que era la PRO de la prueba. */}
+        <h3 className="font-rubik font-bold text-2xl text-finzen-black mb-1">
+          {plan.name}
+        </h3>
+
         <div className="mb-6">
           <div className="flex items-baseline gap-1">
             <span className="font-playfair text-5xl text-finzen-black transition-all duration-300">
@@ -270,6 +276,23 @@ export default function Pricing() {
         Empieza gratis. Actualiza cuando quieras. Sin sorpresas.
       </p>
 
+      {/* Letrero de la prueba. Antes era una línea gris debajo de los planes y
+          casi no se veía. Se dice PRO explícitamente: al registrarse se recibe
+          PRO por 21 días, no una prueba genérica ni una de Plus. */}
+      <div className="max-w-xl mx-auto mb-10 flex items-center justify-center gap-4 rounded-2xl bg-finzen-blue px-5 py-4 md:px-8 shadow-lg">
+        <div className="shrink-0 w-12 h-12 rounded-full bg-finzen-green flex items-center justify-center">
+          <Gift size={24} className="text-white" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <p className="text-white font-bold text-base md:text-lg leading-tight">
+            21 días de PRO gratis al registrarte.
+          </p>
+          <p className="text-white/80 text-sm leading-tight">
+            Sin tarjeta de crédito. Cancela cuando quieras.
+          </p>
+        </div>
+      </div>
+
       <BillingToggle
         isAnnual={isAnnual}
         onToggle={() => setIsAnnual(!isAnnual)}
@@ -287,13 +310,7 @@ export default function Pricing() {
         ))}
       </div>
 
-      {/* Se dice PRO explícitamente: al registrarse se recibe PRO por 21 días,
-          no una prueba genérica ni una de Plus. */}
-      <p className="text-finzen-gray text-sm text-center mt-8">
-        Al registrarte recibes 21 días de PRO gratis. Sin tarjeta de crédito.
-        Cancela cuando quieras.
-      </p>
-      <p className="text-finzen-gray/50 text-xs text-center mt-4">
+      <p className="text-finzen-gray/50 text-xs text-center mt-8">
         FinZen AI no es un banco ni ofrece servicios bancarios. Zenio es un
         asistente de IA que te ayuda a organizar tus finanzas.
       </p>
