@@ -8,7 +8,8 @@ import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Icon from '@/components/ui/Icon';
 import { useInView } from '@/hooks/useInView';
-import { getAppStoreLink } from '@/lib/constants';
+import { useDeviceDetect } from '@/hooks/useDeviceDetect';
+import { getAppStoreLink, getPlayStoreLink } from '@/lib/constants';
 import { trackPricingPlan } from '@/lib/analytics';
 
 interface PlanFeature {
@@ -160,10 +161,12 @@ function PricingCard({
   plan,
   index,
   isAnnual,
+  storeLink,
 }: {
   plan: PricingPlan;
   index: number;
   isAnnual: boolean;
+  storeLink: string;
 }) {
   const { ref, isInView } = useInView<HTMLDivElement>();
 
@@ -226,7 +229,7 @@ function PricingCard({
         <Button
           variant={plan.ctaVariant}
           size="md"
-          href={getAppStoreLink('pricing')}
+          href={storeLink}
           className="w-full"
           onClick={() => trackPricingPlan(plan.planId)}
           target="_blank"
@@ -240,6 +243,11 @@ function PricingCard({
 
 export default function Pricing() {
   const [isAnnual, setIsAnnual] = useState(true);
+  // En Android los botones de los planes llevan a Google Play; en iPhone y en
+  // computadora, al App Store (antes iban todos al App Store).
+  const device = useDeviceDetect();
+  const storeLink =
+    device === 'android' ? getPlayStoreLink('pricing') : getAppStoreLink('pricing');
 
   return (
     <SectionWrapper id="pricing" background="light">
@@ -262,6 +270,7 @@ export default function Pricing() {
             plan={plan}
             index={i}
             isAnnual={isAnnual}
+            storeLink={storeLink}
           />
         ))}
       </div>
