@@ -277,8 +277,14 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
 }
 
 // ─── Base activa de funcionalidades (inventario estático × plan) ──
-// Verificado contra config/stripe.ts PLANS + gating por ruta (2026-06-30).
+// Verificado contra config/stripe.ts PLANS + gating por ruta + gating de las
+// apps (subscriptionStore de iOS y Android) (2026-10-28).
 // Valores = límites ENFORCED (no marketing). "Plus" = nombre visible de PREMIUM.
+// Donde backend y app no coinciden manda lo que la app deja usar. La voz de Zenio
+// (textToSpeech) es de Plus y Pro desde la 2.2.1; las versiones anteriores de la
+// app solo la abren en PRO.
+// Se quitaron "Reportes avanzados con IA" (el middleware existe pero ninguna ruta
+// lo usa) y "Acceso anticipado a nuevas features" (no hay nada implementado).
 type CellVal = boolean | string;
 const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; note?: string; free: CellVal; plus: CellVal; pro: CellVal }[] }[] = [
   {
@@ -286,6 +292,8 @@ const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; 
     accent: 'text-emerald-700 bg-emerald-50',
     rows: [
       { name: 'Transacciones', free: '∞', plus: '∞', pro: '∞' },
+      { name: 'Transacciones que se repiten solas', free: true, plus: true, pro: true },
+      { name: 'Conversor de moneda', free: true, plus: true, pro: true },
       { name: 'Categorías', free: true, plus: true, pro: true },
       { name: 'Gamificación', note: 'FinScore, rachas, badges, retos, ranking', free: true, plus: true, pro: true },
       { name: 'Reportes básicos', free: true, plus: true, pro: true },
@@ -294,17 +302,26 @@ const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; 
       { name: 'Detector de gastos hormiga', free: 'Básico', plus: 'Completo', pro: 'Completo' },
       { name: 'Referidos', free: true, plus: true, pro: true },
       { name: 'Notificaciones push', free: true, plus: true, pro: true },
-      { name: 'Prueba gratis 7 días', free: true, plus: true, pro: true },
+      { name: 'Prueba de 21 días de Pro', note: 'Automática al registrarse, sin tarjeta', free: true, plus: true, pro: true },
     ],
   },
   {
     group: 'Límites que escalan',
     accent: 'text-finzen-blue bg-blue-50',
     rows: [
-      { name: 'Presupuestos', free: '4', plus: '∞', pro: '∞' },
+      { name: 'Presupuestos', note: 'Los de ingreso ("Previsto") usan el mismo cupo', free: '4', plus: '∞', pro: '∞' },
       { name: 'Metas de ahorro', free: '2', plus: '∞', pro: '∞' },
       { name: 'Consultas Zenio (IA)', free: '15/mes', plus: '∞', pro: '∞' },
       { name: 'Recordatorios de pago', free: '2', plus: '∞', pro: '∞' },
+    ],
+  },
+  {
+    group: 'Compartir (2.2)',
+    accent: 'text-teal-700 bg-teal-50',
+    rows: [
+      { name: 'Presupuestos compartidos (como dueño)', note: 'Hasta 4 personas por presupuesto', free: false, plus: '2', pro: '∞' },
+      { name: 'Metas compartidas (como dueño)', note: 'Hasta 4 personas por meta', free: false, plus: '1', pro: '∞' },
+      { name: 'Unirse a un compartido como invitado', note: 'Gratis y no cuenta para el límite del invitado', free: true, plus: true, pro: true },
     ],
   },
   {
@@ -312,9 +329,8 @@ const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; 
     accent: 'text-indigo-700 bg-indigo-50',
     rows: [
       { name: 'Alertas de umbral en presupuestos', free: false, plus: true, pro: true },
-      { name: 'Zenio con voz (Text-to-Speech)', free: false, plus: true, pro: true },
-      { name: 'Reportes avanzados con IA', free: false, plus: true, pro: true },
-      { name: 'Exportar datos (CSV/PDF)', free: false, plus: true, pro: true },
+      { name: 'Zenio con voz (Text-to-Speech)', note: 'Plus desde la versión 2.2.1 de la app', free: false, plus: true, pro: true },
+      { name: 'Exportar CSV', free: false, plus: true, pro: true },
       { name: 'Reto Skip vs Save', free: false, plus: true, pro: true },
     ],
   },
@@ -323,9 +339,12 @@ const FEATURE_INVENTORY: { group: string; accent: string; rows: { name: string; 
     accent: 'text-purple-700 bg-purple-50',
     rows: [
       { name: 'Integración bancaria / Email Sync', free: false, plus: false, pro: true },
+      { name: 'Excluir tarjetas en Gastos en automático', free: false, plus: false, pro: true },
+      { name: 'Ingresos automáticos desde el correo', note: 'En prueba: solo cuentas en whitelist', free: false, plus: false, pro: 'En prueba' },
+      { name: 'Exportar PDF', free: false, plus: false, pro: true },
       { name: 'Alertas automáticas de gastos hormiga', free: false, plus: false, pro: true },
       { name: 'Reportes quincenales con IA', free: false, plus: false, pro: true },
-      { name: 'Acceso anticipado a nuevas features', free: false, plus: false, pro: true },
+      { name: 'Tips personalizados', free: false, plus: false, pro: true },
     ],
   },
 ];
@@ -393,7 +412,7 @@ function FeatureInventory() {
           </table>
         </div>
         <p className="text-[11px] text-finzen-gray px-4 py-2.5 border-t border-finzen-gray/10 bg-finzen-white/30">
-          <Check size={11} className="inline text-emerald-600" strokeWidth={3} /> incluido · <Minus size={11} className="inline text-finzen-gray/40" /> no incluido · ∞ ilimitado. Verificado contra la config real de planes. «Plus» es el nombre visible de PREMIUM.
+          <Check size={11} className="inline text-emerald-600" strokeWidth={3} /> incluido · <Minus size={11} className="inline text-finzen-gray/40" /> no incluido · ∞ ilimitado. Verificado el 28-oct-2026 contra la config real de planes y lo que bloquea cada app. «Plus» es el nombre visible de PREMIUM.
         </p>
       </div>
     </Section>

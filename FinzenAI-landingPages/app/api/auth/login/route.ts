@@ -14,29 +14,43 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Resolver rol (admin | marketing) antes de llamar al backend.
-    // null = email no autorizado en ninguna whitelist.
-    const role = getRoleForEmail(email);
-    if (!role) {
-      return NextResponse.json(
-        { error: 'No tienes permisos de administrador' },
-        { status: 403 }
-      );
-    }
-
-    // Call backend login
+    // Primero la contraseña y DESPUÉS la whitelist, y el mismo mensaje en todos
+    // los rechazos. Antes la whitelist iba primero con su propio 403 ("No tienes
+    // permisos"), instantáneo, y el resto pasaba por el backend con otro mensaje
+    // y otro tiempo: comparando respuestas se sabía qué emails son admin. Por lo
+    // mismo no se reenvían los mensajes del backend ("verifica tu email", "esta
+    // cuenta usa Google"), que confirman que la cuenta existe.
     const backendRes = await fetch(`${BACKEND_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ email, password }),
     });
 
+    // Bloqueo por intentos: decirlo no revela nada de la cuenta y evita que
+    // quien se equivocó siga probando sin saber que está bloqueado.
+    if (backendRes.status === 429) {
+      return NextResponse.json(
+        { error: 'Demasiados intentos. Espera 15 minutos e inténtalo de nuevo.' },
+        { status: 429 }
+      );
+    }
+
+    // Una caída del backend no es "contraseña incorrecta": que no confunda.
+    if (backendRes.status >= 500) {
+      return NextResponse.json(
+        { error: 'Error del servidor' },
+        { status: 502 }
+      );
+    }
+
     const data = await backendRes.json();
 
-    if (!backendRes.ok) {
+    // Resolver rol (admin | marketing). null = email no autorizado en ninguna whitelist.
+    const role = backendRes.ok ? getRoleForEmail(email) : null;
+    if (!backendRes.ok || !role) {
       return NextResponse.json(
-        { error: data.message || 'Credenciales inválidas' },
-        { status: backendRes.status }
+        { error: 'Email o contraseña incorrectos' },
+        { status: 401 }
       );
     }
 

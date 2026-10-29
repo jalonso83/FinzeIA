@@ -30,7 +30,7 @@ const bullets = [
   'Responde preguntas sobre finanzas sin juzgarte',
   'Recuerda tus conversaciones anteriores',
   'Habla español latinoamericano como tú',
-  'Funciones de voz: habla y Zenio responde (Plan PRO)',
+  'Funciones de voz: habla y Zenio responde (Plus y Pro)',
 ];
 
 export default function ZenioShowcase() {
