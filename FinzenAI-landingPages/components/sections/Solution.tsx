@@ -116,6 +116,18 @@ export default function Solution() {
                   alt="FinZen AI - Listado de transacciones"
                 />
               </button>
+
+              {/* Zenio (punto 12), meditando junto a los teléfonos. Hasta xl va
+                  pegado a la esquina de los teléfonos; desde xl, en el espacio libre
+                  entre los teléfonos y el texto. No captura el mouse, para no
+                  estorbar la animación de los teléfonos. */}
+              <Image
+                src="/zenio-sentado.png"
+                alt="Zenio, el copiloto financiero de FinZen AI"
+                width={420}
+                height={522}
+                className="pointer-events-none absolute z-30 -bottom-4 -right-2 w-[96px] md:w-[120px] xl:-bottom-14 xl:-right-[156px] xl:w-[160px] h-auto drop-shadow-xl animate-float"
+              />
             </div>
           </div>
 
