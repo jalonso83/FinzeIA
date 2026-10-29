@@ -67,7 +67,7 @@ export default function Hero() {
             </div>
 
             <p className="text-white/50 text-sm font-rubik font-light tracking-wide animate-pulse-soft">
-              Una nueva generación está cambiando su relación con el dinero
+              Una nueva generación está cambiando su relación con el dinero.
             </p>
           </div>
 
