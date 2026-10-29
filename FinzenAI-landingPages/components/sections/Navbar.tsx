@@ -45,10 +45,11 @@ export default function Navbar() {
               priority
             />
           </div>
-          {/* Mobile: icon logo */}
+          {/* Mobile: icon logo — blanco sobre la portada azul (el azul se perdía
+              y solo se veía el punto verde), azul después de bajar */}
           <div className="block md:hidden relative w-8 h-8">
             <Image
-              src="/logo-finzen-icon.png"
+              src={scrolled ? '/logo-finzen-icon.png' : '/isotipo-blanco.png'}
               alt="FinZen AI"
               fill
               className="object-contain"
