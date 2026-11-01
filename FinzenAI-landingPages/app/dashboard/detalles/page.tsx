@@ -184,12 +184,25 @@ function TabUsuarios({ users }: { users: any }) {
 }
 
 // ─── Tab: Revenue ────────────────────────────────────────────────
+const TIPO_COBRO: Record<string, { label: string; className: string }> = {
+  nueva: { label: 'Nueva', className: 'bg-finzen-green/10 text-finzen-green' },
+  renovacion: { label: 'Renovación', className: 'bg-finzen-blue/10 text-finzen-blue' },
+  reactivacion: { label: 'Reactivación', className: 'bg-amber-100 text-amber-800' },
+};
+
+function fechaCorta(iso: string | null | undefined): string {
+  if (!iso) return '--';
+  return new Date(iso).toLocaleDateString('es', { day: '2-digit', month: 'short', year: 'numeric', timeZone: 'America/Santo_Domingo' });
+}
+
 function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
   if (!revenue) return null;
 
   const totalUsers = pulse?.totalUsers || 0;
   const totalPaidSubs = (revenue.subscribersByPlan?.PREMIUM || 0) + (revenue.subscribersByPlan?.PRO || 0);
   const subsPorcentaje = totalUsers > 0 ? ((totalPaidSubs / totalUsers) * 100).toFixed(2) : '0';
+  const kinds = revenue.subscriptionsByKind ?? {};
+  const subscribers: any[] = revenue.paidSubscribers ?? [];
 
   const revenueByPlanRows = [
     {
@@ -222,6 +235,84 @@ function TabRevenue({ revenue, pulse }: { revenue: any; pulse: any }) {
           <StatBox label="RevenueCat" value={`$${revenue.revenueByPlatform?.revenuecat?.toFixed(2) ?? '0.00'}`} tooltip="Ingresos totales de RevenueCat (compras in-app iOS/Android) en el período." />
           <StatBox label="Pagos Exitosos" value={String(revenue.payments?.succeeded ?? 0)} tooltip="Número de pagos procesados con éxito en el período." />
           <StatBox label="Pagos Fallidos" value={String(revenue.payments?.failed ?? 0)} tooltip="Pagos que no se pudieron procesar (tarjeta rechazada, fondos insuficientes, etc.)." />
+        </div>
+      </Section>
+
+      <Section
+        title="Suscripciones del período"
+        tooltip="Personas con un cobro exitoso en el período (Stripe + Apple), separadas por tipo de cobro. Sale de la tabla de pagos: cada cobro se compara con el anterior de la misma persona."
+      >
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-2">
+          {[
+            { label: 'Nuevas', value: kinds.nuevas, change: kinds.nuevasChange, tooltip: 'Primer pago de una cuenta que nunca había pagado.' },
+            { label: 'Renovaciones', value: kinds.renovaciones, change: kinds.renovacionesChange, tooltip: 'Cobro mensual o anual de un cliente que sigue activo. No cuenta como nueva.' },
+            { label: 'Reactivaciones', value: kinds.reactivaciones, change: kinds.reactivacionesChange, tooltip: 'Pago de un cliente que había quedado inactivo (más de 37 días sin cobro si es mensual, 372 si es anual) o que venía de un pago fallido.' },
+          ].map((k) => {
+            const badge = formatChangeBadge(k.change ?? 0);
+            return (
+              <div key={k.label} className="rounded-lg border border-finzen-gray/20 bg-white p-4" title={k.tooltip}>
+                <p className="text-xs text-finzen-gray font-medium">{k.label}</p>
+                <p className="text-2xl font-bold mt-1 text-finzen-black">{k.value ?? 0}</p>
+                <p className={`text-xs mt-1 font-medium ${badge.className}`}>{badge.text} vs período anterior</p>
+              </div>
+            );
+          })}
+        </div>
+      </Section>
+
+      <Section
+        title="Suscriptores de pago"
+        tooltip="Quién paga hoy (Plus o Pro, sin trials), con la fecha de su primer cobro y qué fue su cobro dentro del período elegido."
+      >
+        <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-x-auto">
+          <table className="w-full min-w-[760px]">
+            <thead>
+              <tr className="border-b border-finzen-gray/10">
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Usuario</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Plan</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Pasarela</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Primer pago</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Último pago</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">En el período</th>
+                <th className="text-left text-xs font-medium text-finzen-gray p-4">Estado</th>
+              </tr>
+            </thead>
+            <tbody>
+              {subscribers.length === 0 && (
+                <tr><td colSpan={7} className="text-sm text-finzen-gray p-4 text-center">No hay suscriptores de pago.</td></tr>
+              )}
+              {subscribers.map((s: any) => (
+                <tr key={s.userId} className="border-b border-finzen-gray/10 last:border-0">
+                  <td className="p-4">
+                    <p className="text-sm font-medium text-finzen-black">{s.name} {s.lastName}</p>
+                    <p className="text-xs text-finzen-gray">{s.email}</p>
+                  </td>
+                  <td className="text-sm text-finzen-black p-4">{s.plan === 'PREMIUM' ? 'Plus' : 'Pro'}</td>
+                  <td className="text-sm text-finzen-gray p-4">{s.paymentProvider === 'APPLE' ? 'Apple' : s.paymentProvider === 'STRIPE' ? 'Stripe (web)' : (s.paymentProvider || '--')}</td>
+                  <td className="text-sm text-finzen-black p-4">{fechaCorta(s.firstPaymentAt)}</td>
+                  <td className="text-sm text-finzen-gray p-4">{fechaCorta(s.lastPaymentAt)}</td>
+                  <td className="text-sm p-4">
+                    {s.tipoEnPeriodo ? (
+                      <span className={`inline-block px-2 py-0.5 rounded-full text-xs font-medium ${TIPO_COBRO[s.tipoEnPeriodo]?.className ?? ''}`}>
+                        {TIPO_COBRO[s.tipoEnPeriodo]?.label ?? s.tipoEnPeriodo}
+                      </span>
+                    ) : (
+                      <span className="text-xs text-finzen-gray">Sin cobro</span>
+                    )}
+                  </td>
+                  <td className="text-sm p-4">
+                    {s.status === 'PAST_DUE' ? (
+                      <span className="text-xs font-medium text-finzen-red">Cobro rebotado</span>
+                    ) : s.cancelAtPeriodEnd ? (
+                      <span className="text-xs font-medium text-amber-700">Cancela el {fechaCorta(s.currentPeriodEnd)}</span>
+                    ) : (
+                      <span className="text-xs text-finzen-gray">Activo</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       </Section>
 

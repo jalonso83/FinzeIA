@@ -208,6 +208,18 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
     definition: 'Usuarios únicos con pago confirmado (Stripe + RevenueCat). Solo cuenta nuevas suscripciones, no renovaciones.',
   },
   {
+    name: 'Suscripciones nuevas',
+    definition: 'Revenue. Personas cuyo primer pago exitoso cayó en el período: cuentas que nunca habían pagado.',
+  },
+  {
+    name: 'Renovaciones',
+    definition: 'Revenue. Cobro mensual o anual de un cliente que sigue activo. No cuenta como suscripción nueva.',
+  },
+  {
+    name: 'Reactivaciones',
+    definition: 'Revenue. Pago de un cliente que venía de un pago fallido o que había quedado inactivo (más de 37 días sin cobro si es mensual, 372 si es anual).',
+  },
+  {
     name: 'Tasa Onboarding',
     definition: '% de usuarios registrados en el período que ya completaron el onboarding con Zenio.',
   },
