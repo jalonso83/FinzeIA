@@ -67,7 +67,10 @@ export default function Solution() {
   const [alFrente, setAlFrente] = useState<Telefono>('transacciones');
 
   return (
-    <section id="solution" className="bg-finzen-blue">
+    <section id="solution" className="bg-finzen-blue max-[355px]:overflow-x-clip">
+      {/* En celulares de menos de 356 px el teléfono inclinado sobresalía
+          unos px por la derecha y toda la página (barra de arriba incluida)
+          quedaba más ancha que la pantalla. "clip" recorta solo a lo ancho. */}
       <div className="py-12 md:py-16 px-4 md:px-8 max-w-7xl mx-auto">
         <div
           ref={ref}
