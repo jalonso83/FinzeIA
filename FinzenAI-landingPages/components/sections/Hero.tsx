@@ -35,9 +35,9 @@ export default function Hero() {
                 registrar nada. El titular no se toca — no depende de qué
                 funcionalidad esté al frente. */}
             <p className="text-white/80 text-lg md:text-xl font-rubik font-normal mb-8 max-w-lg mx-auto md:mx-0 leading-relaxed animate-slide-in-bottom">
-              Conecta tu correo y tus gastos se registran solos. Presupuestos,
-              metas y un asistente que te entiende — sin teclear una sola
-              transacción.
+              Conecta tu correo y tus gastos e ingresos se registran solos.
+              Presupuestos, metas y un asistente que te entiende, sin teclear
+              una sola transacción.
             </p>
 
             {/* Botones de descarga. En móvil van uno al lado del otro (dos
