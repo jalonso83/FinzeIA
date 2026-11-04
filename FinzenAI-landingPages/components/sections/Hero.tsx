@@ -23,6 +23,17 @@ export default function Hero() {
         <div className="grid md:grid-cols-2 gap-8 md:gap-12 items-center">
           {/* Text content */}
           <div className="text-center md:text-left animate-fade-in-up">
+            {/* Solo en móvil: el menú muestra solo el ícono, así que la portada
+                hablaba de "tu copiloto financiero" sin decir de qué app. En
+                escritorio el nombre ya está en el menú. */}
+            <Image
+              src="/logo-horizontal-blanco.png"
+              alt="FinZen AI"
+              width={3592}
+              height={996}
+              priority
+              className="md:hidden mx-auto mb-6 w-[220px] h-auto"
+            />
             <p className="text-white/60 text-sm font-rubik font-medium mb-4 tracking-widest uppercase animate-fade-in-down">
               Tu copiloto financiero con IA
             </p>
