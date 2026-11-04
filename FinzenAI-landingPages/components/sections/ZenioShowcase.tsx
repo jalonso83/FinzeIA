@@ -28,7 +28,8 @@ const bullets = [
   'Registra gastos por voz o texto en lenguaje natural',
   'Crea presupuestos y metas conversando',
   'Responde preguntas sobre finanzas sin juzgarte',
-  'Recuerda tus conversaciones anteriores',
+  // Se quitó "Recuerda tus conversaciones anteriores": la memoria de Zenio
+  // entre conversaciones no está activa en la app.
   'Habla español latinoamericano como tú',
   'Funciones de voz: habla y Zenio responde (Plus y Pro)',
 ];
