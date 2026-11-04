@@ -103,7 +103,8 @@ const plans: PricingPlan[] = [
       // de transacciones"— que son la misma cosa dicha dos veces: conectar la
       // cuenta y el resultado de conectarla. Y ninguno usaba el nombre con el
       // que se llama en el Hero, en Features y en Cómo Funciona.
-      { text: 'Gastos en automático vía mail (Gmail/Outlook)' },
+      // Versión 2.2.1: "Buscar más atrás" recupera hasta 12 meses de consumos.
+      { text: 'Gastos en automático vía mail (Gmail/Outlook), hasta 12 meses atrás' },
       { text: 'Reportes quincenales con IA' },
       { text: 'Tips personalizados' },
       { text: 'Exportar PDF' },
