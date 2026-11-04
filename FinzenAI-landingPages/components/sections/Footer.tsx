@@ -143,6 +143,18 @@ export default function Footer() {
           <p className="text-white/30 text-xs text-center">
             FinZen AI no es un banco ni ofrece servicios bancarios.
           </p>
+          {/* Acceso al panel interno. Antes estaba en el menú de arriba y los
+              usuarios pensaban que era para entrar a su cuenta; aquí abajo y
+              con este nombre queda claro que es solo para el equipo. */}
+          <p className="text-center mt-4">
+            <a
+              href="/login"
+              rel="nofollow"
+              className="text-white/30 hover:text-white/60 text-xs transition-colors"
+            >
+              Acceso del equipo
+            </a>
+          </p>
         </div>
       </div>
     </footer>
