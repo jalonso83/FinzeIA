@@ -31,7 +31,9 @@ const cases = [
     // de las mejoras del 23/10/2026): hasta 4 personas por presupuesto o meta.
     story:
       'Manejar el dinero por separado genera conflictos. Con FinZen AI comparten un presupuesto o una meta: los gastos de cada uno suman en el mismo lugar y los dos ven cuánto queda. También sirve con la familia o los roomies, hasta 4 personas.',
-    highlight: 'Presupuestos y metas compartidos',
+    // Es una función de Plus y Pro: sin aclararlo, quien descarga gratis la
+    // busca y no la encuentra.
+    highlight: 'Presupuestos y metas compartidos (desde Plus)',
   },
   {
     // Los otros tres perfiles son jóvenes, y buena parte de quien paga hoy
