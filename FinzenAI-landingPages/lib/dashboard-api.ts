@@ -316,13 +316,23 @@ export interface UsersListParams {
 
 // ─── Helpers ────────────────────────────────────────────────────
 
+// Fecha de calendario en RD: el backend corta los días en hora RD, y con
+// toISOString() (UTC) entre 8 p. m. y medianoche "hoy" ya era mañana.
+const rdDay = (d: Date) =>
+  new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'America/Santo_Domingo',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(d);
+
 export function computeDateParams(range: DateRange): { from: string; to: string } {
   const to = new Date();
   const days = parseInt(range);
   const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
   return {
-    from: from.toISOString().split('T')[0],
-    to: to.toISOString().split('T')[0],
+    from: rdDay(from),
+    to: rdDay(to),
   };
 }
 

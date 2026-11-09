@@ -757,7 +757,7 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
             label="Costo Total Mensual"
             value={`$${unitEconomics.totalCostMonthly.toFixed(2)}`}
             highlight
-            tooltip={`Suma de costos fijos ($${unitEconomics.fixedCosts.total.toFixed(2)}) + variables (OpenAI, fees) escalados a mensual.`}
+            tooltip={`Suma de costos fijos ($${unitEconomics.fixedCosts.total.toFixed(2)}, incluye marketing) + variables. OpenAI: lo del período escalado a mensual. Comisiones y marketing: los últimos 30 días reales hasta la fecha final (un pago anual cuenta 1/12 por mes).`}
           />
           <StatBox
             label="Cash Flow Mensual"
@@ -839,7 +839,7 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
       {/* ── SECCIÓN 4 — DESGLOSE DE COSTOS ───────────────────────── */}
       <Section
         title="Desglose de Costos"
-        tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien) + marketing calculado desde los costos reales de campañas (por fecha) + variables calculados desde DB. % calculado sobre el total."
+        tooltip="Costos fijos hardcodeados (actualizar en backend cuando cambien). Marketing: campañas que empezaron en los últimos 30 días hasta la fecha final. Comisiones de Stripe y Apple: cobros de esos mismos 30 días (un anual cuenta 1/12 por mes; Apple 30%, 15% desde la aprobación del programa para pequeños desarrolladores; RevenueCat 0 por debajo de US$2,500/mes). OpenAI: lo del período escalado a mensual. % calculado sobre el total."
       >
         <div className="bg-white rounded-xl border border-finzen-gray/20 overflow-hidden">
           <table className="w-full">

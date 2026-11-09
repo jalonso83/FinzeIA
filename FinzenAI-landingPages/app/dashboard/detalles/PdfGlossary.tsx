@@ -81,7 +81,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   },
   {
     name: 'Costo Total Mensual',
-    definition: 'Suma de costos fijos (Railway, Vercel, dominios, etc.) + costos variables (OpenAI, fees de Stripe/RevenueCat) escalados a mensual.',
+    definition: 'Suma de costos fijos (Railway, Vercel, dominios, etc.) + marketing y comisiones de Stripe/Apple de los últimos 30 días reales (un anual cuenta 1/12 por mes) + OpenAI del período escalado a mensual.',
   },
   {
     name: 'CR% (Conversion Rate)',
