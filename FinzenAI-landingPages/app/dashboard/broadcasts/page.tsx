@@ -24,6 +24,7 @@ type Platform = 'IOS' | 'ANDROID';
 type Segment =
   | 'never_activated' | 'one_and_done' | 'dormant' | 'active'
   | 'trial_no_activity' | 'trial_ending' | 'trial_available'
+  | 'trial_expired_email' | 'trial_expired_no_email'
   | 'near_paywall' | 'payment_failed' | 'subscriber_inactive';
 type DormantDays = '7' | '14' | '30';
 
@@ -42,6 +43,8 @@ const SEGMENT_META: Record<Segment, { label: string; desc: string; group: string
   trial_no_activity: { label: 'Trial sin usar lo Pro', desc: 'En prueba hace 3+ días y sin tocar nada exclusivo del plan (correo, presupuestos/metas/Zenio sobre el límite FREE)', group: 'Trial' },
   trial_ending: { label: 'Trial por vencer', desc: 'La prueba vence en los próximos 3 días', group: 'Trial' },
   trial_available: { label: 'Prueba sin usar', desc: 'FREE de antes del trial automático que nunca activó su prueba (botón en Suscripciones)', group: 'Trial' },
+  trial_expired_email: { label: 'Prueba vencida · usó el correo', desc: 'Se le venció la prueba, no pagó y usó Gastos en automático (perdió la conexión al vencer)', group: 'Trial' },
+  trial_expired_no_email: { label: 'Prueba vencida · sin correo', desc: 'Se le venció la prueba, no pagó y nunca conectó su correo', group: 'Trial' },
   near_paywall: { label: 'Cerca del límite FREE', desc: 'FREE a 1 presupuesto del tope o con las metas al tope', group: 'Conversión' },
   payment_failed: { label: 'Pago rechazado', desc: 'Suscriptor con el cobro en reintento (PAST_DUE)', group: 'Pago' },
   subscriber_inactive: { label: 'Pagan y no usan', desc: 'Plus/Pro activo sin actividad en el umbral elegido', group: 'Pago' },
@@ -106,6 +109,8 @@ const AGENT_SEGMENT_LABELS: Record<string, string> = {
   subscriber_inactive: 'Pagan y no usan',
   trial_no_activity: 'Trial sin usar lo Pro',
   near_paywall: 'Cerca del límite FREE',
+  trial_expired_email: 'Prueba vencida, usó el correo',
+  trial_expired_no_email: 'Prueba vencida, sin correo',
 };
 
 // ─── Vista previa del push (teléfono) ────────────────────────────────────
@@ -339,6 +344,8 @@ function audienceCriteriaLines(b: BroadcastItem): string[] {
       case 'subscriber_inactive': return `Pagan y no usan (Plus/Pro sin actividad hace ${a.dormantDays ?? 14}+ días)`;
       case 'trial_no_activity': return `Trial sin usar lo Pro (en prueba hace ${a.trialMinDays ?? 3}+ días, sin funciones exclusivas)`;
       case 'near_paywall': return 'Cerca del límite FREE (presupuestos a 1 del tope o metas al tope)';
+      case 'trial_expired_email': return 'Prueba vencida sin pagar, usó Gastos en automático';
+      case 'trial_expired_no_email': return 'Prueba vencida sin pagar, nunca conectó su correo';
       default: return s;
     }
   };
