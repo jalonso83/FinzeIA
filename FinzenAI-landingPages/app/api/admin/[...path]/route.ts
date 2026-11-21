@@ -8,9 +8,9 @@ const BACKEND_URL =
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('admin-token')?.value;
   const pdfToken = req.nextUrl.searchParams.get('pdfToken');
 
@@ -20,7 +20,7 @@ export async function GET(
     return NextResponse.json({ error: 'No autorizado' }, { status: 401 });
   }
 
-  const path = params.path.join('/');
+  const path = (await params).path.join('/');
 
   // Enforcement por rol: bloquear endpoints sensibles (PII/finanzas) para
   // marketing. El rol se deriva del token (no forjable). El PDF interno de
@@ -97,7 +97,7 @@ async function forwardWithBody(
   params: { path: string[] },
   method: 'POST' | 'PATCH' | 'PUT' | 'DELETE'
 ) {
-  const cookieStore = cookies();
+  const cookieStore = await cookies();
   const token = cookieStore.get('admin-token')?.value;
   const pdfToken = req.nextUrl.searchParams.get('pdfToken');
 
@@ -150,28 +150,28 @@ async function forwardWithBody(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return forwardWithBody(req, params, 'POST');
+  return forwardWithBody(req, await params, 'POST');
 }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return forwardWithBody(req, params, 'PATCH');
+  return forwardWithBody(req, await params, 'PATCH');
 }
 
 export async function PUT(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return forwardWithBody(req, params, 'PUT');
+  return forwardWithBody(req, await params, 'PUT');
 }
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { path: string[] } }
+  { params }: { params: Promise<{ path: string[] }> }
 ) {
-  return forwardWithBody(req, params, 'DELETE');
+  return forwardWithBody(req, await params, 'DELETE');
 }

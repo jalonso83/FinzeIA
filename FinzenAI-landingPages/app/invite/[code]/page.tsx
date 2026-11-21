@@ -72,8 +72,8 @@ function problema(inv: VistaInvitacion): { titulo: string; texto: string } | nul
   }
 }
 
-export async function generateMetadata({ params }: { params: { code: string } }): Promise<Metadata> {
-  const code = normalizar(params.code);
+export async function generateMetadata({ params }: { params: Promise<{ code: string }> }): Promise<Metadata> {
+  const code = normalizar((await params).code);
   const r = await cargar(code);
   const titulo = r.ok && r.inv.estado === 'valida' ? `${frase(r.inv)} en FinZen AI` : 'Invitación a FinZen AI';
   const descripcion = 'Lleven juntos sus gastos y metas en FinZen AI. Toca para ver la invitación.';
@@ -93,8 +93,8 @@ export async function generateMetadata({ params }: { params: { code: string } })
   };
 }
 
-export default async function InvitePage({ params }: { params: { code: string } }) {
-  const code = normalizar(params.code);
+export default async function InvitePage({ params }: { params: Promise<{ code: string }> }) {
+  const code = normalizar((await params).code);
   const r = await cargar(code);
 
   return (

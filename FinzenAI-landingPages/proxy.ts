@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { canAccessSection, getRoleFromToken } from '@/lib/roles';
 
-export function middleware(req: NextRequest) {
+export function proxy(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
   // Protect /dashboard routes
