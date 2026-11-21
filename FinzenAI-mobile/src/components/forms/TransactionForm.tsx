@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -13,6 +13,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Switch,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -81,6 +82,15 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   // Currency converter state
   const [showConverter, setShowConverter] = useState(false);
+  // Mientras se escribe en el convertidor, la hoja ocupa toda la pantalla y el monto
+  // sube arriba: el teclado tapa la mitad de abajo (en Android, con la pantalla de
+  // borde a borde, la ventana no se achica), y así monto, tasa y resultado se ven.
+  const [converterEscribiendo, setConverterEscribiendo] = useState(false);
+  const converterScrollRef = useRef<ScrollView>(null);
+  const montoConverterY = useRef(0);
+  // El contenido también cambia de alto al aparecer el resultado o un error: solo
+  // se desplaza la vez que la hoja crece, para no mover lo que el usuario está viendo.
+  const desplazarAlCrecer = useRef(false);
   const [conversionDirection, setConversionDirection] = useState<'foreignToBase' | 'baseToForeign'>('foreignToBase');
   const [foreignAmount, setForeignAmount] = useState('');
   const [foreignCurrency, setForeignCurrency] = useState('USD');
@@ -289,6 +299,23 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
     }
   };
 
+  // Tasa "1 {extranjera} = ? {moneda del usuario}". El backend da todo contra el peso
+  // (rateToDop), así que para quien no lleva sus cuentas en pesos hay que cruzar: antes
+  // un usuario en USD que convertía euros recibía los pesos por euro (68.5) y no ~1.16.
+  const tasaContraMonedaBase = (
+    rates: Record<string, { rateToDop: number }>,
+    codigo: string
+  ): number | null => {
+    const extranjera = rates[codigo]?.rateToDop;
+    const propia = currency.code === 'DOP' ? 1 : rates[currency.code]?.rateToDop;
+    if (!extranjera || !propia) return null;
+    return extranjera / propia;
+  };
+
+  // Con 4 decimales fijos, 1 COP en dólares (0.000236) quedaría en 0.0002
+  const formatearTasa = (tasa: number) =>
+    tasa >= 1 ? tasa.toFixed(4) : String(Number(tasa.toPrecision(4)));
+
   // Fetch exchange rates from backend and cache in AsyncStorage
   const loadLastExchangeRates = async () => {
     try {
@@ -310,7 +337,8 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
         // Also update lastExchangeRates format for backward compatibility
         const legacyRates: Record<string, number> = {};
         response.data.rates.forEach((r) => {
-          legacyRates[`${currency.code}_${r.currency}`] = r.rateToDop;
+          const tasa = tasaContraMonedaBase(ratesMap, r.currency);
+          if (tasa) legacyRates[`${currency.code}_${r.currency}`] = tasa;
         });
         setLastExchangeRates(legacyRates);
         await AsyncStorage.setItem('lastExchangeRates', JSON.stringify(legacyRates));
@@ -332,11 +360,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
 
   // Auto-fill exchange rate from backend rates
   const autoFillRate = (currencyCode: string, direction: 'foreignToBase' | 'baseToForeign') => {
-    const rateData = backendRates[currencyCode];
-    if (rateData && currency.code === 'DOP') {
-      // foreignToBase: 1 USD = X DOP (rateToDop)
-      // baseToForeign: 1 USD = X DOP (same, used inversely in calculation)
-      setExchangeRate(rateData.rateToDop.toFixed(4));
+    // La misma tasa sirve en los dos sentidos: baseToForeign divide en vez de multiplicar
+    const tasa = tasaContraMonedaBase(backendRates, currencyCode);
+    if (tasa) {
+      setExchangeRate(formatearTasa(tasa));
       setRateSource('auto');
       return;
     }
@@ -370,7 +397,43 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
   };
   
   // Close currency converter (replicando la web)
+  const desplazarAlMonto = () => {
+    converterScrollRef.current?.scrollTo({ y: Math.max(montoConverterY.current - 4, 0), animated: true });
+  };
+
+  const alEnfocarConvertidor = () => {
+    if (!converterEscribiendo) desplazarAlCrecer.current = true;
+    setConverterEscribiendo(true);
+    // Si la hoja ya estaba grande (de monto a tasa) no cambia el contenido y
+    // onContentSizeChange no avisa: se desplaza aquí.
+    setTimeout(desplazarAlMonto, 120);
+  };
+
+  // Volver a tocar un campo que ya tiene foco no dispara onFocus. Si el toque era
+  // en realidad un arrastre y ningún campo quedó activo, la hoja vuelve a su tamaño.
+  const alTocarConvertidor = () => {
+    alEnfocarConvertidor();
+    setTimeout(() => {
+      if (!TextInput.State.currentlyFocusedInput()) setConverterEscribiendo(false);
+    }, 400);
+  };
+
+  const alSoltarConvertidor = () => {
+    // Pasar del monto a la tasa también dispara onBlur: solo se encoge si ya no queda ningún campo activo
+    setTimeout(() => {
+      if (!TextInput.State.currentlyFocusedInput()) setConverterEscribiendo(false);
+    }, 150);
+  };
+
+  useEffect(() => {
+    const sub = Keyboard.addListener('keyboardDidHide', () => {
+      if (!TextInput.State.currentlyFocusedInput()) setConverterEscribiendo(false);
+    });
+    return () => sub.remove();
+  }, []);
+
   const closeConverter = () => {
+    setConverterEscribiendo(false);
     setShowConverter(false);
   };
   
@@ -953,7 +1016,7 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
           onRequestClose={closeConverter}
         >
           <View style={styles.converterModalOverlay}>
-            <SafeAreaView style={styles.converterModalContainer}>
+            <SafeAreaView style={[styles.converterModalContainer, converterEscribiendo && styles.converterModalContainerEscribiendo]}>
               {/* Header */}
               <View style={styles.converterHeader}>
                 <Text style={styles.converterTitle}>Convertir Moneda</Text>
@@ -962,7 +1025,18 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </TouchableOpacity>
               </View>
 
-              <ScrollView style={styles.converterContent} keyboardShouldPersistTaps="handled">
+              <ScrollView
+                ref={converterScrollRef}
+                style={[styles.converterContent, converterEscribiendo && styles.converterContentEscribiendo]}
+                contentContainerStyle={converterEscribiendo && styles.converterContentEspacioTeclado}
+                // Al crecer la hoja el contenido cambia de alto: ahí ya se puede desplazar
+                onContentSizeChange={() => {
+                  if (converterEscribiendo && desplazarAlCrecer.current) {
+                    desplazarAlCrecer.current = false;
+                    desplazarAlMonto();
+                  }
+                }}
+                keyboardShouldPersistTaps="handled">
                 {/* Currency Picker */}
                 <View style={styles.converterFormGroup}>
                   <Text style={styles.converterLabel}>Moneda</Text>
@@ -1046,7 +1120,10 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                 </View>
 
                 {/* Foreign Amount */}
-                <View style={styles.converterFormGroup}>
+                <View
+                  style={styles.converterFormGroup}
+                  onLayout={(e) => { montoConverterY.current = e.nativeEvent.layout.y; }}
+                >
                   <Text style={styles.converterLabel}>
                     Monto en {conversionDirection === 'foreignToBase' ? foreignCurrency : currency.code}
                   </Text>
@@ -1057,6 +1134,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                     ]}
                     value={foreignAmount}
                     onChangeText={setForeignAmount}
+                    onFocus={alEnfocarConvertidor}
+                    onPressIn={alTocarConvertidor}
+                    onBlur={alSoltarConvertidor}
                     placeholder="0.00"
                     placeholderTextColor="#9ca3af"
                     keyboardType="numeric"
@@ -1091,6 +1171,9 @@ const TransactionForm: React.FC<TransactionFormProps> = ({
                         setExchangeRate(text);
                         setRateSource('manual');
                       }}
+                      onFocus={alEnfocarConvertidor}
+                      onPressIn={alTocarConvertidor}
+                      onBlur={alSoltarConvertidor}
                       placeholder="0.0000"
                       placeholderTextColor="#9ca3af"
                       keyboardType="numeric"
@@ -1502,8 +1585,13 @@ const styles = StyleSheet.create({
     backgroundColor: 'white',
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
-    maxHeight: '80%',
-    minHeight: '60%',
+    // Del alto de su contenido, hasta el 90%: antes el mínimo de 60% dejaba la
+    // tasa y el resultado escondidos debajo de los botones en pantallas chicas.
+    maxHeight: '90%',
+  },
+  converterModalContainerEscribiendo: {
+    flex: 1,
+    maxHeight: '100%',
   },
   converterHeader: {
     flexDirection: 'row',
@@ -1519,8 +1607,16 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#1e293b',
   },
+  converterContentEscribiendo: {
+    flexGrow: 1,
+  },
+  converterContentEspacioTeclado: {
+    // Deja desplazar el monto hasta arriba aunque el teclado tape la parte de abajo
+    paddingBottom: 360,
+  },
   converterContent: {
-    flex: 1,
+    flexGrow: 0,
+    flexShrink: 1,
     paddingHorizontal: 20,
     paddingVertical: 16,
   },
@@ -1631,7 +1727,8 @@ const styles = StyleSheet.create({
     borderColor: '#e5e7eb',
     borderRadius: 8,
     marginTop: 4,
-    maxHeight: 200,
+    // Sin tope de alto: con 200 solo cabían 4 monedas y la lista no tiene scroll propio,
+    // así que COP, BRL, CHF, JPY y CNY no se podían elegir. La hoja del convertidor ya desplaza.
     overflow: 'hidden',
   },
   currencyPickerOption: {

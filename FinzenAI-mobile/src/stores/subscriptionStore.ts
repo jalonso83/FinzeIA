@@ -350,12 +350,11 @@ export const useSubscriptionStore = create<SubscriptionState>((set, get) => ({
     return subscription.plan === 'PRO';
   },
 
-  // Validar si puede usar Text-to-Speech (Zenio con voz) - Solo PRO
+  // Validar si puede usar Text-to-Speech (Zenio con voz) - PLUS y PRO
   canUseTextToSpeech: (): boolean => {
     const subscription = get().subscription;
     if (!subscription) return false;
-    // Solo PRO puede usar Text-to-Speech
-    return subscription.plan === 'PRO';
+    return subscription.limits.textToSpeech === true;
   },
 
   // Validar si tiene alertas de umbral de presupuesto

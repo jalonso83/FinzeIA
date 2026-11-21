@@ -586,7 +586,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>Transacciones</Text>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.2}>Transacciones</Text>
         <View style={styles.headerButtons}>
           {/* Botón de exportar */}
           <TouchableOpacity
@@ -1095,16 +1095,20 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
     paddingVertical: 20,
     backgroundColor: 'white',
     borderBottomWidth: 1,
     borderBottomColor: '#e2e8f0',
   },
   title: {
-    fontSize: 24,
+    fontSize: 20,
     fontWeight: 'bold',
     color: '#1e293b',
+    // Encoge antes que empujar los botones fuera de pantalla: en pantallas
+    // angostas (la de afuera del Galaxy Fold, ~344 dp) o con la letra del
+    // sistema agrandada, el + quedaba cortado.
+    flexShrink: 1,
   },
   addButton: {
     backgroundColor: '#2563EB',
@@ -1227,7 +1231,7 @@ const styles = StyleSheet.create({
   headerButtons: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   filterButton: {
     // Mismo azul que exportar y recurrentes. Estaba en gris (#f1f5f9 con borde

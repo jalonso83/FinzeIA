@@ -107,7 +107,7 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
 
   // Función para reproducir mensaje individual
   const playMessage = async (messageId: string, text: string) => {
-    // Verificar si el usuario tiene acceso a TTS según su plan (solo PRO)
+    // Verificar si el usuario tiene acceso a TTS según su plan (Plus y Pro)
     if (!canUseTextToSpeech()) {
       setShowProModalTTS(true);
       return;
@@ -839,8 +839,8 @@ const ZenioFloatingButton: React.FC<ZenioFloatingButtonProps> = ({
       <CustomModal
         visible={showProModalTTS}
         type="warning"
-        title="Función PRO"
-        message={`La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
+        title="Función Plus y Pro"
+        message={`La voz de Zenio está disponible en los planes Plus y Pro.\n\n¡Mejora tu plan para desbloquear esta y más funciones!`}
         buttonText="Ver Planes"
         onClose={() => {
           setShowProModalTTS(false);
