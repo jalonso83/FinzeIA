@@ -21,6 +21,7 @@ import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -207,9 +208,11 @@ export default function SkipVsSaveScreen() {
             }}
             placeholder="Ejemplo: 250"
             keyboardType="numeric"
+            inputAccessoryViewID="kb-skip-vs-save-1"
             placeholderTextColor="#9CA3AF"
             autoFocus={true}
           />
+          <KeyboardDoneButton nativeID="kb-skip-vs-save-1" />
           <Text style={styles.customLabel}>{formatCurrency(0).replace(/[0.,]/g, '').trim()}</Text>
         </View>
       </TouchableOpacity>

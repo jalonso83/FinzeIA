@@ -454,7 +454,7 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
         </TouchableOpacity>
       </View>
 
-      {/* Overlay "Función PRO" para TTS — renderizado como View con position:absolute
+      {/* Overlay "Función Plus y Pro" para TTS — renderizado como View con position:absolute
           (NO como <Modal>) para poder anidarse dentro de otra pantalla Modal en iOS
           sin romper. Mismo patrón que abandonOverlay en RePersonalizationScreen. */}
       {showProModalTTS && (
@@ -463,9 +463,9 @@ const ZenioChat: React.FC<ZenioChatProps> = ({
             <View style={styles.proIconCircle}>
               <Ionicons name="warning" size={48} color="#FFFFFF" />
             </View>
-            <Text style={styles.proTitle}>Función PRO</Text>
+            <Text style={styles.proTitle}>Función Plus y Pro</Text>
             <Text style={styles.proMessage}>
-              La voz de Zenio está disponible exclusivamente para usuarios del plan PRO.{'\n\n'}¡Mejora tu plan para desbloquear esta y más funciones!
+              La voz de Zenio está disponible en los planes Plus y Pro.{'\n\n'}¡Mejora tu plan para desbloquear esta y más funciones!
             </Text>
             <View style={styles.proButtonsRow}>
               <TouchableOpacity

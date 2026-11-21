@@ -24,6 +24,7 @@ import CustomModal from '../modals/CustomModal';
 import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 
 import { logger } from '../../utils/logger';
+import KeyboardDoneButton from '../common/KeyboardDoneButton';
 interface Goal {
   id: string;
   name: string;
@@ -434,11 +435,16 @@ const GoalForm: React.FC<GoalFormProps> = ({
             style={styles.keyboardAvoidingView}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+            // En iOS el ajuste lo hace el ScrollView (automaticallyAdjustKeyboardInsets): mide el
+            // teclado real, mientras que el offset fijo dejaba un hueco en blanco en el pageSheet.
+            enabled={Platform.OS !== 'ios'}
           >
             <ScrollView
               style={styles.content}
               contentContainerStyle={{ paddingBottom: 200 }}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              automaticallyAdjustKeyboardInsets
             >
               {/* Nombre de la meta */}
             <View style={styles.section}>
@@ -448,6 +454,7 @@ const GoalForm: React.FC<GoalFormProps> = ({
                 value={formData.name}
                 onChangeText={(text) => handleInputChange('name', text)}
                 placeholder="Ej: La casa de mis sueños"
+                returnKeyType="done"
                 placeholderTextColor="#9ca3af"
                 maxLength={100}
               />
@@ -465,7 +472,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
                   placeholder="0.00"
                   placeholderTextColor="#9ca3af"
                   keyboardType="numeric"
+                  inputAccessoryViewID="kb-goal-1"
                 />
+                <KeyboardDoneButton nativeID="kb-goal-1" />
               </View>
             </View>
 
@@ -528,7 +537,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
                     placeholder="15"
                     placeholderTextColor="#9ca3af"
                     keyboardType="numeric"
+                    inputAccessoryViewID="kb-goal-2"
                   />
+                  <KeyboardDoneButton nativeID="kb-goal-2" />
                   <Text style={styles.currencySymbol}>%</Text>
                 </View>
               </View>
@@ -544,7 +555,9 @@ const GoalForm: React.FC<GoalFormProps> = ({
                     placeholder="50000"
                     placeholderTextColor="#9ca3af"
                     keyboardType="numeric"
+                    inputAccessoryViewID="kb-goal-3"
                   />
+                  <KeyboardDoneButton nativeID="kb-goal-3" />
                 </View>
               </View>
             )}
@@ -616,6 +629,8 @@ const GoalForm: React.FC<GoalFormProps> = ({
                 value={formData.description}
                 onChangeText={(text) => handleInputChange('description', text)}
                 placeholder="Describe tu meta..."
+                returnKeyType="done"
+                submitBehavior="blurAndSubmit"
                 placeholderTextColor="#9ca3af"
                 multiline
                 numberOfLines={3}

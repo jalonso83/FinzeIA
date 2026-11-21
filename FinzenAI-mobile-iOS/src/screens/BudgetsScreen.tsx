@@ -567,7 +567,7 @@ export default function BudgetsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title}>Presupuestos</Text>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.2}>Presupuestos</Text>
         <View style={styles.headerButtons}>
           {/* Botón de exportar */}
           <TouchableOpacity
@@ -1110,6 +1110,10 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: 'bold',
     color: '#1e293b',
+    // Encoge antes que empujar los botones fuera de pantalla: en pantallas
+    // angostas (la de afuera del Galaxy Fold, ~344 dp) o con la letra del
+    // sistema agrandada, el + quedaba cortado.
+    flexShrink: 1,
   },
   addButton: {
     backgroundColor: '#2563EB',

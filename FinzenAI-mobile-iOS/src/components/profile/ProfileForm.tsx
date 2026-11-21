@@ -9,6 +9,7 @@ import { useBiometric } from '../../hooks/useBiometric';
 import { useAuthStore } from '../../stores/auth';
 
 import { logger } from '../../utils/logger';
+import KeyboardDoneButton from '../common/KeyboardDoneButton';
 interface ProfileFormProps {
   visible: boolean;
   user: any;
@@ -473,7 +474,9 @@ export default function ProfileForm({ visible, user, onClose, onProfileUpdated }
                     onChangeText={(text) => handleChange('phone', text)}
                     placeholder="+52 123 456 7890"
                     keyboardType="phone-pad"
+                    inputAccessoryViewID="kb-profile-1"
                   />
+                  <KeyboardDoneButton nativeID="kb-profile-1" />
                   {errors.phone && <Text style={styles.inputErrorText}>{errors.phone}</Text>}
                 </View>
 

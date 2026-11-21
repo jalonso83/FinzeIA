@@ -16,6 +16,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import api from '../utils/api';
 import CustomModal from '../components/modals/CustomModal';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 
 export default function ForgotPasswordScreen() {
   const navigation = useNavigation();
@@ -167,9 +168,11 @@ export default function ForgotPasswordScreen() {
           }}
           placeholder="123456"
           keyboardType="numeric"
+          inputAccessoryViewID="kb-forgot-password-1"
           maxLength={6}
           placeholderTextColor="#9CA3AF"
         />
+        <KeyboardDoneButton nativeID="kb-forgot-password-1" />
         {errors.resetCode && <Text style={styles.errorText}>{errors.resetCode}</Text>}
       </View>
 

@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import KeyboardDoneButton from '../common/KeyboardDoneButton';
 
 /**
  * Lista de tarjetas detectadas en los avisos del banco, con un interruptor por
@@ -102,11 +103,13 @@ const TarjetasSelector: React.FC<Props> = ({ tarjetas, ocupada, onCambiar, onAgr
               value={digitos}
               onChangeText={(v) => setDigitos(v.replace(/\D/g, '').slice(0, 4))}
               keyboardType="number-pad"
+              inputAccessoryViewID="kb-tarjetas-selector-1"
               maxLength={4}
               placeholder="1234"
               placeholderTextColor="#9ca3af"
               autoFocus
             />
+            <KeyboardDoneButton nativeID="kb-tarjetas-selector-1" />
             <TouchableOpacity
               style={[styles.agregarBoton, (!valido || ocupada !== null) && styles.deshabilitado]}
               disabled={!valido || ocupada !== null}

@@ -21,6 +21,7 @@ import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -154,8 +155,10 @@ export default function InflationCalculatorScreen() {
             }}
             placeholder="100000"
             keyboardType="numeric"
+            inputAccessoryViewID="kb-inflation-calculator-1"
             placeholderTextColor="#9CA3AF"
           />
+          <KeyboardDoneButton nativeID="kb-inflation-calculator-1" />
         </View>
       </View>
 

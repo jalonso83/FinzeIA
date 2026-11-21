@@ -22,6 +22,7 @@ import api from '../utils/api';
 import { useCurrency } from '../hooks/useCurrency';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 const { width } = Dimensions.get('window');
 
 // Tipos
@@ -192,8 +193,10 @@ export default function GoalCalculatorScreen() {
           onChangeText={setTotalValue}
           placeholder="Ejemplo: 1500000"
           keyboardType="numeric"
+          inputAccessoryViewID="kb-goal-calculator-1"
           placeholderTextColor="#9CA3AF"
         />
+        <KeyboardDoneButton nativeID="kb-goal-calculator-1" />
       </View>
 
       {/* Sugerencias */}

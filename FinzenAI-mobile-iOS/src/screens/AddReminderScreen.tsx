@@ -19,6 +19,7 @@ import CustomModal from '../components/modals/CustomModal';
 import UpgradeModal from '../components/subscriptions/UpgradeModal';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 // Tipos de pago con información
 const PAYMENT_TYPES: { value: PaymentType; label: string; icon: keyof typeof Ionicons.glyphMap; color: string }[] = [
   { value: 'CREDIT_CARD', label: 'Tarjeta de Crédito', icon: 'card', color: '#2563EB' },
@@ -236,6 +237,7 @@ export default function AddReminderScreen() {
               value={name}
               onChangeText={setName}
               placeholder="Ej: Visa Banco Popular"
+              returnKeyType="done"
               placeholderTextColor="#9CA3AF"
             />
           </View>
@@ -265,8 +267,10 @@ export default function AddReminderScreen() {
               placeholder="1-31"
               placeholderTextColor="#9CA3AF"
               keyboardType="number-pad"
+              inputAccessoryViewID="kb-add-reminder-1"
               maxLength={2}
             />
+            <KeyboardDoneButton nativeID="kb-add-reminder-1" />
             <Text style={styles.hint}>El día del mes en que vence el pago</Text>
           </View>
 
@@ -281,8 +285,10 @@ export default function AddReminderScreen() {
                 placeholder="1-31"
                 placeholderTextColor="#9CA3AF"
                 keyboardType="number-pad"
+                inputAccessoryViewID="kb-add-reminder-2"
                 maxLength={2}
               />
+              <KeyboardDoneButton nativeID="kb-add-reminder-2" />
               <Text style={styles.hint}>Día de cierre del estado de cuenta</Text>
             </View>
           )}
@@ -297,7 +303,9 @@ export default function AddReminderScreen() {
               placeholder="0.00"
               placeholderTextColor="#9CA3AF"
               keyboardType="decimal-pad"
+              inputAccessoryViewID="kb-add-reminder-3"
             />
+            <KeyboardDoneButton nativeID="kb-add-reminder-3" />
             <Text style={styles.hint}>Monto promedio del pago mensual</Text>
           </View>
 
@@ -313,7 +321,9 @@ export default function AddReminderScreen() {
                   placeholder="0.00"
                   placeholderTextColor="#9CA3AF"
                   keyboardType="decimal-pad"
+                  inputAccessoryViewID="kb-add-reminder-4"
                 />
+                <KeyboardDoneButton nativeID="kb-add-reminder-4" />
                 <Text style={styles.hint}>Límite de crédito en moneda local</Text>
               </View>
 
@@ -354,7 +364,9 @@ export default function AddReminderScreen() {
                     placeholder="0.00"
                     placeholderTextColor="#9CA3AF"
                     keyboardType="decimal-pad"
+                    inputAccessoryViewID="kb-add-reminder-5"
                   />
+                  <KeyboardDoneButton nativeID="kb-add-reminder-5" />
                   <Text style={styles.hint}>Límite de crédito en dólares estadounidenses</Text>
                 </View>
               )}
@@ -424,6 +436,8 @@ export default function AddReminderScreen() {
               value={notes}
               onChangeText={setNotes}
               placeholder="Información adicional..."
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
               placeholderTextColor="#9CA3AF"
               multiline
               numberOfLines={3}

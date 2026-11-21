@@ -52,7 +52,23 @@ interface SyncProgress {
    *  aquí: si la app lo trajera cocido, cambiarlo en el backend la dejaría
    *  diciéndole al usuario un período que no es. */
   historialDias?: number;
+  /** La corrida llegó al tope de correos y puede haber más por leer. */
+  quedanMas?: boolean;
+  /** "Buscar más atrás": una conexión falló y otra salió bien. */
+  conexionesConFallo?: boolean;
 }
+
+/** Meses máximos de "Buscar más atrás". El servidor aplica el mismo tope. */
+const MAX_MESES_HACIA_ATRAS = 12;
+
+/** Día 1 del mes que queda `meses` atrás: el 19 de noviembre con 5 es el 1 de junio. */
+const inicioHaciaAtras = (meses: number): Date => {
+  const hoy = new Date();
+  return new Date(hoy.getFullYear(), hoy.getMonth() - meses, 1);
+};
+
+const fechaLarga = (fecha: Date): string =>
+  fecha.toLocaleDateString('es-DO', { day: 'numeric', month: 'long', year: 'numeric' });
 
 interface SupportedBank {
   id: string;
@@ -95,6 +111,19 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
   // Espejo en ref: `fetchStatus` es un useCallback con deps vacías y leería
   // siempre el valor del primer render.
   const abandonadoRef = useRef(false);
+
+  // "Buscar más atrás". El selector va como vista superpuesta y no como Modal,
+  // por lo mismo que la confirmación de tarjetas: esta pantalla ya es un Modal.
+  const [buscarAtrasVisible, setBuscarAtrasVisible] = useState(false);
+  const [mesesAtras, setMesesAtras] = useState(3);
+  const [enviandoAtras, setEnviandoAtras] = useState(false);
+  // Fecha desde la que se está buscando, para el resumen del final.
+  const [busquedaAtrasDesde, setBusquedaAtrasDesde] = useState<Date | null>(null);
+  // Lote de la búsqueda en curso. Con él, /progress devuelve la búsqueda entera
+  // (todas las conexiones sumadas) y no el último log del usuario, que puede
+  // ser el de la revisión anterior o el de la sync de cada hora. Se mantiene
+  // hasta que el usuario refresca, para que nada pise el resumen del final.
+  const loteAtras = useRef<string | null>(null);
 
   // Estados para CustomModal
   const [modalVisible, setModalVisible] = useState(false);
@@ -197,7 +226,9 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
         // una sincronización a medias (cerró la app, se fue a otra pantalla) la
         // retomamos donde iba en vez de mostrarle nada.
         const avance: SyncProgress | undefined = statusRes.data.progreso;
-        if (avance) {
+        // Durante "Buscar más atrás" y su resumen el avance lo lleva el lote; el
+        // de /status es solo el último log y lo pisaría.
+        if (avance && !loteAtras.current) {
           setProgreso(avance);
           // El `!abandonadoRef` corta un ping-pong posible: al terminar el
           // sondeo se llama a `fetchStatus`, y si `/status` viniera rezagado
@@ -249,8 +280,9 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
     // se recalcula al rearmarse el efecto: si se reiniciara en cada rearme, y
     // `fetchStatus` puede volver a encender el sondeo, los cinco minutos nunca
     // llegarían a cumplirse.
+    // 15 minutos: la primera lectura ahora puede traer hasta 200 correos.
     if (limiteSondeo.current == null) {
-      limiteSondeo.current = Date.now() + 5 * 60 * 1000;
+      limiteSondeo.current = Date.now() + 15 * 60 * 1000;
     }
 
     const consultar = async () => {
@@ -259,7 +291,9 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
       if (enVuelo) return;
       enVuelo = true;
       try {
-        const res = await api.get('/email-sync/progress');
+        const res = await api.get('/email-sync/progress', {
+          params: loteAtras.current ? { lote: loteAtras.current } : undefined,
+        });
         if (!vigente) return;
         setProgreso(res.data);
 
@@ -354,6 +388,10 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
           setProgreso(null);
           setResumenVisible(false);
           setExitoPrimeraSync(null);
+          // Una búsqueda hacia atrás anterior ya no manda: si su lote siguiera
+          // puesto, el sondeo seguiría ese lote y no esta primera revisión.
+          loteAtras.current = null;
+          setBusquedaAtrasDesde(null);
           reciénConectado.current = true;
           setSiguiendoProgreso(true);
           fetchStatus();
@@ -414,6 +452,8 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
   const handleSync = async () => {
     try {
       setSyncing(true);
+      loteAtras.current = null; // ver la nota en la conexión
+      setBusquedaAtrasDesde(null);
       const response = await api.post('/email-sync/sync', {}, { timeout: 180000 });
 
       const { result } = response.data;
@@ -471,6 +511,47 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
       }
     } finally {
       setSyncing(false);
+    }
+  };
+
+  // "Buscar más atrás": el servidor arranca la lectura y responde enseguida; el
+  // avance se sigue con el mismo sondeo que la primera revisión.
+  const handleBuscarAtras = async () => {
+    const desde = inicioHaciaAtras(mesesAtras);
+    setEnviandoAtras(true);
+    try {
+      const res = await api.post('/email-sync/buscar-atras', { meses: mesesAtras });
+      setBuscarAtrasVisible(false);
+
+      if (res.data.yaCubierto) {
+        showModal(
+          'info',
+          'Ya tienes ese historial',
+          `Ya habíamos revisado tu correo desde el ${fechaLarga(res.data.desde ? new Date(res.data.desde) : desde)}. Elige más meses para ir más atrás.`
+        );
+        return;
+      }
+
+      loteAtras.current = res.data.lote ?? null;
+      setBusquedaAtrasDesde(desde);
+      setProgreso(null);
+      setResumenVisible(false);
+      setSondeoAbandonado(false);
+      abandonadoRef.current = false;
+      // Más margen que la primera revisión: meses de correo pueden ser cientos
+      // de avisos, y cada uno pasa por la IA.
+      limiteSondeo.current = Date.now() + 30 * 60 * 1000;
+      setSiguiendoProgreso(true);
+    } catch (error: any) {
+      logger.error('Error buscando más atrás:', error);
+      setBuscarAtrasVisible(false);
+      if (error.response?.status === 409) {
+        showModal('warning', 'Ya estamos revisando', error.response.data?.message || 'Espera a que termine la revisión en curso.');
+      } else {
+        showModal('error', 'Error', error.response?.data?.message || 'No pudimos empezar la búsqueda. Inténtalo de nuevo.');
+      }
+    } finally {
+      setEnviandoAtras(false);
     }
   };
 
@@ -601,6 +682,44 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
     );
   };
 
+  // Selector de "Buscar más atrás". Vista superpuesta, igual que la de tarjetas.
+  const renderBuscarAtras = () => {
+    if (!buscarAtrasVisible) return null;
+    return (
+      <View style={styles.confirmFondo}>
+        <View style={styles.confirmCaja}>
+          <Text style={styles.confirmTitulo}>Buscar más atrás</Text>
+          <Text style={styles.confirmTexto}>¿Cuántos meses hacia atrás quieres que revisemos tu correo?</Text>
+          <View style={styles.mesesGrid}>
+            {Array.from({ length: MAX_MESES_HACIA_ATRAS }, (_, i) => i + 1).map((m) => (
+              <TouchableOpacity
+                key={m}
+                style={[styles.mesChip, mesesAtras === m && styles.mesChipActivo]}
+                onPress={() => setMesesAtras(m)}
+                disabled={enviandoAtras}
+              >
+                <Text style={[styles.mesChipTexto, mesesAtras === m && styles.mesChipTextoActivo]}>{m}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+          <Text style={styles.confirmTexto}>
+            Buscaremos desde el <Text style={styles.mesFecha}>{fechaLarga(inicioHaciaAtras(mesesAtras))}</Text>. Los gastos que ya tienes no se repiten.
+          </Text>
+          <TouchableOpacity
+            style={[styles.buscarAtrasPrimario, enviandoAtras && styles.buttonDisabled]}
+            onPress={handleBuscarAtras}
+            disabled={enviandoAtras}
+          >
+            {enviandoAtras ? <ActivityIndicator color="white" /> : <Text style={styles.buttonText}>Buscar</Text>}
+          </TouchableOpacity>
+          <TouchableOpacity onPress={() => setBuscarAtrasVisible(false)} disabled={enviandoAtras}>
+            <Text style={styles.confirmCancelar}>Cancelar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
+
   const formatDate = (dateString?: string) => {
     if (!dateString) return 'Nunca';
     const date = new Date(dateString);
@@ -629,7 +748,14 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
     setResumenVisible(false); // jalar para refrescar también descarta el resumen
     setSondeoAbandonado(false);
     abandonadoRef.current = false;
-    limiteSondeo.current = null; // el usuario pidió mirar otra vez: reloj nuevo
+    // El usuario pidió mirar otra vez: reloj nuevo. Pero no si hay un sondeo en
+    // marcha, que no se rearma y se quedaría sin corte de seguridad; ni se
+    // olvida la búsqueda hacia atrás en curso, cuyo resumen la necesita.
+    if (!siguiendoProgreso) {
+      limiteSondeo.current = null;
+      loteAtras.current = null;
+      setBusquedaAtrasDesde(null);
+    }
     fetchStatus();
   };
 
@@ -815,10 +941,14 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
 
             <Text style={styles.progressSub}>
               {progreso.estado === 'FAILED'
-                ? 'Toca "Sincronizar Todas" para intentarlo de nuevo.'
+                ? busquedaAtrasDesde
+                  ? 'Toca "Buscar más atrás" para intentarlo de nuevo.'
+                  : 'Toca "Sincronizar Todas" para intentarlo de nuevo.'
                 : sondeoAbandonado
                   ? 'Seguimos revisando tu correo en segundo plano. Vuelve en un rato y jala para actualizar.'
-                  : `Revisamos ${progreso.correosProcesados} correo(s) de tu bandeja.`}
+                  : busquedaAtrasDesde
+                    ? `Revisamos ${progreso.correosProcesados} correo(s) desde el ${fechaLarga(busquedaAtrasDesde)}.${progreso.conexionesConFallo ? ' Uno de tus correos no se pudo revisar; inténtalo de nuevo.' : ''}${progreso.quedanMas ? ' Quedan más: toca "Buscar más atrás" otra vez para seguir.' : ''}`
+                    : `Revisamos ${progreso.correosProcesados} correo(s) de tu bandeja.`}
             </Text>
           </View>
         )}
@@ -933,6 +1063,15 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
                   <Text style={styles.buttonText}>Sincronizar Todas</Text>
                 </>
               )}
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.buscarAtrasBoton, (syncing || siguiendoProgreso) && styles.buttonDisabled]}
+              onPress={() => setBuscarAtrasVisible(true)}
+              disabled={syncing || siguiendoProgreso}
+            >
+              <Ionicons name="time-outline" size={20} color="#2563EB" />
+              <Text style={styles.buscarAtrasTexto}>Buscar más atrás</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1113,6 +1252,7 @@ const EmailSyncScreen: React.FC<EmailSyncScreenProps> = ({ onClose, onOpenPlans 
       </ScrollView>
 
       {renderConfirmacionTarjeta()}
+      {renderBuscarAtras()}
 
       <CustomModal
         visible={modalVisible}
@@ -1585,6 +1725,59 @@ const styles = StyleSheet.create({
   },
   buttonDisabled: {
     opacity: 0.7,
+  },
+  buscarAtrasBoton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderColor: '#2563EB',
+    paddingVertical: 13,
+    borderRadius: 10,
+    gap: 10,
+    marginTop: 10,
+  },
+  buscarAtrasTexto: {
+    color: '#2563EB',
+    fontSize: 16,
+    fontWeight: '600',
+  },
+  buscarAtrasPrimario: {
+    backgroundColor: '#2563EB',
+    borderRadius: 12,
+    paddingVertical: 14,
+    alignItems: 'center',
+    marginTop: 4,
+  },
+  mesesGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  mesChip: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 1,
+    borderColor: '#d1d5db',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  mesChipActivo: {
+    backgroundColor: '#2563EB',
+    borderColor: '#2563EB',
+  },
+  mesChipTexto: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#1e293b',
+  },
+  mesChipTextoActivo: {
+    color: 'white',
+  },
+  mesFecha: {
+    fontWeight: '700',
+    color: '#1e293b',
   },
   buttonText: {
     color: 'white',

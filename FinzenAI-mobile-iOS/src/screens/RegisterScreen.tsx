@@ -25,6 +25,7 @@ import { useNavigation } from '@react-navigation/native';
 import { authAPI, referralsAPI } from '../utils/api';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 
 const latinAmericanCountries = [
   'Argentina', 'Bolivia', 'Brasil', 'Chile', 'Colombia', 'Costa Rica', 'Cuba', 'Ecuador', 'El Salvador',
@@ -461,7 +462,9 @@ export default function RegisterScreen() {
                   placeholder="+52 123 456 7890"
                   placeholderTextColor="#9ca3af"
                   keyboardType="phone-pad"
+                  inputAccessoryViewID="kb-register-1"
                 />
+                <KeyboardDoneButton nativeID="kb-register-1" />
                 {errors.phone && <Text style={styles.errorText}>{errors.phone}</Text>}
               </View>
 

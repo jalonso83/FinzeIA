@@ -580,7 +580,7 @@ export default function TransactionsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
-        <Text style={styles.title} numberOfLines={1}>Transacciones</Text>
+        <Text style={styles.title} numberOfLines={1} maxFontSizeMultiplier={1.2}>Transacciones</Text>
         <View style={styles.headerButtons}>
           {/* Botón de exportar */}
           <TouchableOpacity

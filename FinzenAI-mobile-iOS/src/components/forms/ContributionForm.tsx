@@ -20,6 +20,7 @@ import { useCurrency } from '../../hooks/useCurrency';
 import CustomModal from '../modals/CustomModal';
 
 import { logger } from '../../utils/logger';
+import KeyboardDoneButton from '../common/KeyboardDoneButton';
 interface Goal {
   id: string;
   name: string;
@@ -130,6 +131,9 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
             style={styles.keyboardAvoidingView}
             behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
             keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+            // En iOS el ajuste lo hace el ScrollView (automaticallyAdjustKeyboardInsets): mide el
+            // teclado real, mientras que el offset fijo dejaba un hueco en blanco en el pageSheet.
+            enabled={Platform.OS !== 'ios'}
           >
             <ScrollView
               ref={scrollViewRef}
@@ -137,6 +141,8 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
               contentContainerStyle={styles.scrollContentContainer}
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              keyboardDismissMode="on-drag"
+              automaticallyAdjustKeyboardInsets
             >
               {/* Goal Info */}
               <View style={styles.goalInfo}>
@@ -191,9 +197,11 @@ const ContributionForm: React.FC<ContributionFormProps> = ({
                     placeholder="0"
                     placeholderTextColor="#9ca3af"
                     keyboardType="numeric"
+                    inputAccessoryViewID="kb-contribution-1"
                     returnKeyType="done"
                     blurOnSubmit={true}
                   />
+                  <KeyboardDoneButton nativeID="kb-contribution-1" />
                 </View>
                 <Text style={styles.maxAmount}>
                   Máximo disponible: {formatCurrency(remaining)}

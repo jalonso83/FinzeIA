@@ -21,6 +21,7 @@ import { useSubscriptionStore } from '../stores/subscriptionStore';
 import ExportService, { ExportFormat, TableColumn } from '../services/exportService';
 
 import { logger } from '../utils/logger';
+import KeyboardDoneButton from '../components/common/KeyboardDoneButton';
 interface AmortizationRow {
   payment: number;
   paymentAmount: number;
@@ -284,7 +285,9 @@ export default function LoanCalculatorScreen() {
               onChangeText={setLoanAmount}
               placeholder="Ej: 100000"
               keyboardType="numeric"
+              inputAccessoryViewID="kb-loan-calculator-1"
             />
+            <KeyboardDoneButton nativeID="kb-loan-calculator-1" />
           </View>
 
           {/* Tipo de préstamo */}
@@ -322,7 +325,9 @@ export default function LoanCalculatorScreen() {
               onChangeText={setInterestRate}
               placeholder="Ej: 5.5"
               keyboardType="decimal-pad"
+              inputAccessoryViewID="kb-loan-calculator-2"
             />
+            <KeyboardDoneButton nativeID="kb-loan-calculator-2" />
           </View>
 
           {/* Plazo */}
@@ -335,7 +340,9 @@ export default function LoanCalculatorScreen() {
                 onChangeText={setTerm}
                 placeholder="Ej: 20"
                 keyboardType="numeric"
+                inputAccessoryViewID="kb-loan-calculator-3"
               />
+              <KeyboardDoneButton nativeID="kb-loan-calculator-3" />
               <View style={styles.termUnitContainer}>
                 <TouchableOpacity
                   style={[

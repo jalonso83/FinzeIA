@@ -21,6 +21,7 @@ import CategoryPicker, { CategorySelectSheet } from './CategoryPicker';
 import CustomModal from '../modals/CustomModal';
 
 import { logger } from '../../utils/logger';
+import KeyboardDoneButton from '../common/KeyboardDoneButton';
 interface BudgetFormProps {
   visible: boolean;
   onClose: () => void;
@@ -380,11 +381,16 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
           style={styles.keyboardAvoidingView}
           behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
           keyboardVerticalOffset={Platform.OS === 'ios' ? 140 : 20}
+          // En iOS el ajuste lo hace el ScrollView (automaticallyAdjustKeyboardInsets): mide el
+          // teclado real, mientras que el offset fijo dejaba un hueco en blanco en el pageSheet.
+          enabled={Platform.OS !== 'ios'}
         >
           <ScrollView
             style={styles.content}
             contentContainerStyle={{ paddingBottom: 200 }}
             keyboardShouldPersistTaps="handled"
+            keyboardDismissMode="on-drag"
+            automaticallyAdjustKeyboardInsets
           >
           {/* Tipo de presupuesto. Va ARRIBA de la categoría a propósito: decide
               qué categorías se ofrecen, así que elegirlo después obligaría a
@@ -451,7 +457,9 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
                 placeholder="0"
                 placeholderTextColor="#9ca3af"
                 keyboardType="numeric"
+                inputAccessoryViewID="kb-budget-1"
               />
+              <KeyboardDoneButton nativeID="kb-budget-1" />
             </View>
           </View>
 
@@ -463,6 +471,8 @@ const BudgetForm: React.FC<BudgetFormProps> = ({
               value={formData.description}
               onChangeText={(text) => setFormData({ ...formData, description: text })}
               placeholder="Ej: incluye el súper de la quincena"
+              returnKeyType="done"
+              submitBehavior="blurAndSubmit"
               placeholderTextColor="#9ca3af"
               maxLength={200}
               multiline
