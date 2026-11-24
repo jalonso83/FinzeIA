@@ -61,7 +61,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   },
   {
     name: 'Costo IA / Usuario',
-    definition: 'Costo OpenAI escalado a mensual / usuarios con ≥1 transacción en el período (usuarios activos).',
+    definition: 'Costo OpenAI escalado a mensual / usuarios activos del período (ver Usuarios Activos).',
   },
   {
     name: 'Costo Infra / Total',
@@ -245,7 +245,7 @@ const GLOSSARY_ENTRIES: GlossaryEntry[] = [
   },
   {
     name: 'Usuarios Activos',
-    definition: 'Usuarios que registraron al menos 1 transacción (con fecha en el período seleccionado). Mide actividad financiera, no toda actividad en la app.',
+    definition: 'Activos = Con acción propia + Solo en automático (cada persona en un solo grupo). Con acción propia: en el período anotó a mano o por Zenio, usó Zenio, editó o recategorizó un gasto importado, o creó un presupuesto o una meta. Solo en automático: se le importó al menos un gasto del correo y no hizo nada más. Los recurrentes automáticos no cuentan. Definición nueva desde el 24/11/2026 (se aplica a cualquier rango consultado): no comparar con cifras de activos reportadas antes de esa fecha, que contaban cualquier transacción con fecha en el período, recurrentes incluidos.',
   },
   {
     name: 'Visitantes',

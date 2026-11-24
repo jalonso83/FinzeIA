@@ -78,6 +78,10 @@ export interface EngagementData {
   transactionsPerActiveUser: number;
   totalTransactions: number;
   activeUsers: number;
+  // Desglose de activeUsers (definición desde activeUsersDefinitionSince).
+  // Opcionales: un backend anterior no los manda.
+  activeUsersBreakdown?: { conAccionPropia: number; soloAutomatico: number };
+  activeUsersDefinitionSince?: string;
   zenioActiveUsers: number;
   zenioAdoptionRate: number;
   zenioRealAdoptionRate: number;

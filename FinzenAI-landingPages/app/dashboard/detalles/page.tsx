@@ -525,10 +525,23 @@ function TabEngagement({ engagement }: { engagement: any }) {
         tooltip="Lo primero que evalúa un directivo: cuántos usan la app de verdad y qué tanto adoptan los features core (transacciones y Zenio)."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Usuarios que registraron al menos 1 transacción (con fecha en el período seleccionado). Mide actividad financiera, no toda actividad en la app." />
+          <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Activos = Con acción propia + Solo en automático (cada persona en un solo grupo). Con acción propia: en el período anotó a mano o por Zenio, usó Zenio, editó o recategorizó un gasto importado, o creó un presupuesto o una meta. Solo en automático: se le importó al menos un gasto del correo y no hizo nada más. Los recurrentes automáticos no cuentan. Serie nueva desde el 24/11/2026: no comparar con períodos anteriores (antes contaba cualquier transacción con fecha en el período, recurrentes incluidos)." />
           <StatBox label="Adopción TX" value={`${engagement.txAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app." />
           <StatBox label="Adopción Zenio real" value={`${engagement.zenioRealAdoptionRate ?? 0}%`} highlight tooltip="% del cohort que usó Zenio en un día POSTERIOR a su registro = uso voluntario real. Excluye el onboarding conversacional (que cae en el día de registro e infla la métrica). Esta es la adopción honesta del feature AI." />
         </div>
+        {engagement.activeUsersBreakdown && (
+          <div className="-mt-3 mb-6 text-xs text-finzen-gray">
+            <p>
+              Usuarios activos = <span className="font-semibold text-finzen-black">{engagement.activeUsersBreakdown.conAccionPropia}</span> con acción propia
+              {' + '}<span className="font-semibold text-finzen-black">{engagement.activeUsersBreakdown.soloAutomatico}</span> solo en automático (correo).
+            </p>
+            {engagement.activeUsersDefinitionSince && (
+              <p className="mt-1 text-amber-700">
+                ⚠ Definición nueva desde el {engagement.activeUsersDefinitionSince.split('-').reverse().join('/')} (aplica a cualquier rango que consultes): no comparar con cifras de activos reportadas antes de esa fecha.
+              </p>
+            )}
+          </div>
+        )}
       </Section>
 
       {/* ── GRUPO B — ACTIVACIÓN ─────────────────────────────────────
@@ -558,7 +571,7 @@ function TabEngagement({ engagement }: { engagement: any }) {
         tooltip="Qué tan pegajosa es la app: formación de hábito (rachas) y profundidad de uso (transacciones y mensajes por usuario)."
       >
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
-          <StatBox label="Racha de Hábito" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos (≥1 tx) con racha de hábito real: currentStreak ≥ 2 (volvieron en días consecutivos). Se exige ≥2 porque una racha de 1 la crea cualquier actividad única y no indica hábito. Mide retorno real, no cobertura de la tabla de rachas." />
+          <StatBox label="Racha de Hábito" value={`${engagement.streakActiveRate}%`} tooltip="% de usuarios activos (ver Usuarios Activos) con racha de hábito real: currentStreak ≥ 2 (volvieron en días consecutivos). Se exige ≥2 porque una racha de 1 la crea cualquier actividad única y no indica hábito. Mide retorno real, no cobertura de la tabla de rachas." />
           <StatBox label="TX / Usuario Activo" value={String(engagement.transactionsPerActiveUser)} tooltip="Promedio de transacciones por usuario activo en el período. Indica profundidad de uso. Nota: es promedio simple — no refleja distribución." />
           {/* Estas dos tarjetas NO son comparables entre sí y por eso el título de
               cada una dice explícitamente qué mide y de cuándo. Miden distinto en
@@ -800,12 +813,12 @@ function TabEconomics({ openaiCosts, unitEconomics }: { openaiCosts: any; unitEc
       {/* ── SECCIÓN 3 — COSTOS POR USUARIO ───────────────────────── */}
       <Section
         title="Costos por Usuario"
-        tooltip="Dos lentes: (1) por usuario ACTIVO con tx en período — la economía real. (2) por usuario TOTAL registrado — incluye dormidos, vista más conservadora."
+        tooltip="Dos lentes: (1) por usuario ACTIVO en el período (ver Usuarios Activos) — la economía real. (2) por usuario TOTAL registrado — incluye dormidos, vista más conservadora."
       >
         {/* Header con denominadores */}
         <div className="bg-white rounded-xl border border-finzen-gray/20 p-4 mb-4 flex items-center justify-between">
           <div>
-            <p className="text-xs text-finzen-gray">Usuarios activos (tx en período)</p>
+            <p className="text-xs text-finzen-gray">Usuarios activos en el período</p>
             <p className="text-lg font-bold text-finzen-blue">{unitEconomics.activeUsers}</p>
           </div>
           <div className="text-finzen-gray text-sm">vs</div>
