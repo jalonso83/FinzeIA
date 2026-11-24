@@ -524,24 +524,36 @@ function TabEngagement({ engagement }: { engagement: any }) {
         title="Base Activa"
         tooltip="Lo primero que evalúa un directivo: cuántos usan la app de verdad y qué tanto adoptan los features core (transacciones y Zenio)."
       >
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-6">
+        {/* Fila 1 — Usuarios activos, de izquierda a derecha: total = propia + automático */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
           <StatBox label="Usuarios Activos" value={String(engagement.activeUsers)} highlight tooltip="Activos = Con acción propia + Solo en automático (cada persona en un solo grupo). Con acción propia: en el período anotó a mano o por Zenio, usó Zenio, editó o recategorizó un gasto importado, o creó un presupuesto o una meta. Solo en automático: se le importó al menos un gasto del correo y no hizo nada más. Los recurrentes automáticos no cuentan. Serie nueva desde el 24/11/2026: no comparar con períodos anteriores (antes contaba cualquier transacción con fecha en el período, recurrentes incluidos)." />
+          <StatBox
+            label="Activos con acción propia"
+            value={engagement.activeUsersBreakdown
+              ? `${engagement.activeUsersBreakdown.conAccionPropia}${engagement.activeUsers > 0 ? ` (${Math.round(engagement.activeUsersBreakdown.conAccionPropia / engagement.activeUsers * 100)}%)` : ''}`
+              : '—'}
+            highlight
+            tooltip="Hicieron algo por sí mismos en el período: anotaron a mano o por Zenio, usaron Zenio, editaron o recategorizaron un gasto importado, o crearon un presupuesto o una meta. Tengan o no gastos importados del correo."
+          />
+          <StatBox
+            label="Activos solo en automático"
+            value={engagement.activeUsersBreakdown
+              ? `${engagement.activeUsersBreakdown.soloAutomatico}${engagement.activeUsers > 0 ? ` (${Math.round(engagement.activeUsersBreakdown.soloAutomatico / engagement.activeUsers * 100)}%)` : ''}`
+              : '—'}
+            highlight
+            tooltip="Se les importó al menos un gasto del correo en el período y no hicieron nada más. Es valor entregado (la promesa de Pro: no tener que anotar), no atención de la persona."
+          />
+        </div>
+        {engagement.activeUsersDefinitionSince && (
+          <p className="-mt-1 mb-4 text-xs text-amber-700">
+            ⚠ Definición nueva desde el {engagement.activeUsersDefinitionSince.split('-').reverse().join('/')} (aplica a cualquier rango que consultes): no comparar con cifras de activos reportadas antes de esa fecha.
+          </p>
+        )}
+        {/* Fila 2 — Adopción */}
+        <div className="grid grid-cols-2 gap-4 mb-6">
           <StatBox label="Adopción TX" value={`${engagement.txAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app." />
           <StatBox label="Adopción Zenio real" value={`${engagement.zenioRealAdoptionRate ?? 0}%`} highlight tooltip="% del cohort que usó Zenio en un día POSTERIOR a su registro = uso voluntario real. Excluye el onboarding conversacional (que cae en el día de registro e infla la métrica). Esta es la adopción honesta del feature AI." />
         </div>
-        {engagement.activeUsersBreakdown && (
-          <div className="-mt-3 mb-6 text-xs text-finzen-gray">
-            <p>
-              Usuarios activos = <span className="font-semibold text-finzen-black">{engagement.activeUsersBreakdown.conAccionPropia}</span> con acción propia
-              {' + '}<span className="font-semibold text-finzen-black">{engagement.activeUsersBreakdown.soloAutomatico}</span> solo en automático (correo).
-            </p>
-            {engagement.activeUsersDefinitionSince && (
-              <p className="mt-1 text-amber-700">
-                ⚠ Definición nueva desde el {engagement.activeUsersDefinitionSince.split('-').reverse().join('/')} (aplica a cualquier rango que consultes): no comparar con cifras de activos reportadas antes de esa fecha.
-              </p>
-            )}
-          </div>
-        )}
       </Section>
 
       {/* ── GRUPO B — ACTIVACIÓN ─────────────────────────────────────
