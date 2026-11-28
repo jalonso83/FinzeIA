@@ -549,6 +549,36 @@ function TabEngagement({ engagement }: { engagement: any }) {
             ⚠ Definición nueva desde el {engagement.activeUsersDefinitionSince.split('-').reverse().join('/')} (aplica a cualquier rango que consultes): no comparar con cifras de activos reportadas antes de esa fecha.
           </p>
         )}
+        {/* Fila 1b — Aperturas de la app, cruzadas con los dos grupos de activos */}
+        {engagement.appOpens && (() => {
+          const ao = engagement.appOpens;
+          const pctDe = (a: number, b: number) => (b > 0 ? ` (${Math.round(a / b * 100)}%)` : '');
+          return (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+                <StatBox
+                  label="Abrieron la app"
+                  value={`${ao.abrieron}${ao.abrieron > 0 ? ` · ${ao.diasPromedio} días prom.` : ''}`}
+                  tooltip="Usuarios con al menos un día con apertura de la app en el período, y días con apertura en promedio por usuario. Cuenta el arranque de la app (al cargar el Inicio); volver a ella desde segundo plano no cuenta, así que es un mínimo."
+                />
+                <StatBox
+                  label="Con acción propia que abrieron"
+                  value={`${ao.conAccionPropia.abrieron} de ${ao.conAccionPropia.total}${pctDe(ao.conAccionPropia.abrieron, ao.conAccionPropia.total)}`}
+                  tooltip="De los activos con acción propia del período, cuántos abrieron la app al menos un día. Entre paréntesis, el porcentaje del grupo."
+                />
+                <StatBox
+                  label="Solo en automático que abrieron"
+                  value={`${ao.soloAutomatico.abrieron} de ${ao.soloAutomatico.total}${pctDe(ao.soloAutomatico.abrieron, ao.soloAutomatico.total)}`}
+                  tooltip="De los activos solo en automático (se les importó un gasto del correo y no hicieron nada más), cuántos abrieron la app al menos un día: entran a revisar aunque no toquen nada."
+                />
+              </div>
+              <p className="-mt-1 mb-4 text-xs text-amber-700">
+                ⚠ Aperturas medidas desde el {ao.desde.split('-').reverse().join('/')}
+                {ao.primerDiaConDatos ? ` (primer dato: ${ao.primerDiaConDatos.split('-').reverse().join('/')})` : ' (todavía sin datos)'}: los días anteriores salen en 0 porque no se registraban, no porque nadie abriera.
+              </p>
+            </>
+          );
+        })()}
         {/* Fila 2 — Adopción */}
         <div className="grid grid-cols-2 gap-4 mb-6">
           <StatBox label="Adopción TX" value={`${engagement.txAdoptionRate}%`} highlight tooltip="% del cohort registrado en el período que hizo al menos 1 transacción durante el mismo período. Cohort y actividad están alineados (no se mezcla con users legacy). Excluye users registrados en la última hora (sin chance razonable de activarse). Métrica de activación core: si es bajo, los users registran pero no usan la app." />

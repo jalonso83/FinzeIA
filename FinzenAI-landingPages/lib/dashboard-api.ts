@@ -82,6 +82,15 @@ export interface EngagementData {
   // Opcionales: un backend anterior no los manda.
   activeUsersBreakdown?: { conAccionPropia: number; soloAutomatico: number };
   activeUsersDefinitionSince?: string;
+  // Aperturas de la app (desde appOpens.desde). Opcional: backend anterior no lo manda.
+  appOpens?: {
+    desde: string;
+    primerDiaConDatos: string | null;
+    abrieron: number;
+    diasPromedio: number;
+    conAccionPropia: { total: number; abrieron: number; diasPromedio: number };
+    soloAutomatico: { total: number; abrieron: number; diasPromedio: number };
+  };
   zenioActiveUsers: number;
   zenioAdoptionRate: number;
   zenioRealAdoptionRate: number;
